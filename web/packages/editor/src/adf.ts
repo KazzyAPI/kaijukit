@@ -111,3 +111,17 @@ export function parseAdf(value: string | undefined | null): AdfDoc | null {
     return null;
   }
 }
+
+/** Words in the visible text of a document; block boundaries separate words. */
+export function wordCount(doc: AdfNode | null | undefined): number {
+  const parts: string[] = [];
+  const walk = (n: AdfNode) => {
+    if (n.text) parts.push(n.text);
+    else if (n.content) {
+      n.content.forEach(walk);
+      parts.push(' ');
+    }
+  };
+  if (doc) walk(doc);
+  return parts.join('').split(/\s+/).filter(Boolean).length;
+}

@@ -19,12 +19,13 @@
 .kk-doc th { background: var(--kk-surface-sunken); font-weight: 600; }
 .kk-doc td > :last-child, .kk-doc th > :last-child { margin-bottom: 0; }
 
-.kk-editor { border: 1px solid var(--kk-border); border-radius: var(--kk-radius-lg); background: var(--kk-surface); }
-.kk-editor:focus-within { border-color: var(--kk-focus); }
-.kk-toolbar { position: sticky; top: 0; z-index: 5; display: flex; flex-wrap: wrap; align-items: center; gap: 2px; padding: var(--kk-space-1) var(--kk-space-2); background: var(--kk-surface); border-bottom: 1px solid var(--kk-border); border-radius: var(--kk-radius-lg) var(--kk-radius-lg) 0 0; }
+.kk-toolbar { display: flex; align-items: center; gap: 2px; padding: var(--kk-space-1) var(--kk-space-4); background: var(--kk-surface); border-bottom: 1px solid var(--kk-border); flex-wrap: wrap; }
+.kk-toolbar .kk-tooltip, .kk-toolbar .kk-menu, .kk-toolbar__sep { flex: none; }
+@media (max-width: 767px) { .kk-toolbar { flex-wrap: nowrap; overflow-x: auto; } }
+.kk-toolbar__end { margin-left: auto; padding-left: var(--kk-space-2); }
 .kk-toolbar__sep { width: 1px; height: 20px; margin: 0 var(--kk-space-1); background: var(--kk-border); }
-.kk-toolbar .kk-btn { min-height: 32px; min-width: 30px; padding: 0 5px; font-size: 13px; }
-.kk-editor__content { padding: var(--kk-space-4) var(--kk-space-5); min-height: 320px; cursor: text; }
+.kk-toolbar .kk-btn { min-height: 32px; min-width: 30px; padding: 0 6px; gap: 2px; font-size: 13px; }
+.kk-editor__content { min-height: 320px; cursor: text; }
 .kk-editor__content .ProseMirror { outline: none; min-height: 288px; }
 .kk-editor__content .ProseMirror p.is-editor-empty:first-child::before { content: attr(data-placeholder); float: left; height: 0; pointer-events: none; color: var(--kk-text-subtle); }
 .kk-editor__content .selectedCell { background: var(--kk-selection); }

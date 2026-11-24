@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { fromAdf, toAdf, unsupportedTypes, type AdfDoc } from './adf';
+import { fromAdf, toAdf, unsupportedTypes, wordCount, type AdfDoc } from './adf';
 
 const sample: AdfDoc = {
   version: 1,
@@ -67,5 +67,11 @@ describe('ADF <-> editor JSON', () => {
       { type: 'paragraph', content: [{ type: 'text', text: 'in panel' }] },
       { type: 'paragraph', content: [{ type: 'text', text: '[mediaSingle]' }] },
     ]);
+  });
+
+  it('counts words across blocks', () => {
+    const doc = { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'one two' }] }, { type: 'paragraph', content: [{ type: 'text', text: 'three' }] }] };
+    expect(wordCount(doc)).toBe(3);
+    expect(wordCount(null)).toBe(0);
   });
 });

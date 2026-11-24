@@ -1,4 +1,4 @@
-import { Button, Dialog, Icon, TextField, Tooltip, type IconName } from '@kaijukit/ui';
+import { Button, Dialog, TextField } from '@kaijukit/ui';
 import { EditorContent, useEditor, type Editor as TiptapEditor } from '@tiptap/react';
 import Link from '@tiptap/extension-link';
 import Placeholder from '@tiptap/extension-placeholder';
@@ -9,8 +9,10 @@ import TableRow from '@tiptap/extension-table-row';
 import Underline from '@tiptap/extension-underline';
 import StarterKit from '@tiptap/starter-kit';
 import { InputRule } from '@tiptap/core';
-import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState, type KeyboardEvent } from 'react';
+import { createPortal } from 'react-dom';
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import { fromAdf, toAdf, type AdfDoc, type AdfNode } from './adf';
+import { Toolbar } from './Toolbar';
 
 export interface EditorHandle {
   focus: () => void;
@@ -19,6 +21,10 @@ export interface EditorProps {
   value: AdfNode | null;
   onChange: (doc: AdfDoc) => void;
   label?: string;
+  /** Render the toolbar here (a full-width band owned by the page) instead of above the content. */
+  toolbarHost?: HTMLElement | null;
+  pinned?: boolean;
+  onPinnedChange?: (pinned: boolean) => void;
 }
 
 const MarkdownLink = Link.extend({
@@ -74,97 +80,6 @@ function detectSlash(editor: TiptapEditor): Slash | null {
   return { from: selection.from - query.length - 1, to: selection.from, query, left: Math.min(c.left, window.innerWidth - 276), top: c.bottom + 4 };
 }
 
-interface ToolItem {
-  key: string;
-  label: string;
-  icon?: IconName;
-  text?: string;
-  active?: (e: TiptapEditor) => boolean;
-  run: (e: TiptapEditor) => void;
-  can?: (e: TiptapEditor) => boolean;
-}
-const toggle = (name: string): Pick<ToolItem, 'active'> => ({ active: (e) => e.isActive(name) });
-const GROUPS: ToolItem[][] = [
-  [
-    { key: 'undo', label: 'Undo', icon: 'undo', run: (e) => e.chain().focus().undo().run(), can: (e) => e.can().undo() },
-    { key: 'redo', label: 'Redo', icon: 'redo', run: (e) => e.chain().focus().redo().run(), can: (e) => e.can().redo() },
-  ],
-  [1, 2, 3].map((level) => ({ key: `h${level}`, label: `H${level} heading`, text: `H${level}`, active: (e: TiptapEditor) => e.isActive('heading', { level }), run: (e: TiptapEditor) => e.chain().focus().toggleHeading({ level: level as 1 }).run() })),
-  [
-    { key: 'bold', label: 'Bold', icon: 'bold', ...toggle('bold'), run: (e) => e.chain().focus().toggleBold().run() },
-    { key: 'italic', label: 'Italic', icon: 'italic', ...toggle('italic'), run: (e) => e.chain().focus().toggleItalic().run() },
-    { key: 'underline', label: 'Underline', icon: 'underline', ...toggle('underline'), run: (e) => e.chain().focus().toggleUnderline().run() },
-    { key: 'strike', label: 'Strikethrough', icon: 'strike', ...toggle('strike'), run: (e) => e.chain().focus().toggleStrike().run() },
-    { key: 'code', label: 'Inline code', icon: 'code', ...toggle('code'), run: (e) => e.chain().focus().toggleCode().run() },
-  ],
-  [
-    { key: 'bullets', label: 'Bulleted list', icon: 'bullets', ...toggle('bulletList'), run: (e) => e.chain().focus().toggleBulletList().run() },
-    { key: 'numbers', label: 'Numbered list', icon: 'numbers', ...toggle('orderedList'), run: (e) => e.chain().focus().toggleOrderedList().run() },
-    { key: 'quote', label: 'Quote', icon: 'quote', ...toggle('blockquote'), run: (e) => e.chain().focus().toggleBlockquote().run() },
-    { key: 'codeblock', label: 'Code block', text: '{ }', ...toggle('codeBlock'), run: (e) => e.chain().focus().toggleCodeBlock().run() },
-    { key: 'rule', label: 'Divider', icon: 'rule', run: (e) => e.chain().focus().setHorizontalRule().run() },
-    { key: 'table', label: 'Insert table', icon: 'table', run: (e) => e.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run(), can: (e) => !e.isActive('table') },
-  ],
-];
-const TABLE_TOOLS: ToolItem[] = [
-  { key: 'addRow', label: 'Add row below', text: 'Add row', run: (e) => e.chain().focus().addRowAfter().run() },
-  { key: 'addCol', label: 'Add column right', text: 'Add column', run: (e) => e.chain().focus().addColumnAfter().run() },
-  { key: 'delRow', label: 'Delete row', text: 'Delete row', run: (e) => e.chain().focus().deleteRow().run() },
-  { key: 'delCol', label: 'Delete column', text: 'Delete column', run: (e) => e.chain().focus().deleteColumn().run() },
-  { key: 'delTable', label: 'Delete table', icon: 'trash', run: (e) => e.chain().focus().deleteTable().run() },
-];
-
-function Toolbar({ editor, onLink }: { editor: TiptapEditor; onLink: () => void }) {
-  const bar = useRef<HTMLDivElement>(null);
-  const [tab, setTab] = useState(0);
-  const inTable = editor.isActive('table');
-  const linkItem: ToolItem = { key: 'link', label: 'Link', icon: 'link', ...toggle('link'), run: onLink };
-  const groups = [...GROUPS.slice(0, 3), [linkItem], GROUPS[3]!, ...(inTable ? [TABLE_TOOLS] : [])];
-  let idx = -1;
-
-  const onKey = (e: KeyboardEvent) => {
-    const els = Array.from(bar.current?.querySelectorAll<HTMLButtonElement>('button:not(:disabled)') ?? []);
-    const i = els.indexOf(document.activeElement as HTMLButtonElement);
-    const n = e.key === 'ArrowRight' ? i + 1 : e.key === 'ArrowLeft' ? i - 1 : e.key === 'Home' ? 0 : e.key === 'End' ? els.length - 1 : null;
-    if (n === null || i < 0) return;
-    e.preventDefault();
-    const t = els[(n + els.length) % els.length];
-    t?.focus();
-    setTab(Number(t?.dataset.idx));
-  };
-
-  return (
-    <div ref={bar} className="kk-toolbar" role="toolbar" aria-label="Formatting" onKeyDown={onKey}>
-      {groups.map((g, gi) => (
-        <span key={gi} role="group" style={{ display: 'contents' }}>
-          {gi > 0 && <span className="kk-toolbar__sep" aria-hidden="true" />}
-          {g.map((t) => {
-            idx++;
-            const active = t.active?.(editor) ?? false;
-            return (
-              <Tooltip key={t.key} content={t.label}>
-                <Button
-                  appearance="subtle"
-                  aria-label={t.label}
-                  aria-pressed={t.active ? active : undefined}
-                  data-idx={idx}
-                  tabIndex={idx === tab ? 0 : -1}
-                  disabled={t.can ? !t.can(editor) : false}
-                  onMouseDown={(e) => e.preventDefault()}
-                  onClick={() => t.run(editor)}
-                  onFocus={(e) => setTab(Number(e.currentTarget.dataset.idx))}
-                >
-                  {t.icon ? <Icon name={t.icon} /> : <span aria-hidden="true">{t.text}</span>}
-                </Button>
-              </Tooltip>
-            );
-          })}
-        </span>
-      ))}
-    </div>
-  );
-}
-
 const ALLOWED = /^(https?:|mailto:|tel:)/i;
 function normalizeUrl(raw: string): string | null {
   const v = raw.trim();
@@ -173,7 +88,7 @@ function normalizeUrl(raw: string): string | null {
   return `https://${v}`;
 }
 
-export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor({ value, onChange, label = 'Page content' }, ref) {
+export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor({ value, onChange, label = 'Page content', toolbarHost, pinned, onPinnedChange }, ref) {
   const [slash, setSlash] = useState<Slash | null>(null);
   const [index, setIndex] = useState(0);
   const [linkOpen, setLinkOpen] = useState(false);
@@ -305,9 +220,10 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor({ va
   };
 
   if (!editor) return null;
+  const toolbar = <Toolbar editor={editor} onLink={openLink} pinned={pinned} onPinnedChange={onPinnedChange} />;
   return (
     <div className="kk-editor">
-      <Toolbar editor={editor} onLink={openLink} />
+      {toolbarHost ? createPortal(toolbar, toolbarHost) : toolbar}
       <div className="kk-editor__content" onClick={(e) => e.target === e.currentTarget && editor.commands.focus('end')}>
         <EditorContent editor={editor} />
       </div>

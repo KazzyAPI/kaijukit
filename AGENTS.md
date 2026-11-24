@@ -10,3 +10,4 @@ Last reviewed: 2026-11-24
 6. **Small, tested PRs.** Every parity line you change updates its status and links its tests. Don't mark `done` without a passing conformance case.
 7. **Don't invent parity.** If the reference behavior wasn't observed or documented, mark it `not started` and say so.
 8. **Core in Rust.** Domain model, query parser, workflow engine and permission checks live in core crates that build native and to WASM. No business logic in the server or UI layers.
+9. **Confluence parity is a hard requirement.** See [docs/parity/confluence-parity.md](docs/parity/confluence-parity.md). Run `python3 -I scripts/confluence_inventory.py check <v1.json> <v2.json>` (spec URLs and hashes are in the script) before any PR that touches Confluence rows.

@@ -2,6 +2,8 @@
 
 Last reviewed: 2026-11-24
 
+Full behavior specs: [../spec/confluence/README.md](../spec/confluence/README.md) (13 backend + 8 frontend docs). Generated API structure: [confluence-api/](confluence-api/).
+
 ## Hard requirements (non-negotiable)
 
 These are release gates, not goals.

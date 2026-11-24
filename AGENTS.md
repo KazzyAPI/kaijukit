@@ -11,3 +11,4 @@ Last reviewed: 2026-11-24
 7. **Don't invent parity.** If the reference behavior wasn't observed or documented, mark it `not started` and say so.
 8. **Core in Rust.** Domain model, query parser, workflow engine and permission checks live in core crates that build native and to WASM. No business logic in the server or UI layers.
 9. **Confluence parity is a hard requirement.** See [docs/parity/confluence-parity.md](docs/parity/confluence-parity.md). Run `python3 -I scripts/confluence_inventory.py check <v1.json> <v2.json>` (spec URLs and hashes are in the script) before any PR that touches Confluence rows.
+10. **`[V]` markers.** In `docs/spec/`, `[V]` means unverified. Never implement a `[V]` behavior as fact: capture it from the reference first, then remove the marker in the same PR. Regenerate `docs/parity/confluence-api/` with `scripts/confluence_api_spec.py` when the pinned spec changes; do not hand-edit it.

@@ -1,6 +1,6 @@
 use std::env;
 
-use kk_server::{app, bootstrap_admin, migrate, AppState, DEV_TOKEN};
+use kk_server::{app, bootstrap_admin, migrate, with_web, AppState, DEV_TOKEN};
 use sqlx::postgres::PgPoolOptions;
 
 fn var(name: &str, default: &str) -> String {
@@ -41,7 +41,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
     let listener = tokio::net::TcpListener::bind(var("KK_BIND", "0.0.0.0:8080")).await?;
     tracing::info!(addr = %listener.local_addr()?, "listening");
-    axum::serve(listener, app(state))
+    let router = match env::var("KK_WEB_DIR") {
+        Ok(dir) => with_web(app(state), dir.into()),
+        Err(_) => app(state),
+    };
+    axum::serve(listener, router)
         .with_graceful_shutdown(async {
             let _ = tokio::signal::ctrl_c().await;
         })

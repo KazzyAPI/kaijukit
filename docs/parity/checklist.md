@@ -22,5 +22,7 @@ Every feature uses this template. Every entry must link a conformance case befor
 | Permissions & schemes | [permissions-parity.md](permissions-parity.md) | 0 / 0 |
 | REST API & webhooks | [rest-api-parity.md](rest-api-parity.md) | 0 / 0 |
 | Confluence product areas | [confluence-parity.md](confluence-parity.md) | 0 / 0 |
+| Confluence UI | [confluence-ui-parity.md](confluence-ui-parity.md) | 0 / 0 |
+| Confluence document format (ADF) | [confluence-adf.md](confluence-adf.md) | 0 / 80 |
 | Confluence REST v2 | [confluence-rest-v2.md](confluence-rest-v2.md) | 0 / 252 |
 | Confluence REST v1 | [confluence-rest-v1.md](confluence-rest-v1.md) | 0 / 130 |

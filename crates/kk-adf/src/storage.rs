@@ -6,11 +6,14 @@
 
 use serde_json::{json, Value};
 
-use crate::{Doc, Mark, Node};
+use crate::{
+    rich,
+    xml::{esc, parse, raw_el, El, X},
+    Doc, Mark, Node,
+};
 
 const RAW_TYPE: &str = "kk.storage";
 const ADF_NODE: &str = "kk:adf-node";
-const MAX_DEPTH: usize = 200;
 const INLINE_NAMES: &[&str] = &[
     "a",
     "strong",
@@ -42,217 +45,8 @@ const INLINE_NODES: &[&str] = &[
     "inlineCard",
     "mediaInline",
 ];
-const KNOWN_MARKS: &[&str] = &["strong", "em", "code", "link"];
 
-enum X {
-    Text(String),
-    Cdata(String),
-    El(El),
-}
-
-struct El {
-    name: String,
-    attrs: Vec<(String, String)>,
-    kids: Vec<X>,
-}
-
-impl El {
-    fn attr(&self, name: &str) -> Option<&str> {
-        self.attrs
-            .iter()
-            .find(|(k, _)| k == name)
-            .map(|(_, v)| v.as_str())
-    }
-
-    fn text(&self) -> String {
-        self.kids
-            .iter()
-            .filter_map(|k| match k {
-                X::Text(t) | X::Cdata(t) => Some(t.as_str()),
-                X::El(_) => None,
-            })
-            .collect()
-    }
-}
-
-fn decode(s: &str) -> Result<String, String> {
-    let mut out = String::new();
-    let mut rest = s;
-    while let Some(i) = rest.find('&') {
-        out.push_str(&rest[..i]);
-        let tail = &rest[i + 1..];
-        let j = tail.find(';').ok_or("unterminated entity")?;
-        let ent = &tail[..j];
-        match ent {
-            "amp" => out.push('&'),
-            "lt" => out.push('<'),
-            "gt" => out.push('>'),
-            "quot" => out.push('"'),
-            "apos" => out.push('\''),
-            "nbsp" => out.push('\u{a0}'),
-            _ => {
-                let code = if let Some(h) = ent.strip_prefix("#x") {
-                    u32::from_str_radix(h, 16).ok()
-                } else if let Some(d) = ent.strip_prefix('#') {
-                    d.parse().ok()
-                } else {
-                    None
-                };
-                out.push(
-                    code.and_then(char::from_u32)
-                        .ok_or_else(|| format!("unknown entity &{ent};"))?,
-                );
-            }
-        }
-        rest = &tail[j + 1..];
-    }
-    out.push_str(rest);
-    Ok(out)
-}
-
-fn esc(s: &str) -> String {
-    s.replace('&', "&amp;")
-        .replace('<', "&lt;")
-        .replace('>', "&gt;")
-}
-
-fn esc_attr(s: &str) -> String {
-    esc(s).replace('"', "&quot;")
-}
-
-struct Parser<'a> {
-    s: &'a str,
-    i: usize,
-    depth: usize,
-}
-
-impl Parser<'_> {
-    fn rest(&self) -> &str {
-        &self.s[self.i..]
-    }
-
-    fn take_while(&mut self, f: impl Fn(char) -> bool) -> String {
-        let r = self.rest();
-        let n = r.find(|c| !f(c)).unwrap_or(r.len());
-        let out = r[..n].to_string();
-        self.i += n;
-        out
-    }
-
-    fn nodes(&mut self, close: Option<&str>) -> Result<Vec<X>, String> {
-        let mut out = vec![];
-        loop {
-            let r = self.rest();
-            if r.is_empty() {
-                return match close {
-                    Some(c) => Err(format!("unclosed <{c}>")),
-                    None => Ok(out),
-                };
-            }
-            if let Some(t) = r.strip_prefix("</") {
-                let end = t.find('>').ok_or("bad closing tag")?;
-                let name = t[..end].trim();
-                if Some(name) != close {
-                    return Err(format!("unexpected </{name}>"));
-                }
-                self.i += 2 + end + 1;
-                return Ok(out);
-            }
-            if let Some(t) = r.strip_prefix("<![CDATA[") {
-                let end = t.find("]]>").ok_or("unterminated CDATA")?;
-                out.push(X::Cdata(t[..end].into()));
-                self.i += 9 + end + 3;
-            } else if let Some(t) = r.strip_prefix("<!--") {
-                let end = t.find("-->").ok_or("unterminated comment")?;
-                self.i += 4 + end + 3;
-            } else if r.starts_with('<') {
-                out.push(X::El(self.element()?));
-            } else {
-                let end = r.find('<').unwrap_or(r.len());
-                out.push(X::Text(decode(&r[..end])?));
-                self.i += end;
-            }
-        }
-    }
-
-    fn element(&mut self) -> Result<El, String> {
-        self.i += 1;
-        let name = self.take_while(|c| !c.is_whitespace() && c != '/' && c != '>');
-        if name.is_empty() {
-            return Err("bad tag".into());
-        }
-        let mut attrs = vec![];
-        loop {
-            self.take_while(char::is_whitespace);
-            let r = self.rest();
-            if r.starts_with("/>") {
-                self.i += 2;
-                return Ok(El {
-                    name,
-                    attrs,
-                    kids: vec![],
-                });
-            }
-            if r.starts_with('>') {
-                self.i += 1;
-                self.depth += 1;
-                if self.depth > MAX_DEPTH {
-                    return Err("document nested too deeply".into());
-                }
-                let kids = self.nodes(Some(&name))?;
-                self.depth -= 1;
-                return Ok(El { name, attrs, kids });
-            }
-            let key = self.take_while(|c| c != '=' && !c.is_whitespace() && c != '/' && c != '>');
-            if key.is_empty() || !self.rest().starts_with('=') {
-                return Err(format!("bad attribute in <{name}>"));
-            }
-            self.i += 1;
-            let q = self
-                .rest()
-                .chars()
-                .next()
-                .filter(|c| *c == '"' || *c == '\'')
-                .ok_or("unquoted attribute")?;
-            self.i += 1;
-            let val = self.take_while(|c| c != q);
-            if !self.rest().starts_with(q) {
-                return Err("unterminated attribute".into());
-            }
-            self.i += 1;
-            attrs.push((key, decode(&val)?));
-        }
-    }
-}
-
-fn raw(x: &X, out: &mut String) {
-    match x {
-        X::Text(t) => out.push_str(&esc(t)),
-        X::Cdata(c) => {
-            out.push_str("<![CDATA[");
-            out.push_str(c);
-            out.push_str("]]>");
-        }
-        X::El(e) => raw_el(e, out),
-    }
-}
-
-fn raw_el(e: &El, out: &mut String) {
-    out.push('<');
-    out.push_str(&e.name);
-    for (k, v) in &e.attrs {
-        out.push_str(&format!(" {k}=\"{}\"", esc_attr(v)));
-    }
-    if e.kids.is_empty() {
-        out.push_str("/>");
-    } else {
-        out.push('>');
-        e.kids.iter().for_each(|k| raw(k, out));
-        out.push_str(&format!("</{}>", e.name));
-    }
-}
-
-fn raw_ext(e: &El, kind: &str) -> Node {
+pub(crate) fn raw_ext(e: &El, kind: &str) -> Node {
     let mut xml = String::new();
     raw_el(e, &mut xml);
     Node::new(kind).attrs(json!({
@@ -273,14 +67,14 @@ fn is_block(e: &El) -> bool {
     !INLINE_NAMES.contains(&e.name.as_str())
 }
 
-fn blocks(kids: &[X]) -> Result<Vec<Node>, String> {
+pub(crate) fn blocks(kids: &[X]) -> Result<Vec<Node>, String> {
     let mut out = vec![];
     let mut run: Vec<&X> = vec![];
     for k in kids {
         match k {
             X::El(e) if is_block(e) => {
                 flush(&mut run, &mut out)?;
-                out.push(block(e)?);
+                out.extend(block(e)?);
             }
             _ => run.push(k),
         }
@@ -300,13 +94,25 @@ fn flush(run: &mut Vec<&X>, out: &mut Vec<Node>) -> Result<(), String> {
     Ok(())
 }
 
-fn block(e: &El) -> Result<Node, String> {
+fn block(e: &El) -> Result<Vec<Node>, String> {
+    match rich::block(e)? {
+        Some(nodes) => Ok(nodes),
+        None => block_one(e).map(|n| vec![n]),
+    }
+}
+
+fn block_one(e: &El) -> Result<Node, String> {
     let name = e.name.as_str();
     Ok(match name {
-        "p" => Node::new("paragraph").content(inlines(&e.kids, &[])?),
-        "h1" | "h2" | "h3" | "h4" | "h5" | "h6" => Node::new("heading")
-            .attrs(json!({"level": name[1..].parse::<u8>().unwrap_or(1)}))
-            .content(inlines(&e.kids, &[])?),
+        "p" => match rich::sole(e) {
+            Some(n) => n,
+            None => styled(Node::new("paragraph"), e, inlines(&e.kids, &[])?),
+        },
+        "h1" | "h2" | "h3" | "h4" | "h5" | "h6" => styled(
+            Node::new("heading").attrs(json!({"level": name[1..].parse::<u8>().unwrap_or(1)})),
+            e,
+            inlines(&e.kids, &[])?,
+        ),
         "ul" | "ol" => {
             let items = e
                 .kids
@@ -331,36 +137,14 @@ fn block(e: &El) -> Result<Node, String> {
             table_rows(&e.kids, &mut rows)?;
             Node::new("table").content(rows)
         }
-        "ac:structured-macro" => code_block(e)?.unwrap_or_else(|| raw_ext(e, "extension")),
         ADF_NODE => adf_node(e)?,
         _ => raw_ext(e, "extension"),
     })
 }
 
-fn code_block(e: &El) -> Result<Option<Node>, String> {
-    if e.attr("ac:name") != Some("code") {
-        return Ok(None);
-    }
-    let mut lang = None;
-    let mut body = String::new();
-    for k in &e.kids {
-        match k {
-            X::El(p) if p.name == "ac:parameter" && p.attr("ac:name") == Some("language") => {
-                lang = Some(p.text());
-            }
-            X::El(b) if b.name == "ac:plain-text-body" => body = b.text(),
-            X::Text(t) if t.trim().is_empty() => {}
-            _ => return Ok(None),
-        }
-    }
-    let mut node = Node::new("codeBlock");
-    if let Some(l) = lang {
-        node = node.attrs(json!({"language": l}));
-    }
-    if !body.is_empty() {
-        node = node.content(vec![Node::text(&body, &[])]);
-    }
-    Ok(Some(node))
+fn styled(mut n: Node, e: &El, content: Vec<Node>) -> Node {
+    n.marks = rich::block_marks(e);
+    n.content(content)
 }
 
 fn table_rows(kids: &[X], out: &mut Vec<Node>) -> Result<(), String> {
@@ -388,7 +172,11 @@ fn table_rows(kids: &[X], out: &mut Vec<Node>) -> Result<(), String> {
                         } else {
                             "tableCell"
                         };
-                        let mut n = Node::new(kind).content(blocks(&c.kids)?);
+                        let mut content = blocks(&c.kids)?;
+                        for b in content.iter_mut().filter(|b| b.kind == "expand") {
+                            b.kind = "nestedExpand".into();
+                        }
+                        let mut n = Node::new(kind).content(content);
                         if !attrs.is_empty() {
                             n = n.attrs(Value::Object(attrs));
                         }
@@ -403,7 +191,10 @@ fn table_rows(kids: &[X], out: &mut Vec<Node>) -> Result<(), String> {
     Ok(())
 }
 
-fn inlines<'a>(kids: impl IntoIterator<Item = &'a X>, marks: &[Mark]) -> Result<Vec<Node>, String> {
+pub(crate) fn inlines<'a>(
+    kids: impl IntoIterator<Item = &'a X>,
+    marks: &[Mark],
+) -> Result<Vec<Node>, String> {
     let with = |m: Mark| [marks, &[m]].concat();
     let mut out = vec![];
     for k in kids {
@@ -413,20 +204,23 @@ fn inlines<'a>(kids: impl IntoIterator<Item = &'a X>, marks: &[Mark]) -> Result<
                     out.push(Node::text(t, marks));
                 }
             }
-            X::El(e) => match e.name.as_str() {
-                "strong" | "b" => out.extend(inlines(&e.kids, &with(Mark::new("strong", None)))?),
-                "em" | "i" => out.extend(inlines(&e.kids, &with(Mark::new("em", None)))?),
-                "code" => out.extend(inlines(&e.kids, &with(Mark::new("code", None)))?),
-                "a" => {
+            X::El(e) => match (rich::inline(e, marks)?, e.name.as_str()) {
+                (Some(nodes), _) => out.extend(nodes),
+                (None, "strong" | "b") => {
+                    out.extend(inlines(&e.kids, &with(Mark::new("strong", None)))?)
+                }
+                (None, "em" | "i") => out.extend(inlines(&e.kids, &with(Mark::new("em", None)))?),
+                (None, "code") => out.extend(inlines(&e.kids, &with(Mark::new("code", None)))?),
+                (None, "a") => {
                     let href = e.attr("href").unwrap_or("");
                     out.extend(inlines(
                         &e.kids,
                         &with(Mark::new("link", Some(json!({"href": href})))),
                     )?);
                 }
-                "br" => out.push(Node::new("hardBreak")),
-                ADF_NODE => out.push(adf_node(e)?),
-                _ => out.push(raw_ext(e, "inlineExtension")),
+                (None, "br") => out.push(Node::new("hardBreak")),
+                (None, ADF_NODE) => out.push(adf_node(e)?),
+                (None, _) => out.push(raw_ext(e, "inlineExtension")),
             },
         }
     }
@@ -434,16 +228,11 @@ fn inlines<'a>(kids: impl IntoIterator<Item = &'a X>, marks: &[Mark]) -> Result<
 }
 
 pub fn from_storage(xml: &str) -> Result<Doc, String> {
-    let mut p = Parser {
-        s: xml,
-        i: 0,
-        depth: 0,
-    };
-    let tree = p.nodes(None)?;
+    let tree = parse(xml)?;
     Ok(Doc::new(blocks(&tree)?))
 }
 
-fn fallback(n: &Node) -> String {
+pub(crate) fn fallback(n: &Node) -> String {
     let json = serde_json::to_string(n).unwrap_or_default();
     format!(
         "<{ADF_NODE}><![CDATA[{}]]></{ADF_NODE}>",
@@ -451,55 +240,50 @@ fn fallback(n: &Node) -> String {
     )
 }
 
-fn children(n: &Node) -> &[Node] {
+pub(crate) fn children(n: &Node) -> &[Node] {
     n.content.as_deref().unwrap_or(&[])
 }
 
-fn block_list(ns: &[Node]) -> String {
+pub(crate) fn block_list(ns: &[Node]) -> String {
     ns.iter().map(block_out).collect()
 }
 
-fn inline_list(ns: &[Node]) -> String {
+pub(crate) fn inline_list(ns: &[Node]) -> String {
     ns.iter().map(inline_out).collect()
 }
 
 fn block_out(n: &Node) -> String {
     let c = children(n);
+    let heading = n.kind == "heading";
+    if n.marks.is_some() && !heading && n.kind != "paragraph" {
+        return fallback(n);
+    }
+    if let Some(s) = rich::block_out(n) {
+        return s;
+    }
     match n.kind.as_str() {
-        "paragraph" => format!("<p>{}</p>", inline_list(c)),
-        "heading" => {
-            let l = n
-                .attrs
-                .as_ref()
-                .and_then(|a| a["level"].as_u64())
-                .unwrap_or(1)
-                .clamp(1, 6);
-            format!("<h{l}>{}</h{l}>", inline_list(c))
+        "paragraph" | "heading" => {
+            let Some(style) = rich::block_style(n) else {
+                return fallback(n);
+            };
+            let tag = if heading {
+                let l = n
+                    .attrs
+                    .as_ref()
+                    .and_then(|a| a["level"].as_u64())
+                    .unwrap_or(1)
+                    .clamp(1, 6);
+                format!("h{l}")
+            } else {
+                "p".into()
+            };
+            format!("<{tag}{style}>{}</{tag}>", inline_list(c))
         }
         "bulletList" => format!("<ul>{}</ul>", block_list(c)),
         "orderedList" => format!("<ol>{}</ol>", block_list(c)),
         "listItem" => format!("<li>{}</li>", block_list(c)),
         "blockquote" => format!("<blockquote>{}</blockquote>", block_list(c)),
         "rule" => "<hr />".into(),
-        "codeBlock" => {
-            let lang = n
-                .attrs
-                .as_ref()
-                .and_then(|a| a["language"].as_str())
-                .map(|l| {
-                    format!(
-                        "<ac:parameter ac:name=\"language\">{}</ac:parameter>",
-                        esc(l)
-                    )
-                })
-                .unwrap_or_default();
-            let body: String = c.iter().filter_map(|t| t.text.as_deref()).collect();
-            format!(
-                "<ac:structured-macro ac:name=\"code\" ac:schema-version=\"1\">{lang}\
-                 <ac:plain-text-body><![CDATA[{}]]></ac:plain-text-body></ac:structured-macro>",
-                body.replace("]]>", "]]]]><![CDATA[>")
-            )
-        }
         "table" => format!("<table><tbody>{}</tbody></table>", block_list(c)),
         "tableRow" => format!("<tr>{}</tr>", block_list(c)),
         "tableHeader" | "tableCell" => {
@@ -528,34 +312,23 @@ fn raw_out(n: &Node) -> String {
 }
 
 fn inline_out(n: &Node) -> String {
+    if let Some(s) = rich::inline_out(n) {
+        return s;
+    }
     match n.kind.as_str() {
         "text" => {
-            let marks = n.marks.as_deref().unwrap_or(&[]);
-            if marks
+            let tags: Option<Vec<_>> = n
+                .marks
+                .as_deref()
+                .unwrap_or(&[])
                 .iter()
-                .any(|m| !KNOWN_MARKS.contains(&m.kind.as_str()))
-            {
+                .map(rich::mark_tags)
+                .collect();
+            let Some(tags) = tags else {
                 return fallback(n);
-            }
-            let mut open = String::new();
-            let mut close = String::new();
-            for m in marks {
-                let (o, c) = match m.kind.as_str() {
-                    "strong" => ("<strong>".to_string(), "</strong>"),
-                    "em" => ("<em>".to_string(), "</em>"),
-                    "code" => ("<code>".to_string(), "</code>"),
-                    _ => {
-                        let href = m
-                            .attrs
-                            .as_ref()
-                            .and_then(|a| a["href"].as_str())
-                            .unwrap_or("");
-                        (format!("<a href=\"{}\">", esc_attr(href)), "</a>")
-                    }
-                };
-                open.push_str(&o);
-                close.insert_str(0, c);
-            }
+            };
+            let open: String = tags.iter().map(|(o, _)| o.as_str()).collect();
+            let close: String = tags.iter().rev().map(|(_, c)| *c).collect();
             format!("{open}{}{close}", esc(n.text.as_deref().unwrap_or("")))
         }
         "hardBreak" => "<br />".into(),
@@ -565,6 +338,7 @@ fn inline_out(n: &Node) -> String {
 }
 
 pub fn to_storage(doc: &Doc) -> String {
+    rich::reset_task_ids();
     block_list(&doc.content)
 }
 
@@ -664,15 +438,15 @@ mod tests {
 
     #[test]
     fn unknown_elements_are_preserved() {
-        let xml = "<p>a <ac:emoticon ac:name=\"smile\"/> b</p><ac:structured-macro ac:name=\"toc\"><ac:parameter ac:name=\"x\">1</ac:parameter></ac:structured-macro>";
+        let xml = "<p>a <ac:placeholder>x</ac:placeholder> b</p><ac:structured-macro ac:name=\"toc\"><ac:parameter ac:name=\"x\"><ri:page/></ac:parameter></ac:structured-macro>";
         let v = adf(xml);
         assert_eq!(
             v["content"][0]["content"][1],
             json!({"type": "inlineExtension", "attrs": {
-                "extensionType": "kk.storage", "extensionKey": "ac:emoticon",
-                "parameters": {"xml": "<ac:emoticon ac:name=\"smile\"/>"}}})
+                "extensionType": "kk.storage", "extensionKey": "ac:placeholder",
+                "parameters": {"xml": "<ac:placeholder>x</ac:placeholder>"}}})
         );
-        assert_eq!(v["content"][1]["type"], "extension");
+        assert_eq!(v["content"][1]["attrs"]["extensionType"], "kk.storage");
         round(xml);
     }
 

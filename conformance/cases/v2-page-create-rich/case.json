@@ -1,0 +1,33 @@
+{
+  "id": "v2-page-create-rich",
+  "ops": [
+    "createPage"
+  ],
+  "setup": [
+    {
+      "as": "space",
+      "method": "POST",
+      "path": "/wiki/api/v2/spaces",
+      "body": {
+        "name": "Conf {{run}}",
+        "key": "K{{run}}"
+      }
+    }
+  ],
+  "request": {
+    "method": "POST",
+    "path": "/wiki/api/v2/pages",
+    "body": {
+      "spaceId": "{{space.id}}",
+      "status": "current",
+      "title": "x {{run}}",
+      "body": {
+        "representation": "storage",
+        "value": "<ac:structured-macro ac:name=\"info\" ac:schema-version=\"1\"><ac:rich-text-body><p>note</p></ac:rich-text-body></ac:structured-macro><p>due <time datetime=\"2023-11-14\" /> <span style=\"color: #ff0000;\">red</span></p>"
+      }
+    }
+  },
+  "expect": {
+    "status": 200
+  }
+}

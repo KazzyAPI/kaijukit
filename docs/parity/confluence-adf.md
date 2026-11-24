@@ -10,10 +10,10 @@ Status: `not started` | `partial` | `done` (needs a conformance/UI case).
 
 | Node | Parse/validate | Render | Edit | Storage-format conversion | Case |
 |---|---|---|---|---|---|
-| `blockCard` | not started | not started | not started | not started | - |
+| `blockCard` | partial | not started | not started | partial | kk-adf tests |
 | `blockTaskItem` | not started | not started | not started | not started | - |
 | `blockquote` | not started | not started | not started | not started | - |
-| `bodiedExtension` | not started | not started | not started | not started | - |
+| `bodiedExtension` | partial | not started | not started | partial | kk-adf tests |
 | `bodiedExtension_with_marks` | not started | not started | not started | not started | - |
 | `bodiedSyncBlock` | not started | not started | not started | not started | - |
 | `bulletList` | not started | not started | not started | not started | - |
@@ -21,15 +21,15 @@ Status: `not started` | `partial` | `done` (needs a conformance/UI case).
 | `codeBlock` | not started | not started | not started | not started | - |
 | `codeBlock_root_only` | not started | not started | not started | not started | - |
 | `code_inline` | not started | not started | not started | not started | - |
-| `date` | not started | not started | not started | not started | - |
-| `decisionItem` | not started | not started | not started | not started | - |
-| `decisionList` | not started | not started | not started | not started | - |
+| `date` | partial | not started | not started | partial | kk-adf tests |
+| `decisionItem` | partial | not started | not started | partial | kk-adf tests |
+| `decisionList` | partial | not started | not started | partial | kk-adf tests |
 | `doc` | not started | not started | not started | not started | - |
 | `embedCard` | not started | not started | not started | not started | - |
-| `emoji` | not started | not started | not started | not started | - |
-| `expand` | not started | not started | not started | not started | - |
+| `emoji` | partial | not started | not started | partial | kk-adf tests |
+| `expand` | partial | not started | not started | partial | kk-adf tests |
 | `expand_root_only` | not started | not started | not started | not started | - |
-| `extension` | not started | not started | not started | not started | - |
+| `extension` | partial | not started | not started | partial | kk-adf tests |
 | `extension_with_marks` | not started | not started | not started | not started | - |
 | `formatted_text_inline` | not started | not started | not started | not started | - |
 | `hardBreak` | not started | not started | not started | not started | - |
@@ -38,24 +38,24 @@ Status: `not started` | `partial` | `done` (needs a conformance/UI case).
 | `heading_with_indentation` | not started | not started | not started | not started | - |
 | `heading_with_no_marks` | not started | not started | not started | not started | - |
 | `inline` | not started | not started | not started | not started | - |
-| `inlineCard` | not started | not started | not started | not started | - |
-| `inlineExtension` | not started | not started | not started | not started | - |
+| `inlineCard` | partial | not started | not started | partial | kk-adf tests |
+| `inlineExtension` | partial | not started | not started | partial | kk-adf tests |
 | `inlineExtension_with_marks` | not started | not started | not started | not started | - |
-| `layoutColumn` | not started | not started | not started | not started | - |
-| `layoutSection` | not started | not started | not started | not started | - |
+| `layoutColumn` | partial | not started | not started | partial | kk-adf tests |
+| `layoutSection` | partial | not started | not started | partial | kk-adf tests |
 | `layoutSection_full` | not started | not started | not started | not started | - |
 | `listItem` | not started | not started | not started | not started | - |
-| `media` | not started | not started | not started | not started | - |
-| `mediaGroup` | not started | not started | not started | not started | - |
+| `media` | partial | not started | not started | partial | kk-adf tests |
+| `mediaGroup` | partial | not started | not started | partial | kk-adf tests |
 | `mediaInline` | not started | not started | not started | not started | - |
-| `mediaSingle` | not started | not started | not started | not started | - |
+| `mediaSingle` | partial | not started | not started | partial | kk-adf tests |
 | `mediaSingle_caption` | not started | not started | not started | not started | - |
 | `mediaSingle_full` | not started | not started | not started | not started | - |
-| `mention` | not started | not started | not started | not started | - |
-| `nestedExpand` | not started | not started | not started | not started | - |
+| `mention` | partial | not started | not started | partial | kk-adf tests |
+| `nestedExpand` | partial | not started | not started | partial | kk-adf tests |
 | `nestedExpand_with_no_marks` | not started | not started | not started | not started | - |
 | `orderedList` | not started | not started | not started | not started | - |
-| `panel` | not started | not started | not started | not started | - |
+| `panel` | partial | not started | not started | partial | kk-adf tests |
 | `paragraph` | not started | not started | not started | not started | - |
 | `paragraph_with_alignment` | not started | not started | not started | not started | - |
 | `paragraph_with_font_size` | not started | not started | not started | not started | - |
@@ -63,14 +63,14 @@ Status: `not started` | `partial` | `done` (needs a conformance/UI case).
 | `paragraph_with_no_marks` | not started | not started | not started | not started | - |
 | `placeholder` | not started | not started | not started | not started | - |
 | `rule` | not started | not started | not started | not started | - |
-| `status` | not started | not started | not started | not started | - |
+| `status` | partial | not started | not started | partial | kk-adf tests |
 | `syncBlock` | not started | not started | not started | not started | - |
 | `table` | not started | not started | not started | not started | - |
 | `table_cell` | not started | not started | not started | not started | - |
 | `table_header` | not started | not started | not started | not started | - |
 | `table_row` | not started | not started | not started | not started | - |
-| `taskItem` | not started | not started | not started | not started | - |
-| `taskList` | not started | not started | not started | not started | - |
+| `taskItem` | partial | not started | not started | partial | kk-adf tests |
+| `taskList` | partial | not started | not started | partial | kk-adf tests |
 | `text` | not started | not started | not started | not started | - |
 | `text_with_no_marks` | not started | not started | not started | not started | - |
 
@@ -78,9 +78,9 @@ Status: `not started` | `partial` | `done` (needs a conformance/UI case).
 
 | Mark | Parse/validate | Render | Edit | Storage-format conversion | Case |
 |---|---|---|---|---|---|
-| `alignment` | not started | not started | not started | not started | - |
-| `annotation` | not started | not started | not started | not started | - |
-| `backgroundColor` | not started | not started | not started | not started | - |
+| `alignment` | partial | not started | not started | partial | kk-adf tests |
+| `annotation` | partial | not started | not started | partial | kk-adf tests |
+| `backgroundColor` | partial | not started | not started | partial | kk-adf tests |
 | `border` | not started | not started | not started | not started | - |
 | `breakout` | not started | not started | not started | not started | - |
 | `code` | not started | not started | not started | not started | - |
@@ -88,10 +88,10 @@ Status: `not started` | `partial` | `done` (needs a conformance/UI case).
 | `em` | not started | not started | not started | not started | - |
 | `fontSize` | not started | not started | not started | not started | - |
 | `fragment` | not started | not started | not started | not started | - |
-| `indentation` | not started | not started | not started | not started | - |
+| `indentation` | partial | not started | not started | partial | kk-adf tests |
 | `link` | not started | not started | not started | not started | - |
-| `strike` | not started | not started | not started | not started | - |
+| `strike` | partial | not started | not started | partial | kk-adf tests |
 | `strong` | not started | not started | not started | not started | - |
-| `subsup` | not started | not started | not started | not started | - |
-| `textColor` | not started | not started | not started | not started | - |
-| `underline` | not started | not started | not started | not started | - |
+| `subsup` | partial | not started | not started | partial | kk-adf tests |
+| `textColor` | partial | not started | not started | partial | kk-adf tests |
+| `underline` | partial | not started | not started | partial | kk-adf tests |

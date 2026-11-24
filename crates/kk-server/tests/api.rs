@@ -824,3 +824,41 @@ async fn list_filters_and_sorts() {
         StatusCode::BAD_REQUEST
     );
 }
+
+#[tokio::test]
+async fn rich_nodes_round_trip_through_storage() {
+    let app = start().await;
+    let sp = space(&app, "RICH").await;
+    let xml = "<ac:structured-macro ac:name=\"info\" ac:schema-version=\"1\"><ac:rich-text-body><p>note</p></ac:rich-text-body></ac:structured-macro>\
+               <p>due <time datetime=\"2023-11-14\" /> <span style=\"color: #ff0000;\">red</span></p>";
+    let r = call(
+        &app,
+        Method::POST,
+        "/pages",
+        Some(json!({"spaceId": sp["id"], "title": "Rich", "body": {"representation": "storage", "value": xml}})),
+    )
+    .await;
+    assert_eq!(r.status, StatusCode::OK, "{}", r.json);
+    assert_eq!(r.json["body"]["storage"]["value"], xml);
+    let id = r.json["id"].as_str().unwrap();
+    let adf = get(&app, &format!("/pages/{id}?body-format=atlas_doc_format")).await;
+    let value: Value = serde_json::from_str(
+        adf.json["body"]["atlas_doc_format"]["value"]
+            .as_str()
+            .unwrap(),
+    )
+    .unwrap();
+    assert_eq!(
+        value["content"],
+        json!([
+            {"type": "panel", "attrs": {"panelType": "info"}, "content": [
+                {"type": "paragraph", "content": [{"type": "text", "text": "note"}]}]},
+            {"type": "paragraph", "content": [
+                {"type": "text", "text": "due "},
+                {"type": "date", "attrs": {"timestamp": "1699920000000"}},
+                {"type": "text", "text": " "},
+                {"type": "text", "text": "red", "marks": [{"type": "textColor", "attrs": {"color": "#ff0000"}}]},
+            ]},
+        ])
+    );
+}

@@ -1,0 +1,81 @@
+name: ci
+on:
+  push: { branches: [main] }
+  pull_request:
+concurrency: { group: ci-${{ github.ref }}, cancel-in-progress: true }
+jobs:
+  commits:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: wagoid/commitlint-github-action@v6
+        with: { configFile: commitlint.config.cjs }
+  docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: ./scripts/check-naming.sh
+      - name: inventories match pinned specs
+        run: |
+          curl -fsSL https://dac-static.atlassian.com/cloud/confluence/swagger.v3.json -o /tmp/v1.json
+          curl -fsSL https://dac-static.atlassian.com/cloud/confluence/openapi-v2.v3.json -o /tmp/v2.json
+          python3 -I scripts/confluence_inventory.py check /tmp/v1.json /tmp/v2.json
+  rust:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env: { POSTGRES_PASSWORD: kk, POSTGRES_DB: kk }
+        ports: ["5432:5432"]
+        options: --health-cmd "pg_isready -U postgres" --health-interval 5s --health-retries 10
+    env:
+      KK_DATABASE_URL: postgres://postgres:kk@localhost:5432/kk
+      DATABASE_URL: postgres://postgres:kk@localhost:5432/kk
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with: { components: "rustfmt, clippy" }
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo fmt --all --check
+      - run: cargo clippy --workspace --all-targets -- -D warnings
+      - run: cargo test --workspace
+  web:
+    runs-on: ubuntu-latest
+    defaults: { run: { working-directory: web } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with: { version: 9 }
+      - uses: actions/setup-node@v4
+        with: { node-version: 20, cache: pnpm, cache-dependency-path: web/pnpm-lock.yaml }
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm -r typecheck
+      - run: pnpm -r lint
+      - run: pnpm -r test
+      - run: pnpm -r build
+  e2e:
+    needs: [rust, web]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with: { version: 9 }
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - run: docker compose -f deploy/docker-compose.yml up -d --build --wait
+      - name: conformance (schema mode)
+        run: |
+          cd conformance/runner && pnpm install --frozen-lockfile
+          pnpm run check --base http://localhost:8080 --mode schema
+      - name: playwright
+        run: |
+          cd web && pnpm install --frozen-lockfile
+          pnpm --filter app exec playwright install --with-deps chromium
+          pnpm --filter app run e2e
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: { name: e2e-artifacts, path: "web/app/test-results\nweb/e2e/screenshots", if-no-files-found: ignore }
+      - if: always()
+        run: docker compose -f deploy/docker-compose.yml logs --no-color | tail -200

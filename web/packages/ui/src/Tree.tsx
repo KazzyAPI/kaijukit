@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
+import { useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 import { Icon } from './Icon';
 
 export interface TreeItem {
@@ -22,6 +22,7 @@ export interface TreeProps {
 export function Tree({ items, label, selectedId, onSelect, onToggle }: TreeProps) {
   const [focusId, setFocusId] = useState<string | undefined>();
   const ul = useRef<HTMLUListElement>(null);
+  const uid = useId();
   const active = items.some((i) => i.id === focusId) ? focusId : items.some((i) => i.id === selectedId) ? selectedId : items[0]?.id;
 
   useEffect(() => {
@@ -72,6 +73,7 @@ export function Tree({ items, label, selectedId, onSelect, onToggle }: TreeProps
           key={it.id}
           role="treeitem"
           data-id={it.id}
+          aria-labelledby={`${uid}-${it.id}`}
           aria-level={it.level}
           aria-expanded={it.expanded}
           aria-selected={it.id === selectedId}
@@ -92,7 +94,7 @@ export function Tree({ items, label, selectedId, onSelect, onToggle }: TreeProps
             >
               <Icon name="chevronRight" size={14} />
             </span>
-            <span className="kk-tree__label">{it.label}</span>
+            <span id={`${uid}-${it.id}`} className="kk-tree__label">{it.label}</span>
             {it.actions && (
               <span className="kk-tree__actions" onClick={(e) => e.stopPropagation()}>
                 {it.actions}

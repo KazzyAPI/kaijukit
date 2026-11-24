@@ -1,0 +1,6 @@
+node_modules/
+dist/
+e2e/screenshots/*
+!e2e/screenshots/README.md
+e2e/test-results/
+e2e/playwright-report/

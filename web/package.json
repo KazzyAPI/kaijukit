@@ -1,0 +1,22 @@
+{
+  "name": "kaijukit-web",
+  "private": true,
+  "packageManager": "pnpm@9.15.0",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "dev": "pnpm --filter @kaijukit/app dev",
+    "build": "pnpm --filter @kaijukit/app build",
+    "e2e": "pnpm --filter @kaijukit/e2e e2e"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.15.0",
+    "eslint": "^9.15.0",
+    "eslint-plugin-react-hooks": "^5.0.0",
+    "typescript": "~5.6.3",
+    "typescript-eslint": "^8.15.0",
+    "vitest": "^2.1.8",
+    "vite": "^5.4.11"
+  }
+}

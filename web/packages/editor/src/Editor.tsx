@@ -179,7 +179,6 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor({ va
   const [linkOpen, setLinkOpen] = useState(false);
   const [url, setUrl] = useState('');
   const [urlError, setUrlError] = useState('');
-  const [, force] = useState(0);
   const slashRef = useRef<Slash | null>(null);
   const indexRef = useRef(0);
   const dismissed = useRef<number | null>(null);
@@ -270,7 +269,6 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor({ va
       refreshSlash(e);
     },
     onSelectionUpdate: ({ editor: e }) => refreshSlash(e),
-    onTransaction: () => force((n) => n + 1),
   });
   editorRef.current = editor;
 

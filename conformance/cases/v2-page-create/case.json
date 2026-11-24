@@ -1,0 +1,33 @@
+{
+  "id": "v2-page-create",
+  "ops": [
+    "createPage"
+  ],
+  "setup": [
+    {
+      "as": "space",
+      "method": "POST",
+      "path": "/wiki/api/v2/spaces",
+      "body": {
+        "name": "Conf {{run}}",
+        "key": "K{{run}}"
+      }
+    }
+  ],
+  "request": {
+    "method": "POST",
+    "path": "/wiki/api/v2/pages",
+    "body": {
+      "spaceId": "{{space.id}}",
+      "status": "current",
+      "title": "x {{run}}",
+      "body": {
+        "representation": "storage",
+        "value": "<p>hello</p>"
+      }
+    }
+  },
+  "expect": {
+    "status": 200
+  }
+}

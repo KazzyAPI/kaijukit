@@ -1,0 +1,23 @@
+{
+  "name": "conformance-runner",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "check": "tsx src/cli.ts",
+    "check:inventory": "tsx src/cli.ts --mode inventory",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "ajv": "8"
+  },
+  "devDependencies": {
+    "@types/node": "18",
+    "tsx": "^4.23.15",
+    "typescript": "5",
+    "vitest": "2"
+  }
+}

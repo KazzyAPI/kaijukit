@@ -1,0 +1,13 @@
+[package]
+name = "spike-iced"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+kk-adf = { path = "../../../crates/kk-adf" }
+iced = { version = "0.14", features = ["advanced", "markdown", "highlighter", "tokio"] }
+tokio = { version = "1", features = ["time"] }
+image ={ version = "0.25", default-features = false, features = ["png"] }
+
+[workspace]

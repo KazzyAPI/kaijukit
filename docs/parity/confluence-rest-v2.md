@@ -66,7 +66,7 @@ Status: `not started` | `partial` | `done`. `done` requires a conformance case. 
 | GET | `/databases/{id}/direct-children` | `getDatabaseDirectChildren` | Get direct children of a database | not started | - |
 | GET | `/embeds/{id}/direct-children` | `getSmartLinkDirectChildren` | Get direct children of a Smart Link | not started | - |
 | GET | `/folders/{id}/direct-children` | `getFolderDirectChildren` | Get direct children of a folder | not started | - |
-| GET | `/pages/{id}/children` | `getChildPages` | Get child pages | not started | - |
+| GET | `/pages/{id}/children` | `getChildPages` | Get child pages | not started | v2-page-children |
 | GET | `/pages/{id}/direct-children` | `getPageDirectChildren` | Get direct children of a page | not started | - |
 | GET | `/whiteboards/{id}/direct-children` | `getWhiteboardDirectChildren` | Get direct children of a whiteboard | not started | - |
 
@@ -301,11 +301,11 @@ Status: `not started` | `partial` | `done`. `done` requires a conformance case. 
 | Method | Path | operationId | Summary | Status | Case |
 |---|---|---|---|---|---|
 | GET | `/labels/{id}/pages` | `getLabelPages` | Get pages for label | not started | - |
-| GET | `/pages` | `getPages` | Get pages | not started | - |
-| POST | `/pages` | `createPage` | Create page | not started | - |
-| DELETE | `/pages/{id}` | `deletePage` | Delete page | not started | - |
-| GET | `/pages/{id}` | `getPageById` | Get page by id | not started | - |
-| PUT | `/pages/{id}` | `updatePage` | Update page | not started | - |
+| GET | `/pages` | `getPages` | Get pages | not started | v2-pages-list |
+| POST | `/pages` | `createPage` | Create page | not started | v2-page-create |
+| DELETE | `/pages/{id}` | `deletePage` | Delete page | not started | v2-page-delete |
+| GET | `/pages/{id}` | `getPageById` | Get page by id | not started | v2-page-get |
+| PUT | `/pages/{id}` | `updatePage` | Update page | not started | v2-page-update, v2-page-update-stale |
 | PUT | `/pages/{id}/title` | `updatePageTitle` | Update page title | not started | - |
 | GET | `/spaces/{id}/pages` | `getPagesInSpace` | Get pages in space | not started | - |
 
@@ -328,8 +328,8 @@ Status: `not started` | `partial` | `done`. `done` requires a conformance case. 
 
 | Method | Path | operationId | Summary | Status | Case |
 |---|---|---|---|---|---|
-| GET | `/spaces` | `getSpaces` | Get spaces | not started | - |
-| POST | `/spaces` | `createSpace` | Create space | not started | - |
+| GET | `/spaces` | `getSpaces` | Get spaces | not started | v2-spaces-list |
+| POST | `/spaces` | `createSpace` | Create space | not started | v2-space-create |
 | GET | `/spaces/{id}` | `getSpaceById` | Get space by id | not started | - |
 
 ## Space Permission Transition
@@ -402,7 +402,7 @@ Status: `not started` | `partial` | `done`. `done` requires a conformance case. 
 | GET | `/footer-comments/{id}/versions/{version-number}` | `getFooterCommentVersionDetails` | Get version details for footer comment version | not started | - |
 | GET | `/inline-comments/{id}/versions` | `getInlineCommentVersions` | Get inline comment versions | not started | - |
 | GET | `/inline-comments/{id}/versions/{version-number}` | `getInlineCommentVersionDetails` | Get version details for inline comment version | not started | - |
-| GET | `/pages/{id}/versions` | `getPageVersions` | Get page versions | not started | - |
+| GET | `/pages/{id}/versions` | `getPageVersions` | Get page versions | not started | v2-page-versions |
 | GET | `/pages/{page-id}/versions/{version-number}` | `getPageVersionDetails` | Get version details for page version | not started | - |
 
 ## Whiteboard

@@ -1,0 +1,16 @@
+{
+  "name": "@kaijukit/e2e",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "e2e": "playwright test"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "^4.10.1",
+    "@playwright/test": "1.49.1",
+    "@types/node": "^18.19.0"
+  }
+}

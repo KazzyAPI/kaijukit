@@ -1,0 +1,16 @@
+[package]
+name = "spike-slint"
+version = "0.0.0"
+edition = "2021"
+publish = false
+build = "build.rs"
+
+[dependencies]
+kk-adf = { path = "../../../crates/kk-adf" }
+slint = { version = "1.19", features = ["raw-window-handle-06"] }
+image = { version = "0.25", default-features = false, features = ["png"] }
+
+[build-dependencies]
+slint-build = "1.19"
+
+[workspace]

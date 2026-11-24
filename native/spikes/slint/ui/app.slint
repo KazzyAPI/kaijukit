@@ -1,0 +1,121 @@
+import { TextEdit, ScrollView } from "std-widgets.slint";
+
+export struct Block {
+    kind: string,
+    level: int,
+    indent: int,
+    marker: string,
+    text: styled-text,
+    plain: string,
+    cells: [styled-text],
+    header: bool,
+}
+
+export struct TreeRow { depth: int, title: string }
+
+export component App inherits Window {
+    title: "kaijukit spike";
+    min-width: 200px;
+    in property <[Block]> blocks;
+    in property <[TreeRow]> tree;
+    in-out property <int> sel: 1;
+    in-out property <length> sidebar-w: 200px;
+    in-out property <string> draft: "Edit me. Select with mouse or shift+arrows, copy, paste, undo with Cmd+Z.";
+
+    HorizontalLayout {
+        Rectangle {
+            width: root.sidebar-w;
+            background: #00000008;
+            fs := FocusScope {
+                key-pressed(e) => {
+                    if (e.text == Key.UpArrow && root.sel > 0) { root.sel -= 1; return accept; }
+                    if (e.text == Key.DownArrow && root.sel < root.tree.length - 1) { root.sel += 1; return accept; }
+                    reject
+                }
+                ScrollView {
+                    VerticalLayout {
+                        for row[i] in root.tree: Rectangle {
+                            height: 28px;
+                            background: i == root.sel ? #3b82f6 : transparent;
+                            accessible-role: list-item;
+                            accessible-label: row.title;
+                            Text {
+                                x: 8px + row.depth * 14px;
+                                text: row.title;
+                                color: i == root.sel ? white : black;
+                                vertical-alignment: center;
+                                overflow: elide;
+                            }
+                            TouchArea { clicked => { root.sel = i; fs.focus(); } }
+                        }
+                    }
+                }
+            }
+        }
+        Rectangle {
+            width: 6px;
+            background: #00000020;
+            TouchArea {
+                mouse-cursor: col-resize;
+                moved => { root.sidebar-w = clamp(root.sidebar-w + (self.mouse-x - self.pressed-x), 80px, root.width - 150px); }
+            }
+        }
+        VerticalLayout {
+            padding: 16px;
+            spacing: 8px;
+            ScrollView {
+                VerticalLayout {
+                    spacing: 8px;
+                    Text { text: root.tree[root.sel].title; font-size: 12px; }
+                    for b in root.blocks: Rectangle {
+                        HorizontalLayout {
+                            spacing: 6px;
+                            padding-left: b.indent * 18px;
+                            if b.kind == "heading": StyledText {
+                                text: b.text;
+                                default-font-size: [0px, 28px, 22px, 18px, 16px, 15px, 14px][b.level];
+                            }
+                            if b.kind == "para": HorizontalLayout {
+                                spacing: 6px;
+                                if b.marker != "": Text { text: b.marker; vertical-alignment: top; }
+                                StyledText { text: b.text; horizontal-alignment: left; horizontal-stretch: 1; }
+                            }
+                            if b.kind == "code": Rectangle {
+                                background: #00000014;
+                                HorizontalLayout {
+                                    padding: 8px;
+                                    Text { text: b.plain; font-family: "Menlo"; }
+                                }
+                            }
+                            if b.kind == "quote": HorizontalLayout {
+                                spacing: 8px;
+                                Rectangle { width: 3px; background: #999; }
+                                StyledText { text: b.text; horizontal-alignment: left; horizontal-stretch: 1; }
+                            }
+                            if b.kind == "rule": Rectangle { height: 1px; background: #bbb; }
+                            if b.kind == "row": HorizontalLayout {
+                                for c in b.cells: Rectangle {
+                                    horizontal-stretch: 1;
+                                    preferred-width: 1px;
+                                    border-width: 1px;
+                                    border-color: #bbb;
+                                    background: b.header ? #00000010 : transparent;
+                                    HorizontalLayout {
+                                        padding: 6px;
+                                        StyledText { text: c; horizontal-alignment: left; }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            Text { text: "Edit paragraph"; }
+            TextEdit {
+                height: 90px;
+                text <=> root.draft;
+                accessible-label: "Edit paragraph";
+            }
+        }
+    }
+}

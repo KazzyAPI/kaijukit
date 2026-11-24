@@ -1,6 +1,6 @@
 # ADR 0001: Atlaskit as frontend base; app model; Kubernetes
 
-Last reviewed: 2026-11-24 · status: proposed (needs legal sign-off on item 1)
+Last reviewed: 2026-11-24 · status: **superseded by [0002](0002-own-stack.md)** (kept for the license evidence and the app-model/Kubernetes decisions, which stand)
 
 ## Evidence (npm registry, checked 2026-11-24)
 

@@ -7,6 +7,9 @@ Last reviewed: 2026-11-24
 - Observed behavior of a reference instance you are licensed to use (recorded as request/response pairs in `conformance/`).
 - Public standards (OIDC, SAML, OpenAPI, JSON Schema).
 
+## Dependencies
+- Apache-2.0 (or otherwise compatible) packages from public registries may be used as dependencies after a license check recorded in `docs/decisions/`. Their license does not waive the rest of this policy (no marks, no copied product copy).
+
 ## Not allowed
 - Decompiling, disassembling or deobfuscating any vendor binary or client bundle.
 - Leaked, stolen or otherwise non-public source code, or anyone's notes derived from it.

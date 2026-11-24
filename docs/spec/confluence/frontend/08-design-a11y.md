@@ -23,6 +23,7 @@ Last reviewed: 2026-11-24
 - LCP < 2.5s on page view (warm cache) for a 1000-word page, TTI < 3.5s; route transitions < 300ms with skeletons; editor ready < 2s after route; tree of 10k nodes smooth (virtualized); search typeahead < 300ms server time; JS initial bundle budget `[ours]` < 300kB gz excluding editor chunk (lazy loaded); WASM core loaded lazily with streaming compile and cached.
 
 ## Frontend architecture constraints
+- **Base:** Atlaskit packages (Apache-2.0) for components, tokens, editor, renderer and ADF schema, per [ADR 0001](../../../decisions/0001-frontend-and-app-model.md). Our own component library below is only for gaps Atlaskit does not cover. If the ADR is rejected, fall back to the own-library plan in this file.
 - React + TypeScript + Vite; routing via a client router; data via typed client generated from our OpenAPI; server state cache (query library); editor in a separate lazy chunk; core WASM crates for CQL parse/validate, ADF validation/conversion, permission hints (UI affordance only; server authoritative).
 - No business logic divergence: any ADF/storage/CQL logic used in UI comes from the shared Rust core.
 - Error boundary per region; offline detection; feature flags per site setting for collaborative editing.

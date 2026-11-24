@@ -4,6 +4,7 @@ Last reviewed: 2026-11-24
 
 Highest-risk area; implement last, specified now so earlier choices do not block it.
 
+- **Open decision (ADR 0001):** Atlaskit's collab client uses its own protocol, not Yjs; choose between implementing that server protocol and a Yjs bridge before building.
 - **Model:** a collaborative session per draft document. CRDT = Yjs-compatible (`yrs`) over WebSocket (`/wiki/collab/{contentId}`), awareness for presence and selections. Document projected to/from ADF through a ProseMirror <-> Yjs binding using a schema generated from the ADF schema.
 - **Modes:** per-site/space setting "collaborative editing" on (default) or off (legacy: single editor with edit-lock/conflict warnings `[V]`). Both must work; legacy mode is needed for parity with reference settings.
 - **Lifecycle:** first editor opens draft -> session created from latest published body (or existing draft). Edits stream and persist (debounced snapshots + update log). Publish snapshots the CRDT doc to ADF, creates a version, and keeps the session open for continued editing as a new draft. Last editor leaves -> session closes after idle timeout, draft remains.

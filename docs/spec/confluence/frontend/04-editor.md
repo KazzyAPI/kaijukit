@@ -1,6 +1,6 @@
 # F04 Editor
 
-Last reviewed: 2026-11-24 · highest-risk surface. Document model: ADF ([../../../parity/confluence-adf.md](../../../parity/confluence-adf.md)); web editor on ProseMirror/Tiptap with a schema generated from the ADF JSON schema. `[V]` = verify by capture.
+Last reviewed: 2026-11-24 · highest-risk surface. Document model: ADF ([../../../parity/confluence-adf.md](../../../parity/confluence-adf.md)); web editor = Atlaskit editor + renderer ([ADR 0001](../../../decisions/0001-frontend-and-app-model.md)), which already implement most per-node behavior below. Fallback if the ADR is rejected: ProseMirror/Tiptap with a schema generated from the ADF JSON schema. The tables below remain the acceptance tests either way. `[V]` = verify by capture.
 
 ## Screen
 

@@ -25,7 +25,7 @@ These are release gates, not goals.
 | Errors | Same status codes and error JSON shapes per operation | OpenAPI `responses`; verify with conformance |
 | Rate limiting | Same headers/429 semantics (`Retry-After`) so clients back off correctly | **verify against reference** |
 | Webhooks / events | Event names and payloads for content/space/user events; delivery, retry and signature behavior | **TBD: capture from reference; do not guess** |
-| App model | Decide whether Connect/Forge-style app descriptors, dynamic modules (v1 "Dynamic modules") and app properties are supported; required for "integrated the same way" | **open decision** |
+| App model | REST/OAuth/webhooks now; Connect-compatible layer phase 2; Forge runtime out of scope; own extension model later ([ADR 0001](../decisions/0001-frontend-and-app-model.md)) | **decided (pending legal)** |
 | Search | CQL grammar and fields, `/search` and `/search/user` result shape, excerpts, highlighting | [../parity/query-parity.md](query-parity.md) (add CQL section) |
 
 ## Product areas

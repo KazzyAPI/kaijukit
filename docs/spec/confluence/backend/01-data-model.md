@@ -4,6 +4,8 @@ Last reviewed: 2026-11-24
 
 ## Entities
 
+The fields below are what the reference exposes on the wire. Internal table layout is our own design (see [ADR 0002](../../../decisions/0002-own-stack.md)); only wire shape is a parity concern.
+
 | Entity | Identity | Key fields |
 |---|---|---|
 | Space | numeric `id` (string in JSON), unique `key` | name, type (`global`,`personal`; others `[V]` e.g. knowledge base), status (`current`,`archived`), homepageId, description (plain+view), authorId, createdAt, currentActiveAlias, icon, labels, permissions, roles, settings, theme/look-and-feel |

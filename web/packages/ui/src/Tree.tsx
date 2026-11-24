@@ -4,6 +4,7 @@ import { Icon } from './Icon';
 export interface TreeItem {
   id: string;
   label: ReactNode;
+  icon?: ReactNode;
   level: number;
   /** undefined = leaf */
   expanded?: boolean;
@@ -86,14 +87,15 @@ export function Tree({ items, label, selectedId, onSelect, onToggle }: TreeProps
             <span
               className="kk-tree__chev"
               data-open={it.expanded || undefined}
-              style={{ visibility: it.expanded === undefined ? 'hidden' : undefined }}
               onClick={(e) => {
+                if (it.expanded === undefined) return;
                 e.stopPropagation();
                 onToggle(it.id, !it.expanded);
               }}
             >
-              <Icon name="chevronRight" size={14} />
+              {it.expanded === undefined ? <span className="kk-tree__dot" /> : <Icon name="chevronRight" size={14} />}
             </span>
+            {it.icon && <span className="kk-tree__icon">{it.icon}</span>}
             <span id={`${uid}-${it.id}`} className="kk-tree__label">{it.label}</span>
             {it.actions && (
               <span className="kk-tree__actions" onClick={(e) => e.stopPropagation()}>

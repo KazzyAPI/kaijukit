@@ -67,8 +67,9 @@ jobs:
       - run: docker compose -f deploy/docker-compose.yml up -d --build --wait
       - name: conformance (schema mode)
         run: |
-          cd conformance/runner && pnpm install --frozen-lockfile
-          pnpm run check --base http://localhost:8080 --mode schema
+          pnpm install --frozen-lockfile
+          pnpm --filter conformance-runner run check --base http://localhost:8080 --mode schema
+          pnpm --filter conformance-runner run check:inventory
       - name: playwright
         run: |
           cd web && pnpm install --frozen-lockfile

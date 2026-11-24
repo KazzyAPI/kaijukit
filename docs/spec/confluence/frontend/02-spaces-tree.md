@@ -6,6 +6,8 @@ Last reviewed: 2026-11-24
 
 Three regions below the top bar: **space sidebar** (resizable 240-420px `[V]`, collapsible with a toggle and keyboard `[`), **content area**, optional **right panel** (comments, page info, outline `[V]`). Sidebar structure (top->bottom): space header (icon, name, key menu: Overview, Settings via "..." `[V]`), quick links: **Overview** (homepage), **Blog**, **Whiteboards**, **Databases** `[V]`, **Calendars** `[V]`, custom shortcuts (admin-configurable links), **Pages** tree, **Archived pages** link, bottom: **Space settings** (permission-gated) and "Create" `+`.
 
+> **Status (web app, 2026-11-25):** the space block lives in the left nav panel: space avatar, name and menu; Shortcuts (empty, not built); Content with create and menu actions; search by title; page tree with content-type icons, chevrons or bullets, active-row bar, per-row create-child and menu (edit, copy link); a Create row; Blogs, Calendars and Space apps as empty states. Folder, whiteboard and database icons render from the `type` the API returns, but those types cannot be created yet. Not built: reorder, drag and drop, space settings, tree virtualization, archived pages link.
+
 ## Page tree
 
 - Nodes: any content type in the hierarchy with icon by type; expand/collapse chevron (lazy loads children via v2 children endpoint, paged with "load more"); current page highlighted and path auto-expanded; restricted pages show lock icon `[V]`; drafts hidden.

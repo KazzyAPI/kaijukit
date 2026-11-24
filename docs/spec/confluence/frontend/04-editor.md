@@ -2,6 +2,8 @@
 
 Last reviewed: 2026-11-24 · highest-risk surface. Document model: ADF ([../../../parity/confluence-adf.md](../../../parity/confluence-adf.md)); web editor = our `@kaijukit/editor` on ProseMirror/Tiptap with a schema generated from the ADF JSON schema ([ADR 0002](../../../decisions/0002-own-stack.md)). The tables below are its acceptance tests. `[V]` = verify by capture.
 
+> **Status (web app, 2026-11-25):** the editor opens inside the shell (left nav and page header bar stay) and its toolbar is a full-width band under the header that can be pinned or unpinned. Working: undo/redo, text style menu (paragraph, headings 1-6, quote, code block), bold, italic, more formatting menu (underline, strike, inline code, clear), lists menu (bulleted, numbered), link, table menu (insert, row and column edits), insert menu (divider, quote, code block, table), pin. Disabled with a "not built yet" tooltip: text color, highlight, alignment, action item, image, mention, emoji, layouts, and the panel, expand, status, date, decision insert items. These need Tiptap extensions not installed (new dependencies need sign-off) or backend pieces (media, users).
+
 ## Screen
 
 - Route `/wiki/spaces/{KEY}/pages/edit-v2/{id}` (and `create`). Top bar replaced by editor header: space + breadcrumb, **status of draft** ("Draft", "Saving...", "Saved", "Offline"), collaborator avatars, **Preview** `[V]`, **Close**/**Update**/**Publish** buttons, "..." menu (Page settings: restrictions, labels, properties, "Discard changes", "Page history", "Move", "Copy link", Full width toggle, "Edit page appearance" `[V]`).

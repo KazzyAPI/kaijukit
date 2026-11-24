@@ -16,6 +16,7 @@ export async function createSpace(page: Page, name: string) {
   await page.goto('/wiki/spaces');
   await page.getByRole('button', { name: 'Create space' }).first().click();
   await page.getByLabel('Space name').fill(name);
+  await page.getByLabel('Space key').fill(uniqueKey());
   await page.getByRole('dialog').getByRole('button', { name: 'Create' }).click();
   await expect(page).toHaveURL(/\/overview$/);
   return page.url().match(/spaces\/([^/]+)\//)![1]!;

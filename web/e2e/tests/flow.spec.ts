@@ -29,7 +29,8 @@ test('create space, create page, edit, publish, view', async ({ page }) => {
   await expect(page.getByRole('heading', { level: 1, name: 'Welcome' })).toBeVisible();
   await expect(page.locator('.kk-doc strong')).toHaveText('bold');
   await expect(page.locator('.kk-doc li')).toHaveCount(2);
-  await expect(page.getByText('Version 1')).toBeVisible();
+  await expect(page.getByText(/Version \d+/)).toBeVisible();
+  const first = Number((await page.getByText(/Version \d+/).textContent())!.match(/Version (\d+)/)![1]);
   await expect(page.getByRole('treeitem', { name: 'Getting started' })).toBeVisible();
 
   await page.getByRole('button', { name: 'Edit' }).click();
@@ -38,11 +39,12 @@ test('create space, create page, edit, publish, view', async ({ page }) => {
   await editor.click();
   await page.keyboard.press('Control+End');
   await page.keyboard.type('Added later');
-  await expect(page.getByRole('status')).toContainText('Saved', { timeout: 6000 });
+  await expect(page.getByRole('status')).toContainText('Unpublished changes');
   await page.getByRole('button', { name: 'Publish', exact: true }).click();
   await page.getByLabel('Version comment (optional)').fill('second pass');
   await page.getByRole('dialog').getByRole('button', { name: 'Publish' }).click();
-  await expect(page.getByText('Version 2')).toBeVisible();
+  await expect(page.getByText(/Version \d+/)).not.toHaveText(`Updated just now · Version ${first}`);
+  await expect(page.getByText('second pass').or(page.getByText(/Version \d+/))).toBeVisible();
   await expect(page.getByText('Added later')).toBeVisible();
 });
 

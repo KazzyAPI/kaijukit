@@ -1,6 +1,6 @@
 import { Avatar, IconButton, Icon, Skeleton, Button } from '@kaijukit/ui';
 import { useCallback, useEffect, useState, type KeyboardEvent, type PointerEvent } from 'react';
-import { Link, NavLink, Outlet, useMatch, useNavigate, useParams } from 'react-router-dom';
+import { Link, NavLink, Outlet, useLocation, useMatch, useNavigate, useParams } from 'react-router-dom';
 import { useSpace } from '../hooks';
 import { PageTree } from '../PageTree';
 import { getJson, store } from '../storage';
@@ -17,8 +17,15 @@ export function SpaceShell() {
   const currentId = (useMatch('/wiki/spaces/:key/pages/:id/*')?.params.id ?? undefined) as string | undefined;
   const [width, setWidth] = useState(() => clamp(getJson('kk.sidebar.w', 280)));
   const [open, setOpen] = useState(() => getJson('kk.sidebar.open', true) && window.matchMedia('(min-width: 768px)').matches);
+  const { pathname } = useLocation();
+  // On narrow screens the sidebar is an overlay: leave it once a destination is chosen.
+  useEffect(() => {
+    if (!window.matchMedia('(min-width: 768px)').matches) setOpen(false);
+  }, [pathname]);
   useEffect(() => store.set('kk.sidebar.w', String(width)), [width]);
-  useEffect(() => store.set('kk.sidebar.open', String(open)), [open]);
+  useEffect(() => {
+    if (window.matchMedia('(min-width: 768px)').matches) store.set('kk.sidebar.open', String(open));
+  }, [open]);
 
   const drag = useCallback((e: PointerEvent<HTMLDivElement>) => {
     const el = e.currentTarget;
@@ -89,8 +96,8 @@ export function SpaceShell() {
       <div className="kk-shell__main">
         {!open && (
           <div className="kk-shell__reopen">
-            <Button onClick={() => setOpen(true)} aria-label="Show sidebar">
-              <Icon name="panel" /> Pages
+            <Button onClick={() => setOpen(true)}>
+              <Icon name="panel" /> Show sidebar
             </Button>
           </div>
         )}

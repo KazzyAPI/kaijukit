@@ -46,7 +46,7 @@ export function Login() {
         <TextField label="Email" type="email" autoComplete="username" required autoFocus value={email} onChange={(e) => setEmail(e.target.value)} />
         <TextField label="API token" type="password" autoComplete="current-password" required value={token} onChange={(e) => setToken(e.target.value)} />
         {error && (
-          <div className="kk-login__error" role="alert">
+          <div className="kk-error-box" role="alert">
             {error}
           </div>
         )}

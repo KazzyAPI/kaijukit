@@ -1,6 +1,6 @@
 import { defineConfig } from '@playwright/test';
 
-const external = process.env.E2E_BASE_URL;
+const external = process.env.E2E_BASE_URL || undefined;
 
 export default defineConfig({
   testDir: 'tests',

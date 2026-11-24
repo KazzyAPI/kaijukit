@@ -36,7 +36,7 @@ function Node({ node: n }: { node: AdfNode }): ReactNode {
     case 'bulletList': return <ul>{kids(n)}</ul>;
     case 'orderedList': return <ol start={typeof a.order === 'number' ? a.order : undefined}>{kids(n)}</ol>;
     case 'listItem': return <li>{kids(n)}</li>;
-    case 'codeBlock': return <pre data-language={a.language as string | undefined}><code>{kids(n)}</code></pre>;
+    case 'codeBlock': return <pre tabIndex={0} data-language={a.language as string | undefined}><code>{kids(n)}</code></pre>;
     case 'blockquote': return <blockquote>{kids(n)}</blockquote>;
     case 'rule': return <hr />;
     case 'hardBreak': return <br />;

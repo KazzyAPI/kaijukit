@@ -89,7 +89,7 @@ const GROUPS: ToolItem[][] = [
     { key: 'undo', label: 'Undo', icon: 'undo', run: (e) => e.chain().focus().undo().run(), can: (e) => e.can().undo() },
     { key: 'redo', label: 'Redo', icon: 'redo', run: (e) => e.chain().focus().redo().run(), can: (e) => e.can().redo() },
   ],
-  [1, 2, 3].map((level) => ({ key: `h${level}`, label: `Heading ${level}`, text: `H${level}`, active: (e: TiptapEditor) => e.isActive('heading', { level }), run: (e: TiptapEditor) => e.chain().focus().toggleHeading({ level: level as 1 }).run() })),
+  [1, 2, 3].map((level) => ({ key: `h${level}`, label: `H${level} heading`, text: `H${level}`, active: (e: TiptapEditor) => e.isActive('heading', { level }), run: (e: TiptapEditor) => e.chain().focus().toggleHeading({ level: level as 1 }).run() })),
   [
     { key: 'bold', label: 'Bold', icon: 'bold', ...toggle('bold'), run: (e) => e.chain().focus().toggleBold().run() },
     { key: 'italic', label: 'Italic', icon: 'italic', ...toggle('italic'), run: (e) => e.chain().focus().toggleItalic().run() },
@@ -107,10 +107,10 @@ const GROUPS: ToolItem[][] = [
   ],
 ];
 const TABLE_TOOLS: ToolItem[] = [
-  { key: 'addRow', label: 'Add row below', text: '+ Row', run: (e) => e.chain().focus().addRowAfter().run() },
-  { key: 'addCol', label: 'Add column right', text: '+ Col', run: (e) => e.chain().focus().addColumnAfter().run() },
-  { key: 'delRow', label: 'Delete row', text: '- Row', run: (e) => e.chain().focus().deleteRow().run() },
-  { key: 'delCol', label: 'Delete column', text: '- Col', run: (e) => e.chain().focus().deleteColumn().run() },
+  { key: 'addRow', label: 'Add row below', text: 'Add row', run: (e) => e.chain().focus().addRowAfter().run() },
+  { key: 'addCol', label: 'Add column right', text: 'Add column', run: (e) => e.chain().focus().addColumnAfter().run() },
+  { key: 'delRow', label: 'Delete row', text: 'Delete row', run: (e) => e.chain().focus().deleteRow().run() },
+  { key: 'delCol', label: 'Delete column', text: 'Delete column', run: (e) => e.chain().focus().deleteColumn().run() },
   { key: 'delTable', label: 'Delete table', icon: 'trash', run: (e) => e.chain().focus().deleteTable().run() },
 ];
 
@@ -154,7 +154,7 @@ function Toolbar({ editor, onLink }: { editor: TiptapEditor; onLink: () => void 
                   onClick={() => t.run(editor)}
                   onFocus={(e) => setTab(Number(e.currentTarget.dataset.idx))}
                 >
-                  {t.icon ? <Icon name={t.icon} /> : t.text}
+                  {t.icon ? <Icon name={t.icon} /> : <span aria-hidden="true">{t.text}</span>}
                 </Button>
               </Tooltip>
             );
@@ -272,7 +272,10 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor({ va
   });
   editorRef.current = editor;
 
-  useImperativeHandle(ref, () => ({ focus: () => editor?.commands.focus('start') }), [editor]);
+  useImperativeHandle(ref, () => ({ focus: () => {
+      editor?.view.dom.focus();
+      editor?.commands.setTextSelection(1);
+    } }), [editor]);
 
   useEffect(() => {
     const dom = editor?.view.dom;
@@ -309,7 +312,7 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor({ va
         <EditorContent editor={editor} />
       </div>
       {slash && (
-        <ul id="kk-slash" role="listbox" aria-label="Insert" className="kk-slash" style={{ left: slash.left, top: slash.top }} onMouseDown={(e) => e.preventDefault()}>
+        <ul id="kk-slash" role="listbox" tabIndex={0} aria-label="Insert" className="kk-slash" style={{ left: slash.left, top: slash.top }} onMouseDown={(e) => e.preventDefault()}>
           {matches.length === 0 && <li className="kk-slash__empty" role="presentation">No matching items</li>}
           {matches.map((c, i) => (
             <li key={c.id} id={`kk-slash-${c.id}`} role="option" aria-selected={i === index} className="kk-slash__item" onMouseEnter={() => { indexRef.current = i; setIndex(i); }} onClick={() => runCommand(c)}>

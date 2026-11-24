@@ -3,7 +3,7 @@ import type { SVGProps } from 'react';
 const paths = {
   chevronRight: 'M9 6l6 6-6 6',
   plus: 'M12 5v14M5 12h14',
-  more: 'M5 12h.01M12 12h.01M19 12h.01',
+  more: 'M4 12a1 1 0 102 0 1 1 0 10-2 0M11 12a1 1 0 102 0 1 1 0 10-2 0M18 12a1 1 0 102 0 1 1 0 10-2 0',
   close: 'M6 6l12 12M18 6L6 18',
   check: 'M5 12.5l4.5 4.5L19 7.5',
   page: 'M7 3h7l5 5v13H7zM14 3v5h5',

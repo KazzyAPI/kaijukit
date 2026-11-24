@@ -19,7 +19,7 @@ export function TopBar() {
 
   return (
     <header className="kk-topbar">
-      <Link to="/wiki/home" className="kk-topbar__logo">
+      <Link to="/wiki/home" className="kk-topbar__logo" aria-label="kaijukit home">
         <svg width="24" height="24" viewBox="0 0 32 32" aria-hidden="true">
           <rect width="32" height="32" rx="7" fill="currentColor" />
           <path d="M9 22V10m0 7l8-7m-8 7l8 5" stroke="var(--kk-bg)" strokeWidth="3" fill="none" strokeLinecap="round" />

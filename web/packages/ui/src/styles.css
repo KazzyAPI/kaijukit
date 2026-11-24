@@ -110,7 +110,7 @@ textarea.kk-input { resize: vertical; }
 
 .kk-breadcrumbs ol { display: flex; flex-wrap: wrap; align-items: center; gap: var(--kk-space-1); margin: 0; padding: 0; list-style: none; font-size: 12px; color: var(--kk-text-subtle); }
 .kk-breadcrumbs li { display: inline-flex; align-items: center; gap: var(--kk-space-1); min-width: 0; }
-.kk-breadcrumbs li + li::before { content: '/'; color: var(--kk-text-subtle); }
+.kk-breadcrumbs li:not(:last-child)::after { content: '/'; margin-left: var(--kk-space-1); color: var(--kk-text-subtle); }
 .kk-breadcrumbs a { color: var(--kk-text-subtle); text-decoration: none; max-width: 24ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .kk-breadcrumbs a:hover { text-decoration: underline; color: var(--kk-text); }
 .kk-breadcrumbs [aria-current='page'] { color: var(--kk-text); max-width: 32ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

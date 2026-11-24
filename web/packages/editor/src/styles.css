@@ -23,7 +23,7 @@
 .kk-editor:focus-within { border-color: var(--kk-focus); }
 .kk-toolbar { position: sticky; top: 0; z-index: 5; display: flex; flex-wrap: wrap; align-items: center; gap: 2px; padding: var(--kk-space-1) var(--kk-space-2); background: var(--kk-surface); border-bottom: 1px solid var(--kk-border); border-radius: var(--kk-radius-lg) var(--kk-radius-lg) 0 0; }
 .kk-toolbar__sep { width: 1px; height: 20px; margin: 0 var(--kk-space-1); background: var(--kk-border); }
-.kk-toolbar .kk-btn { min-height: 32px; min-width: 32px; font-size: 13px; }
+.kk-toolbar .kk-btn { min-height: 32px; min-width: 30px; padding: 0 5px; font-size: 13px; }
 .kk-editor__content { padding: var(--kk-space-4) var(--kk-space-5); min-height: 320px; cursor: text; }
 .kk-editor__content .ProseMirror { outline: none; min-height: 288px; }
 .kk-editor__content .ProseMirror p.is-editor-empty:first-child::before { content: attr(data-placeholder); float: left; height: 0; pointer-events: none; color: var(--kk-text-subtle); }

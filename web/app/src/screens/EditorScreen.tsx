@@ -12,13 +12,14 @@ import { ErrorPanel } from './Errors';
 
 const SAVE_DELAY = 1500;
 
-type SaveState = 'idle' | 'saving' | 'saved' | 'error' | 'offline';
+type SaveState = 'idle' | 'saving' | 'saved' | 'error' | 'offline' | 'unsaved';
 const CHIP: Record<SaveState, [string, 'default' | 'info' | 'success' | 'danger' | 'warning']> = {
   idle: ['Draft', 'default'],
   saving: ['Saving...', 'info'],
   saved: ['Saved', 'success'],
   error: ['Not saved', 'danger'],
   offline: ['Offline', 'warning'],
+  unsaved: ['Unpublished changes', 'warning'],
 };
 
 export function CreateRoute() {
@@ -76,42 +77,65 @@ function EditorScreen({ space, page }: { space: Space; page: Page }) {
   const [dirty, setDirty] = useState(false);
   const [publishOpen, setPublishOpen] = useState(false);
   const [discardOpen, setDiscardOpen] = useState(false);
+  const [leaveOpen, setLeaveOpen] = useState(false);
   const [message, setMessage] = useState('');
   const editor = useRef<EditorHandle>(null);
   const titleEl = useRef<HTMLTextAreaElement>(null);
   const latest = useRef({ title: page.title, body: JSON.stringify(doc) });
   const rev = useRef(0);
   const savedRev = useRef(0);
-  const draftVersion = useRef(page.version.number);
+  const autosave = page.status === 'draft';
+  const baseVersion = useRef(page.version.number);
   const timer = useRef<ReturnType<typeof setTimeout>>();
   const chain = useRef<Promise<void>>(Promise.resolve());
+
+  // The server appends a version on every PUT, so the next number is always the last returned one + 1.
+  // A 409 means someone else wrote in between: adopt the server's number once and retry.
+  const put = useCallback(
+    async (status: 'draft' | 'current', title: string, body: string, message?: string) => {
+      const send = () => savePage({ id: page.id, status, title, body, version: baseVersion.current + 1, message });
+      let p: Page;
+      try {
+        p = await send();
+      } catch (e) {
+        if (!(e instanceof ApiError && e.status === 409)) throw e;
+        baseVersion.current = (await getPage(page.id, true)).version.number;
+        p = await send();
+      }
+      baseVersion.current = p.version.number;
+      return p;
+    },
+    [page.id],
+  );
 
   const flush = useCallback((): Promise<void> => {
     clearTimeout(timer.current);
     chain.current = chain.current.then(async () => {
-      if (rev.current === savedRev.current) return;
+      if (!autosave || rev.current === savedRev.current) return;
       const at = rev.current;
       setState('saving');
       try {
-        const p = await savePage({ id: page.id, status: 'draft', title: latest.current.title, body: latest.current.body, version: draftVersion.current });
-        draftVersion.current = p.version.number;
+        await put('draft', latest.current.title, latest.current.body);
         savedRev.current = at;
         setState(navigator.onLine ? 'saved' : 'offline');
         setDirty(rev.current !== savedRev.current);
-      } catch {
+      } catch (e) {
+        if (e instanceof ApiError && e.status === 409) toast({ title: 'This page changed elsewhere', description: 'Your draft could not be saved. Copy your text, reload, and reapply it.', appearance: 'error' });
         setState(navigator.onLine ? 'error' : 'offline');
       }
     });
     return chain.current;
-  }, [page.id]);
+  }, [put, toast, autosave]);
 
   const changed = useCallback(() => {
     rev.current++;
     setDirty(true);
-    setState('idle');
     clearTimeout(timer.current);
+    // The server cannot hold a draft of an already published page, so those edits stay local until Publish.
+    if (!autosave) return setState('unsaved');
+    setState('idle');
     timer.current = setTimeout(() => void flush(), SAVE_DELAY);
-  }, [flush]);
+  }, [flush, autosave]);
 
   useEffect(() => () => clearTimeout(timer.current), []);
   useEffect(() => {
@@ -147,9 +171,7 @@ function EditorScreen({ space, page }: { space: Space; page: Page }) {
     mutationFn: async () => {
       clearTimeout(timer.current);
       await chain.current;
-      const live = await getPage(page.id, false).catch(() => null);
-      const version = live?.status === 'current' ? live.version.number + 1 : draftVersion.current;
-      return savePage({ id: page.id, status: 'current', title: latest.current.title.trim(), body: latest.current.body, version, message: message.trim() || undefined });
+      return put('current', latest.current.title.trim(), latest.current.body, message.trim() || undefined);
     },
     onSuccess: (p) => {
       savedRev.current = rev.current;
@@ -174,7 +196,8 @@ function EditorScreen({ space, page }: { space: Space; page: Page }) {
     onError: (e) => toast({ title: "Couldn't discard the draft", description: e.message, appearance: 'error' }),
   });
 
-  const close = async () => {
+  const close = async (force = false) => {
+    if (!autosave && dirty && !force) return setLeaveOpen(true);
     await flush();
     done();
     navigate(page.status === 'draft' && page.version.number === 1 ? pageUrl(space.key, page.id, latest.current.title) : pageUrl(space.key, page.id, page.title));
@@ -192,9 +215,11 @@ function EditorScreen({ space, page }: { space: Space; page: Page }) {
         </span>
         <span className="kk-edit__spacer" />
         <Button onClick={() => void close()}>Close</Button>
+        {autosave && (
         <Menu label="Page options" align="end" renderTrigger={(t) => <IconButton label="Page options" icon={<Icon name="more" />} {...t} />}>
           <MenuItem danger onSelect={() => setDiscardOpen(true)}>Discard draft</MenuItem>
         </Menu>
+        )}
         <Button appearance="primary" disabled={!canPublish} onClick={() => { publish.reset(); setPublishOpen(true); }}>
           Publish
         </Button>
@@ -247,7 +272,29 @@ function EditorScreen({ space, page }: { space: Space; page: Page }) {
           </>
         }
       >
-        <TextArea label="Version comment (optional)" rows={3} value={message} onChange={(e) => setMessage(e.target.value)} autoFocus error={publish.error?.message} />
+        <TextArea label="Version comment (optional)" rows={3} value={message} onChange={(e) => setMessage(e.target.value)} autoFocus />
+        {publish.error && <div className="kk-error-box" role="alert">{publish.error.message}</div>}
+      </Dialog>
+      <Dialog
+        open={leaveOpen}
+        onClose={() => setLeaveOpen(false)}
+        title="Leave without publishing?"
+        footer={
+          <>
+            <Button onClick={() => setLeaveOpen(false)}>Keep editing</Button>
+            <Button
+              appearance="danger"
+              onClick={() => {
+                savedRev.current = rev.current;
+                void close(true);
+              }}
+            >
+              Leave
+            </Button>
+          </>
+        }
+      >
+        <p style={{ margin: 0 }}>Your changes to this published page are not saved until you publish them.</p>
       </Dialog>
       <Dialog
         open={discardOpen}

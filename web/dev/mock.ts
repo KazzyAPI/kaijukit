@@ -151,19 +151,16 @@ function route(method: string, path: string, q: URLSearchParams, body: Record<st
       return [204];
     }
     const next = body.version?.number as number;
-    if (body.status === 'draft') {
-      if (p.status === 'draft') Object.assign(p, { title: body.title, body: body.body.value });
-      else p.draft = { title: body.title, body: body.body.value };
-      return [200, pageJson(p, true)];
-    }
-    const expected = p.status === 'draft' ? p.version.number : p.version.number + 1;
-    if (next !== expected) throw new HttpError(409, `Version must be ${expected}.`);
-    checkTitle(p.spaceId, body.title, p.id);
+    const expected = p.version.number + 1;
+    if (next !== expected) throw new HttpError(409, `version.number must be ${expected}, got ${next}`);
+    const draft = body.status === 'draft';
+    if (draft && p.status === 'current') throw new HttpError(400, 'a published page cannot become a draft');
+    if (!draft) checkTitle(p.spaceId, body.title, p.id);
     const v = { number: next, message: body.version?.message ?? '', createdAt: now(), authorId: USER.id, minorEdit: false };
-    Object.assign(p, { status: 'current', title: body.title, body: body.body.value, version: v });
+    p.version = v;
     p.history.push(v);
-    delete p.draft;
-    return [200, pageJson(p, false)];
+    Object.assign(p, { status: draft ? 'draft' : 'current', title: body.title, body: body.body.value });
+    return [200, pageJson(p, draft)];
   }
   if ((m = path.match(/^\/pages\/(\d+)\/(direct-children|children)$/)) && method === 'GET') {
     const kids = pages.filter((p) => p.parentId === getPage(m![1]).id && live(p)).sort(byPos);
@@ -202,6 +199,11 @@ export function mockApi(): Plugin {
       server.middlewares.use(async (req, res, next) => {
         const url = new URL(req.url ?? '/', 'http://x');
         if (!url.pathname.startsWith(BASE + '/')) return next();
+        if (url.pathname === BASE + '/__reset') {
+          spaces.length = 0;
+          pages.length = 0;
+          return send(res, 204);
+        }
         const fail = (status: number, detail: string) => send(res, status, { errors: [{ status, code: status === 401 ? 'UNAUTHORIZED' : 'ERROR', title: detail, detail }] });
         const auth = req.headers.authorization ?? '';
         const [email, token] = Buffer.from(auth.replace(/^Basic /, ''), 'base64').toString().split(':');

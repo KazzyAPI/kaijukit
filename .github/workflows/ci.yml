@@ -17,6 +17,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: ./scripts/check-naming.sh
+      - run: python3 -I scripts/parity_summary.py --check
       - name: inventories match pinned specs
         run: |
           curl -fsSL https://dac-static.atlassian.com/cloud/confluence/swagger.v3.json -o /tmp/v1.json

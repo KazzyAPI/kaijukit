@@ -131,9 +131,16 @@ function route(method: string, path: string, q: URLSearchParams, body: Record<st
   }
   if (path === '/pages' && method === 'GET') {
     const ids = q.getAll('id');
-    const list = pages.filter((p) => live(p) && (!ids.length || ids.includes(p.id)));
+    const spaceIds = q.getAll('space-id');
+    const title = q.get('title');
+    const list = pages.filter((p) => live(p) && (!ids.length || ids.includes(p.id)) && (!spaceIds.length || spaceIds.includes(p.spaceId)) && (title === null || p.title === title));
     if (q.get('sort') === '-modified-date') list.sort((a, b) => b.version.createdAt.localeCompare(a.version.createdAt));
     return [200, paged(list.map(bulk), q, path)];
+  }
+  if (path === '/users-bulk' && method === 'POST') {
+    const ids: string[] = Array.isArray(body.accountIds) ? body.accountIds : [];
+    if (!ids.length) throw new HttpError(400, 'accountIds is required.');
+    return [200, { results: ids.filter((i) => i === USER.id).map((i) => ({ accountId: i, accountType: 'standard', email: USER.email, publicName: 'Admin', displayName: 'Ada Admin' })), _links: { base: '/wiki' } }];
   }
   if (path === '/pages' && method === 'POST') {
     const status = body.status === 'draft' ? 'draft' : 'current';

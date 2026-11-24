@@ -1,11 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { pageUrl, relativeTime, slugify, suggestKey } from './format';
+import { pageUrl, readingMinutes, relativeTime, slugify, suggestKey } from './format';
 
 describe('format', () => {
   it('slugifies titles and builds page urls', () => {
     expect(slugify('Hello, World! 2')).toBe('hello-world-2');
     expect(pageUrl('DOC', '12', 'Hello World')).toBe('/wiki/spaces/DOC/pages/12/hello-world');
     expect(pageUrl('DOC', '12', '')).toBe('/wiki/spaces/DOC/pages/12');
+  });
+  it('rounds reading time up to at least a minute', () => {
+    expect([0, 200, 201, 650].map(readingMinutes)).toEqual([1, 1, 2, 4]);
   });
   it('suggests a key and formats relative time', () => {
     expect(suggestKey('My team space!')).toBe('MYTEAMSP');

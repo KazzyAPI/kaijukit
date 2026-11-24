@@ -1,13 +1,14 @@
-import { Breadcrumbs, Button, Dialog, Icon, IconButton, Lozenge, Menu, MenuItem, Skeleton, TextArea, useToast } from '@kaijukit/ui';
+import { Button, Dialog, Icon, IconButton, Lozenge, Menu, MenuItem, Skeleton, TextArea, useToast } from '@kaijukit/ui';
 import { emptyDoc, parseAdf, unsupportedTypes, type AdfDoc } from '@kaijukit/editor/adf';
 import { Editor, type EditorHandle } from '@kaijukit/editor';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { useNavigate, useOutletContext, useParams, useSearchParams } from 'react-router-dom';
 import { ApiError, createDraft, deletePage, getPage, savePage, type Page, type Space } from '../api';
 import { pageUrl } from '../format';
-import { useSpace } from '../hooks';
+import { PageHeaderBar } from '../PageHeader';
 import { QueryState } from '../QueryState';
+import { getJson, store } from '../storage';
 import { ErrorPanel } from './Errors';
 
 const SAVE_DELAY = 1500;
@@ -23,18 +24,16 @@ const CHIP: Record<SaveState, [string, 'default' | 'info' | 'success' | 'danger'
 };
 
 export function CreateRoute() {
-  const { key } = useParams();
   const [params] = useSearchParams();
-  const space = useSpace(key);
+  const s = useOutletContext<Space>();
   const navigate = useNavigate();
   const started = useRef(false);
   const [error, setError] = useState<unknown>(null);
   const [attempt, setAttempt] = useState(0);
   const parent = params.get('parentPageId');
-  const s = space.data;
 
   useEffect(() => {
-    if (!s || started.current) return;
+    if (started.current) return;
     started.current = true;
     createDraft(s.id, parent ?? s.homepageId, JSON.stringify(emptyDoc()))
       .then((p) => navigate(`/wiki/spaces/${s.key}/pages/edit-v2/${p.id}`, { replace: true }))
@@ -44,25 +43,18 @@ export function CreateRoute() {
       });
   }, [s, parent, navigate, attempt]);
 
-  if (space.isError) return <div className="kk-container"><ErrorPanel error={space.error} onRetry={() => void space.refetch()} /></div>;
   if (error) return <div className="kk-container"><ErrorPanel error={error} onRetry={() => { setError(null); setAttempt((a) => a + 1); }} /></div>;
   return <div className="kk-container" aria-busy="true"><Skeleton height={36} width="50%" /><Skeleton height={200} style={{ marginTop: 16 }} /></div>;
 }
 
 export function EditorRoute() {
-  const { key, id } = useParams();
-  const space = useSpace(key);
+  const { id } = useParams();
+  const space = useOutletContext<Space>();
   const page = useQuery({ queryKey: ['page', id, 'draft'], queryFn: () => getPage(id!, true), staleTime: 0, gcTime: 0, refetchOnWindowFocus: false });
   return (
-    <div className="kk-edit">
-      <QueryState query={space} skeleton={<Skeleton height={48} />}>
-        {(s) => (
-          <QueryState query={page} skeleton={<div className="kk-edit__col"><Skeleton height={40} width="60%" /><Skeleton height={300} style={{ marginTop: 16 }} /></div>}>
-            {(p) => (p.spaceId !== s.id ? <ErrorPanel error={new ApiError(404, '')} /> : <EditorScreen key={p.id} space={s} page={p} />)}
-          </QueryState>
-        )}
-      </QueryState>
-    </div>
+    <QueryState query={page} skeleton={<div className="kk-canvas"><Skeleton height={40} width="60%" /><Skeleton height={300} style={{ marginTop: 16 }} /></div>}>
+      {(p) => (p.spaceId !== space.id ? <ErrorPanel error={new ApiError(404, '')} /> : <EditorScreen key={p.id} space={space} page={p} />)}
+    </QueryState>
   );
 }
 
@@ -79,6 +71,8 @@ function EditorScreen({ space, page }: { space: Space; page: Page }) {
   const [discardOpen, setDiscardOpen] = useState(false);
   const [leaveOpen, setLeaveOpen] = useState(false);
   const [message, setMessage] = useState('');
+  const [toolbarHost, setToolbarHost] = useState<HTMLElement | null>(null);
+  const [pinned, setPinned] = useState(() => getJson('kk.toolbar.pinned', true));
   const editor = useRef<EditorHandle>(null);
   const titleEl = useRef<HTMLTextAreaElement>(null);
   const latest = useRef({ title: page.title, body: JSON.stringify(doc) });
@@ -207,27 +201,26 @@ function EditorScreen({ space, page }: { space: Space; page: Page }) {
   const canPublish = title.trim().length > 0 && (dirty || page.status === 'draft' || state !== 'idle');
 
   return (
-    <>
-      <header className="kk-edit__head">
-        <Breadcrumbs items={[{ label: space.name, href: `/wiki/spaces/${space.key}/overview` }, { label: title.trim() || 'New page' }]} renderLink={({ href, children }) => <Link to={href}>{children}</Link>} />
+    <div className="kk-pane">
+      <PageHeaderBar type="page" crumbs={[{ label: space.name, href: `/wiki/spaces/${space.key}/overview` }, { label: title.trim() || 'New page' }]}>
         <span role="status" aria-live="polite" className="kk-edit__chip">
           <Lozenge appearance={chipTone}>{chipText}</Lozenge>
         </span>
-        <span className="kk-edit__spacer" />
         <Button onClick={() => void close()}>Close</Button>
         {autosave && (
-        <Menu label="Page options" align="end" renderTrigger={(t) => <IconButton label="Page options" icon={<Icon name="more" />} {...t} />}>
-          <MenuItem danger onSelect={() => setDiscardOpen(true)}>Discard draft</MenuItem>
-        </Menu>
+          <Menu label="Page options" align="end" renderTrigger={(t) => <IconButton label="Page options" icon={<Icon name="more" />} {...t} />}>
+            <MenuItem danger onSelect={() => setDiscardOpen(true)}>Discard draft</MenuItem>
+          </Menu>
         )}
         <Button appearance="primary" disabled={!canPublish} onClick={() => { publish.reset(); setPublishOpen(true); }}>
           Publish
         </Button>
-      </header>
-      <main className="kk-edit__col" id="main">
+      </PageHeaderBar>
+      <div ref={setToolbarHost} className="kk-toolbarhost" data-pinned={pinned} />
+      <div className="kk-canvas">
         <textarea
           ref={titleEl}
-          className="kk-edit__title"
+          className="kk-canvas__title kk-canvas__title--input"
           aria-label="Title"
           placeholder="Give this page a title"
           rows={1}
@@ -254,12 +247,18 @@ function EditorScreen({ space, page }: { space: Space; page: Page }) {
         <Editor
           ref={editor}
           value={doc}
+          toolbarHost={toolbarHost}
+          pinned={pinned}
+          onPinnedChange={(v) => {
+            setPinned(v);
+            store.set('kk.toolbar.pinned', String(v));
+          }}
           onChange={(d) => {
             latest.current.body = JSON.stringify(d);
             changed();
           }}
         />
-      </main>
+      </div>
       <Dialog
         open={publishOpen}
         onClose={() => setPublishOpen(false)}
@@ -309,6 +308,6 @@ function EditorScreen({ space, page }: { space: Space; page: Page }) {
       >
         <p style={{ margin: 0 }}>Unpublished changes will be lost.</p>
       </Dialog>
-    </>
+    </div>
   );
 }

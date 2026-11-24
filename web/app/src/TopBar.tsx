@@ -1,24 +1,89 @@
-import { Avatar, Button, Icon, Menu, MenuItem, MenuLabel, MenuSeparator } from '@kaijukit/ui';
-import { useQuery } from '@tanstack/react-query';
-import { useState } from 'react';
+import { Avatar, Button, Dialog, Icon, IconButton, Menu, MenuItem, MenuLabel, MenuSeparator } from '@kaijukit/ui';
+import { useEffect, useState } from 'react';
 import { Link, useMatch, useNavigate } from 'react-router-dom';
-import { listSpaces } from './api';
 import { useAuth } from './auth';
-import { CreateSpaceDialog } from './CreateSpaceDialog';
 import { CreatePageDialog } from './CreatePageDialog';
+import { CreateSpaceDialog } from './CreateSpaceDialog';
+import { QuickSearch } from './QuickSearch';
+import { store } from './storage';
 import { useTheme } from './theme';
 
-export function TopBar() {
+const SHORTCUTS: [string, string][] = [
+  ['/', 'Search page titles'],
+  ['/ in the editor', 'Open the insert menu'],
+  ['Ctrl/Cmd + K', 'Add a link in the editor'],
+  ['Ctrl/Cmd + B, I', 'Bold, italic'],
+  ['Ctrl/Cmd + Z', 'Undo'],
+];
+
+// The only notification today is a local welcome note; the badge clears once the list is opened.
+function Notifications() {
+  const [read, setRead] = useState(() => store.get('kk.notif.read') === '1');
+  return (
+    <Menu
+      label="Notifications"
+      align="end"
+      renderTrigger={(p) => (
+        <IconButton
+          label={read ? 'Notifications' : 'Notifications, 1 unread'}
+          icon={
+            <span className="kk-badged">
+              <Icon name="bell" />
+              {!read && <span className="kk-badge" aria-hidden="true">1</span>}
+            </span>
+          }
+          {...p}
+          onClick={() => {
+            p.onClick();
+            setRead(true);
+            store.set('kk.notif.read', '1');
+          }}
+        />
+      )}
+    >
+      <MenuLabel>Notifications</MenuLabel>
+      <MenuItem onSelect={() => undefined}>Notifications aren't connected yet. Mentions and page updates will show up here once they are.</MenuItem>
+      <MenuSeparator />
+      <MenuItem disabled title="Not built yet" onSelect={() => undefined}>Notification settings</MenuItem>
+    </Menu>
+  );
+}
+
+export function TopBar({ navOpen, onToggleNav }: { navOpen: boolean; onToggleNav: () => void }) {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [theme, setTheme] = useTheme();
   const [spaceDialog, setSpaceDialog] = useState(false);
   const [pageDialog, setPageDialog] = useState(false);
-  const spaces = useQuery({ queryKey: ['spaces', 'current'], queryFn: () => listSpaces() });
+  const [search, setSearch] = useState(false);
+  const [keys, setKeys] = useState(false);
   const inSpace = useMatch('/wiki/spaces/:key/*')?.params.key;
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const t = e.target as HTMLElement;
+      if (e.key === '/' && !e.ctrlKey && !e.metaKey && !t.closest('input, textarea, select, [contenteditable="true"], dialog')) {
+        e.preventDefault();
+        setSearch(true);
+      }
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, []);
 
   return (
     <header className="kk-topbar">
+      <IconButton label={navOpen ? 'Collapse sidebar' : 'Show sidebar'} icon={<Icon name="panel" />} aria-expanded={navOpen} onClick={onToggleNav} />
+      <span className="kk-topbar__switcher">
+        <Menu label="Apps" renderTrigger={(p) => <IconButton label="Switch app" icon={<Icon name="grid" />} {...p} />}>
+          <MenuLabel>Apps</MenuLabel>
+          <MenuItem onSelect={() => navigate('/wiki/home')}>
+            <span style={{ width: 16 }}><Icon name="check" /></span>
+            Pages
+          </MenuItem>
+          <MenuItem disabled onSelect={() => undefined}>Other apps aren't built yet</MenuItem>
+        </Menu>
+      </span>
       <Link to="/wiki/home" className="kk-topbar__logo" aria-label="kaijukit home">
         <svg width="24" height="24" viewBox="0 0 32 32" aria-hidden="true">
           <rect width="32" height="32" rx="7" fill="currentColor" />
@@ -26,41 +91,30 @@ export function TopBar() {
         </svg>
         <span>kaijukit</span>
       </Link>
-      <nav aria-label="Global" className="kk-topbar__nav">
-        <Menu
-          label="Spaces"
-          renderTrigger={(p) => (
-            <Button appearance="subtle" {...p}>
-              Spaces
-              <Icon name="chevronRight" size={12} style={{ transform: 'rotate(90deg)' }} />
-            </Button>
-          )}
-        >
-          <MenuLabel>Spaces</MenuLabel>
-          {spaces.data?.slice(0, 8).map((s) => (
-            <MenuItem key={s.id} onSelect={() => navigate(`/wiki/spaces/${s.key}/overview`)}>
-              {s.name}
-            </MenuItem>
-          ))}
-          {spaces.isPending && <MenuLabel>Loading...</MenuLabel>}
-          {spaces.data?.length === 0 && <MenuLabel>No spaces yet</MenuLabel>}
-          <MenuSeparator />
-          <MenuItem onSelect={() => navigate('/wiki/spaces')}>View all spaces</MenuItem>
-        </Menu>
-        <Menu
-          label="Create"
-          renderTrigger={(p) => (
-            <Button appearance="primary" {...p}>
-              <Icon name="plus" />
-              Create
-            </Button>
-          )}
-        >
-          <MenuItem onSelect={() => (inSpace ? navigate(`/wiki/spaces/${inSpace}/pages/create`) : setPageDialog(true))}>Page</MenuItem>
-          <MenuItem onSelect={() => setSpaceDialog(true)}>Space</MenuItem>
-        </Menu>
-      </nav>
+      <button type="button" className="kk-topbar__search" onClick={() => setSearch(true)} aria-label="Search" aria-keyshortcuts="/">
+        <Icon name="search" />
+        <span className="kk-topbar__searchtext">Search</span>
+      </button>
+      <Menu
+        label="Create"
+        renderTrigger={(p) => (
+          <Button appearance="primary" aria-label="Create" className="kk-topbar__create" {...p}>
+            <Icon name="plus" />
+            <span className="kk-topbar__createtext">Create</span>
+          </Button>
+        )}
+      >
+        <MenuItem onSelect={() => (inSpace ? navigate(`/wiki/spaces/${inSpace}/pages/create`) : setPageDialog(true))}>Page</MenuItem>
+        <MenuItem onSelect={() => setSpaceDialog(true)}>Space</MenuItem>
+      </Menu>
       <div className="kk-topbar__right">
+        <Notifications />
+        <span className="kk-topbar__help">
+          <Menu label="Help" align="end" renderTrigger={(p) => <IconButton label="Help" icon={<Icon name="help" />} {...p} />}>
+            <MenuItem onSelect={() => setKeys(true)}>Keyboard shortcuts</MenuItem>
+            <MenuItem disabled title="Not built yet" onSelect={() => undefined}>Documentation</MenuItem>
+          </Menu>
+        </span>
         <Menu
           label="Account"
           align="end"
@@ -90,6 +144,17 @@ export function TopBar() {
           </MenuItem>
         </Menu>
       </div>
+      <QuickSearch open={search} onClose={() => setSearch(false)} />
+      <Dialog open={keys} onClose={() => setKeys(false)} title="Keyboard shortcuts" footer={<Button onClick={() => setKeys(false)}>Close</Button>}>
+        <dl className="kk-keys">
+          {SHORTCUTS.map(([k, d]) => (
+            <div key={k}>
+              <dt><kbd>{k}</kbd></dt>
+              <dd>{d}</dd>
+            </div>
+          ))}
+        </dl>
+      </Dialog>
       <CreateSpaceDialog open={spaceDialog} onClose={() => setSpaceDialog(false)} />
       <CreatePageDialog open={pageDialog} onClose={() => setPageDialog(false)} />
     </header>

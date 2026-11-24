@@ -2,8 +2,8 @@ import { Skeleton } from '@kaijukit/ui';
 import { lazy, Suspense } from 'react';
 import { Navigate, Outlet, Route, Routes, useLocation, useParams } from 'react-router-dom';
 import { useAuth } from './auth';
-import { TopBar } from './TopBar';
-import { ErrorBoundary, ErrorPage, NotFound } from './screens/Errors';
+import { Chrome } from './Chrome';
+import { ErrorPage, NotFound } from './screens/Errors';
 import { Home } from './screens/Home';
 import { Login } from './screens/Login';
 import { Overview, PageRoute } from './screens/PageView';
@@ -23,20 +23,6 @@ function RequireAuth() {
   return <Outlet />;
 }
 
-function Chrome() {
-  return (
-    <>
-      <a className="kk-skip" href="#main">Skip to content</a>
-      <TopBar />
-      <main id="main" className="kk-main">
-        <ErrorBoundary>
-          <Outlet />
-        </ErrorBoundary>
-      </main>
-    </>
-  );
-}
-
 function Logout() {
   const { logout } = useAuth();
   logout();
@@ -54,8 +40,6 @@ export function App() {
       <Route path="/wiki/login" element={<Login />} />
       <Route path="/wiki/logout" element={<Logout />} />
       <Route element={<RequireAuth />}>
-        <Route path="/wiki/spaces/:key/pages/edit-v2/:id" element={<ErrorBoundary><Suspense fallback={<Loading />}><EditorRoute /></Suspense></ErrorBoundary>} />
-        <Route path="/wiki/spaces/:key/pages/create" element={<ErrorBoundary><Suspense fallback={<Loading />}><CreateRoute /></Suspense></ErrorBoundary>} />
         <Route element={<Chrome />}>
           <Route path="/wiki" element={<Navigate to="/wiki/home" replace />} />
           <Route path="/wiki/home" element={<Home />} />
@@ -63,6 +47,8 @@ export function App() {
           <Route path="/wiki/spaces/:key" element={<SpaceShell />}>
             <Route index element={<Navigate to="overview" replace />} />
             <Route path="overview" element={<Overview />} />
+            <Route path="pages/edit-v2/:id" element={<Suspense fallback={<Loading />}><EditorRoute /></Suspense>} />
+            <Route path="pages/create" element={<Suspense fallback={<Loading />}><CreateRoute /></Suspense>} />
             <Route path="pages/:id/*" element={<PageRoute />} />
             <Route path="*" element={<NotFound />} />
           </Route>

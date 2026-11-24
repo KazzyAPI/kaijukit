@@ -1,0 +1,53 @@
+{
+  "id": "v2-footer-comment-get",
+  "ops": [
+    "getFooterCommentById"
+  ],
+  "setup": [
+    {
+      "as": "space",
+      "method": "POST",
+      "path": "/wiki/api/v2/spaces",
+      "body": {
+        "name": "Conf {{run}}",
+        "key": "K{{run}}"
+      }
+    },
+    {
+      "as": "page1",
+      "method": "POST",
+      "path": "/wiki/api/v2/pages",
+      "body": {
+        "spaceId": "{{space.id}}",
+        "status": "current",
+        "title": "page1 {{run}}",
+        "body": {
+          "representation": "storage",
+          "value": "<p>alpha beta alpha</p>"
+        }
+      }
+    },
+    {
+      "as": "footer",
+      "method": "POST",
+      "path": "/wiki/api/v2/footer-comments",
+      "body": {
+        "pageId": "{{page1.id}}",
+        "body": {
+          "representation": "storage",
+          "value": "<p>first</p>"
+        }
+      }
+    }
+  ],
+  "request": {
+    "method": "GET",
+    "path": "/wiki/api/v2/footer-comments/{{footer.id}}",
+    "query": {
+      "body-format": "storage"
+    }
+  },
+  "expect": {
+    "status": 200
+  }
+}

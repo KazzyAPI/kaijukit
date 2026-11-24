@@ -50,3 +50,16 @@ Choices made where the reference gives no visible signal or is marked `[V]`. Eac
 
 ## Not built (still in the generated spec)
 - Space query params `labels`, `favorited-by`, `include-*`, `description-format=view` rendering; page `subtype`, `include-*`, `private`, `embedded`; folder/whiteboard/database/embed hierarchy endpoints; `icon`, `currentActiveAlias`; audit rows; TLS for the database connection.
+
+## Comments (M2)
+
+- A comment is a `content` row of type `comment` plus a `comments` row (kind, container, parent, anchor, resolution), so versions, properties and likes reuse the generic tables.
+- Comment titles are `Re: <container title>`. Replies inherit the container of their parent; a reply to an inline comment is an inline comment without its own anchor.
+- Comment updates require `version.number` equal to current plus one, else 409. Delete is a hard delete and cascades to replies.
+- Inline create anchors the selection inside a single text node of the page's current version body and does not create a page version. Selections spanning several text nodes are rejected as not found. Errors are 400 with the reference wording.
+- The marker ref is a random UUID. Deleting an inline comment removes its annotation mark from the current body.
+- Publishing a page body that lacks a marker turns open or reopened inline comments into `dangling`; dangling comments cannot be resolved or reopened.
+- `resolved: true` sets `resolved`; `false` on a resolved comment sets `reopened`. `resolutionLastModifierId` and `resolutionLastModifiedAt` appear once a comment was resolved or reopened.
+- Attachment comments are exposed with the `att` id prefix; both prefixed and bare ids are accepted. Blog post and custom-content comments return 400.
+- Comment `_links.webui` is `/spaces/<key>/pages/<pageId>/<Title+With+Plus>?focusedCommentId=<id>`.
+- `KK_PORT` in the compose file only overrides the published host port and base URL for side-by-side stacks.

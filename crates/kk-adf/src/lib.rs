@@ -3,10 +3,12 @@
 //! Nodes are generic (`kind` string + optional attrs/content/marks/text) so every ADF
 //! node and mark, known or not, round-trips losslessly through serde.
 
+mod annotate;
 mod rich;
 mod storage;
 mod xml;
 
+pub use annotate::{annotate, annotation_ids, unannotate};
 pub use storage::{from_storage, to_storage};
 
 use serde::{Deserialize, Serialize};

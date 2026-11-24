@@ -99,20 +99,20 @@ Status: `not started` | `partial` | `done`. `done` requires a conformance case. 
 | GET | `/blogposts/{id}/footer-comments` | `getBlogPostFooterComments` | Get footer comments for blog post | not started | - |
 | GET | `/blogposts/{id}/inline-comments` | `getBlogPostInlineComments` | Get inline comments for blog post | not started | - |
 | GET | `/custom-content/{id}/footer-comments` | `getCustomContentComments` | Get custom content comments | not started | - |
-| GET | `/footer-comments` | `getFooterComments` | Get footer comments | not started | - |
-| POST | `/footer-comments` | `createFooterComment` | Create footer comment | not started | - |
-| DELETE | `/footer-comments/{comment-id}` | `deleteFooterComment` | Delete footer comment | not started | - |
-| GET | `/footer-comments/{comment-id}` | `getFooterCommentById` | Get footer comment by id | not started | - |
-| PUT | `/footer-comments/{comment-id}` | `updateFooterComment` | Update footer comment | not started | - |
-| GET | `/footer-comments/{id}/children` | `getFooterCommentChildren` | Get children footer comments | not started | - |
-| GET | `/inline-comments` | `getInlineComments` | Get inline comments | not started | - |
-| POST | `/inline-comments` | `createInlineComment` | Create inline comment | not started | - |
-| DELETE | `/inline-comments/{comment-id}` | `deleteInlineComment` | Delete inline comment | not started | - |
-| GET | `/inline-comments/{comment-id}` | `getInlineCommentById` | Get inline comment by id | not started | - |
-| PUT | `/inline-comments/{comment-id}` | `updateInlineComment` | Update inline comment | not started | - |
-| GET | `/inline-comments/{id}/children` | `getInlineCommentChildren` | Get children inline comments | not started | - |
-| GET | `/pages/{id}/footer-comments` | `getPageFooterComments` | Get footer comments for page | not started | - |
-| GET | `/pages/{id}/inline-comments` | `getPageInlineComments` | Get inline comments for page | not started | - |
+| GET | `/footer-comments` | `getFooterComments` | Get footer comments | partial (schema) | v2-footer-comments-list |
+| POST | `/footer-comments` | `createFooterComment` | Create footer comment | partial (schema) | v2-footer-comment-create |
+| DELETE | `/footer-comments/{comment-id}` | `deleteFooterComment` | Delete footer comment | partial (schema) | v2-footer-comment-delete |
+| GET | `/footer-comments/{comment-id}` | `getFooterCommentById` | Get footer comment by id | partial (schema) | v2-footer-comment-get |
+| PUT | `/footer-comments/{comment-id}` | `updateFooterComment` | Update footer comment | partial (schema) | v2-footer-comment-update |
+| GET | `/footer-comments/{id}/children` | `getFooterCommentChildren` | Get children footer comments | partial (schema) | v2-footer-comment-children |
+| GET | `/inline-comments` | `getInlineComments` | Get inline comments | partial (schema) | v2-inline-comments-list |
+| POST | `/inline-comments` | `createInlineComment` | Create inline comment | partial (schema) | v2-inline-comment-create |
+| DELETE | `/inline-comments/{comment-id}` | `deleteInlineComment` | Delete inline comment | partial (schema) | v2-inline-comment-delete |
+| GET | `/inline-comments/{comment-id}` | `getInlineCommentById` | Get inline comment by id | partial (schema) | v2-inline-comment-get |
+| PUT | `/inline-comments/{comment-id}` | `updateInlineComment` | Update inline comment | partial (schema) | v2-inline-comment-update |
+| GET | `/inline-comments/{id}/children` | `getInlineCommentChildren` | Get children inline comments | partial (schema) | v2-inline-comment-children |
+| GET | `/pages/{id}/footer-comments` | `getPageFooterComments` | Get footer comments for page | partial (schema) | v2-page-footer-comments |
+| GET | `/pages/{id}/inline-comments` | `getPageInlineComments` | Get inline comments for page | partial (schema) | v2-page-inline-comments |
 
 ## Content
 
@@ -302,7 +302,7 @@ Status: `not started` | `partial` | `done`. `done` requires a conformance case. 
 |---|---|---|---|---|---|
 | GET | `/labels/{id}/pages` | `getLabelPages` | Get pages for label | not started | - |
 | GET | `/pages` | `getPages` | Get pages | partial (schema) | v2-pages-list |
-| POST | `/pages` | `createPage` | Create page | partial (schema) | v2-page-create |
+| POST | `/pages` | `createPage` | Create page | partial (schema) | v2-page-create, v2-page-create-rich |
 | DELETE | `/pages/{id}` | `deletePage` | Delete page | partial (schema) | v2-page-delete |
 | GET | `/pages/{id}` | `getPageById` | Get page by id | partial (schema) | v2-page-get |
 | PUT | `/pages/{id}` | `updatePage` | Update page | partial (schema) | v2-page-update, v2-page-update-stale |
@@ -386,7 +386,7 @@ Status: `not started` | `partial` | `done`. `done` requires a conformance case. 
 |---|---|---|---|---|---|
 | POST | `/user/access/check-access-by-email` | `checkAccessByEmail` | Check site access for a list of emails | not started | - |
 | POST | `/user/access/invite-by-email` | `inviteByEmail` | Invite a list of emails to the site | not started | - |
-| POST | `/users-bulk` | `createBulkUserLookup` | Create bulk user lookup using ids | not started | - |
+| POST | `/users-bulk` | `createBulkUserLookup` | Create bulk user lookup using ids | partial (schema) | v2-users-bulk |
 
 ## Version
 
@@ -398,10 +398,10 @@ Status: `not started` | `partial` | `done`. `done` requires a conformance case. 
 | GET | `/blogposts/{id}/versions` | `getBlogPostVersions` | Get blog post versions | not started | - |
 | GET | `/custom-content/{custom-content-id}/versions` | `getCustomContentVersions` | Get custom content versions | not started | - |
 | GET | `/custom-content/{custom-content-id}/versions/{version-number}` | `getCustomContentVersionDetails` | Get version details for custom content version | not started | - |
-| GET | `/footer-comments/{id}/versions` | `getFooterCommentVersions` | Get footer comment versions | not started | - |
-| GET | `/footer-comments/{id}/versions/{version-number}` | `getFooterCommentVersionDetails` | Get version details for footer comment version | not started | - |
-| GET | `/inline-comments/{id}/versions` | `getInlineCommentVersions` | Get inline comment versions | not started | - |
-| GET | `/inline-comments/{id}/versions/{version-number}` | `getInlineCommentVersionDetails` | Get version details for inline comment version | not started | - |
+| GET | `/footer-comments/{id}/versions` | `getFooterCommentVersions` | Get footer comment versions | partial (schema) | v2-footer-comment-versions |
+| GET | `/footer-comments/{id}/versions/{version-number}` | `getFooterCommentVersionDetails` | Get version details for footer comment version | partial (schema) | v2-footer-comment-version-get |
+| GET | `/inline-comments/{id}/versions` | `getInlineCommentVersions` | Get inline comment versions | partial (schema) | v2-inline-comment-versions |
+| GET | `/inline-comments/{id}/versions/{version-number}` | `getInlineCommentVersionDetails` | Get version details for inline comment version | partial (schema) | v2-inline-comment-version-get |
 | GET | `/pages/{id}/versions` | `getPageVersions` | Get page versions | partial (schema) | v2-page-versions |
 | GET | `/pages/{page-id}/versions/{version-number}` | `getPageVersionDetails` | Get version details for page version | not started | - |
 

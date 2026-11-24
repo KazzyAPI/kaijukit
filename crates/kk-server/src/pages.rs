@@ -437,10 +437,12 @@ async fn put_version(
         .map_err(|e| db_err(e, dup))?;
     sqlx::query("DELETE FROM content_drafts WHERE content_id = $1")
         .bind(id)
-        .execute(tx)
+        .execute(&mut *tx)
         .await
         .map_err(|e| db_err(e, ""))?;
-    Ok(())
+    crate::comments::mark_dangling(tx, id, v.adf)
+        .await
+        .map_err(|e| db_err(e, ""))
 }
 
 /// Shared by full and title-only updates: checks the status transition.

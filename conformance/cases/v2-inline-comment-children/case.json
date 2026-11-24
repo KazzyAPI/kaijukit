@@ -1,0 +1,67 @@
+{
+  "id": "v2-inline-comment-children",
+  "ops": [
+    "getInlineCommentChildren"
+  ],
+  "setup": [
+    {
+      "as": "space",
+      "method": "POST",
+      "path": "/wiki/api/v2/spaces",
+      "body": {
+        "name": "Conf {{run}}",
+        "key": "K{{run}}"
+      }
+    },
+    {
+      "as": "page1",
+      "method": "POST",
+      "path": "/wiki/api/v2/pages",
+      "body": {
+        "spaceId": "{{space.id}}",
+        "status": "current",
+        "title": "page1 {{run}}",
+        "body": {
+          "representation": "storage",
+          "value": "<p>alpha beta alpha</p>"
+        }
+      }
+    },
+    {
+      "as": "inline",
+      "method": "POST",
+      "path": "/wiki/api/v2/inline-comments",
+      "body": {
+        "pageId": "{{page1.id}}",
+        "body": {
+          "representation": "storage",
+          "value": "<p>q</p>"
+        },
+        "inlineCommentProperties": {
+          "textSelection": "alpha",
+          "textSelectionMatchCount": 2,
+          "textSelectionMatchIndex": 0
+        }
+      }
+    },
+    {
+      "as": "inreply",
+      "method": "POST",
+      "path": "/wiki/api/v2/inline-comments",
+      "body": {
+        "parentCommentId": "{{inline.id}}",
+        "body": {
+          "representation": "storage",
+          "value": "<p>re</p>"
+        }
+      }
+    }
+  ],
+  "request": {
+    "method": "GET",
+    "path": "/wiki/api/v2/inline-comments/{{inline.id}}/children"
+  },
+  "expect": {
+    "status": 200
+  }
+}

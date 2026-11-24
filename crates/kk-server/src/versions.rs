@@ -22,20 +22,36 @@ pub async fn list(
     Path(id): Path<String>,
     RawQuery(raw): RawQuery,
 ) -> R<Response> {
-    let q = Q::parse(raw);
-    let (limit, offset) = (q.limit()?, q.offset()?);
-    let repr = body::format(&q, body::PRIMARY)?;
-    let order = q.order_by(&[("modified-date", "v.number")], "v.number")?;
     let id = parse_id(&id)?;
+    let path = format!("/wiki/api/v2/pages/{id}/versions");
+    list_for(&s, Q::parse(raw), id, ("page", "page"), &path).await
+}
+
+/// Version list of any content type; `entity` names the key that holds the versioned entity.
+pub async fn list_for(
+    s: &AppState,
+    q: Q,
+    id: i64,
+    (ty, entity): (&str, &str),
+    path: &str,
+) -> R<Response> {
+    let (limit, offset) = (q.limit()?, q.offset()?);
+    let repr = if ty == "attachment" {
+        None
+    } else {
+        body::format(&q, body::PRIMARY)?
+    };
+    let order = q.order_by(&[("modified-date", "v.number")], "v.number")?;
     let sql = format!(
         "SELECT v.number, v.author_id, v.message, v.minor_edit, v.created_at, v.title, v.body \
          FROM content_versions v JOIN content c ON c.id = v.content_id \
-         WHERE v.content_id = $1 AND c.type = 'page' ORDER BY {order} LIMIT $2 OFFSET $3"
+         WHERE v.content_id = $1 AND c.type = $4 ORDER BY {order} LIMIT $2 OFFSET $3"
     );
     let rows: Vec<VersionRow> = sqlx::query_as(&sql)
         .bind(id)
         .bind(limit + 1)
         .bind(offset)
+        .bind(ty)
         .fetch_all(&s.db)
         .await?;
     if rows.is_empty() && offset == 0 {
@@ -50,29 +66,25 @@ pub async fn list(
                 "message": message,
                 "minorEdit": minor,
                 "createdAt": ts(*created),
-                "page": {
-                    "id": id.to_string(),
+                entity: {
+                    "id": crate::http::public_id(ty, id),
                     "title": title,
                     "body": repr.map(|f| body::render(adf, f)).transpose()?.unwrap_or_else(|| json!({})),
                 },
             }))
         })
         .collect::<Result<_, ApiError>>()?;
-    Ok(paged(
-        &q,
-        &format!("/wiki/api/v2/pages/{id}/versions"),
-        &s.site(),
-        rows,
-        limit,
-        offset,
-    ))
+    Ok(paged(&q, path, &s.site(), rows, limit, offset))
 }
 
 pub async fn get(
     State(s): State<AppState>,
     Path((id, number)): Path<(String, String)>,
 ) -> R<Json<Value>> {
-    let id = parse_id(&id)?;
+    detail(&s, parse_id(&id)?, &number, "page").await
+}
+
+pub async fn detail(s: &AppState, id: i64, number: &str, ty: &str) -> R<Json<Value>> {
     let number: i32 = number
         .parse()
         .map_err(|_| ApiError::BadRequest("invalid version number".into()))?;
@@ -80,10 +92,11 @@ pub async fn get(
         "SELECT v.author_id, v.message, v.minor_edit, v.created_at, \
          EXISTS (SELECT 1 FROM content_versions n WHERE n.content_id = v.content_id AND n.number = v.number + 1) \
          FROM content_versions v JOIN content c ON c.id = v.content_id \
-         WHERE v.content_id = $1 AND v.number = $2 AND c.type = 'page'",
+         WHERE v.content_id = $1 AND v.number = $2 AND c.type = $3",
     )
     .bind(id)
     .bind(number)
+    .bind(ty)
     .fetch_optional(&s.db)
     .await?
     .ok_or_else(|| ApiError::NotFound("version not found".into()))?;

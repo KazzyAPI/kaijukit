@@ -18,6 +18,19 @@ pub fn parse_id(s: &str) -> Result<i64, ApiError> {
     s.parse::<kk_core::ContentId>().map(|i| i.0)
 }
 
+/// Attachment ids are exposed with the `att` prefix of the reference; both forms are accepted.
+pub fn public_id(ty: &str, id: i64) -> String {
+    if ty == "attachment" {
+        format!("att{id}")
+    } else {
+        id.to_string()
+    }
+}
+
+pub fn parse_attachment_id(s: &str) -> Result<i64, ApiError> {
+    parse_id(s.strip_prefix("att").unwrap_or(s))
+}
+
 pub fn ts(t: chrono::DateTime<chrono::Utc>) -> String {
     t.format("%Y-%m-%dT%H:%M:%S%.3fZ").to_string()
 }

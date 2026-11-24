@@ -862,3 +862,291 @@ async fn rich_nodes_round_trip_through_storage() {
         ])
     );
 }
+
+fn storage(v: &str) -> Value {
+    json!({"representation": "storage", "value": v})
+}
+
+async fn post_comment(app: &Router, path: &str, body: Value) -> Res {
+    call(app, Method::POST, path, Some(body)).await
+}
+
+#[tokio::test]
+async fn footer_comments_threads_and_versions() {
+    let app = start().await;
+    let sp = space(&app, "FC").await;
+    let pg = page(&app, &sp["id"], "Notes", None).await;
+    let pid = pg["id"].as_str().unwrap();
+
+    let c = post_comment(
+        &app,
+        "/footer-comments",
+        json!({"pageId": pid, "body": storage("<p>first</p>")}),
+    )
+    .await;
+    assert_eq!(c.status, StatusCode::CREATED, "{}", c.json);
+    let cid = c.json["id"].as_str().unwrap().to_string();
+    let admin = pg["authorId"].as_str().unwrap();
+    assert_eq!(c.json["status"], "current");
+    assert_eq!(c.json["title"], "Re: Notes");
+    assert_eq!(c.json["pageId"], pid);
+    assert_eq!(c.json["version"]["number"], 1);
+    assert_eq!(c.json["version"]["authorId"], admin);
+    assert_eq!(
+        c.json["body"]["storage"],
+        json!({"representation": "storage", "value": "<p>first</p>"})
+    );
+    assert_eq!(c.json["_links"]["base"], "http://localhost:8080/wiki");
+    assert_eq!(
+        c.json["_links"]["webui"],
+        format!("/spaces/FC/pages/{pid}/Notes?focusedCommentId={cid}")
+    );
+
+    let reply = post_comment(
+        &app,
+        "/footer-comments",
+        json!({"parentCommentId": cid, "body": storage("<p>re</p>")}),
+    )
+    .await;
+    assert_eq!(reply.status, StatusCode::CREATED, "{}", reply.json);
+    assert_eq!(reply.json["parentCommentId"], cid);
+    assert_eq!(reply.json["pageId"], pid);
+    let rid = reply.json["id"].as_str().unwrap().to_string();
+
+    let roots = get(
+        &app,
+        &format!("/pages/{pid}/footer-comments?body-format=storage"),
+    )
+    .await;
+    assert_eq!(roots.json["results"].as_array().unwrap().len(), 1);
+    assert_eq!(
+        roots.json["results"][0]["body"]["storage"]["value"],
+        "<p>first</p>"
+    );
+    let kids = get(&app, &format!("/footer-comments/{cid}/children")).await;
+    assert_eq!(kids.json["results"][0]["id"], rid);
+    assert_eq!(
+        get(&app, "/footer-comments").await.json["results"]
+            .as_array()
+            .unwrap()
+            .len(),
+        2
+    );
+    assert_eq!(
+        get(&app, "/inline-comments").await.json["results"],
+        json!([])
+    );
+    assert_eq!(
+        get(&app, &format!("/inline-comments/{cid}")).await.status,
+        StatusCode::NOT_FOUND
+    );
+
+    let edit = |n: i64| json!({"version": {"number": n, "message": "typo"}, "body": storage("<p>edited</p>")});
+    let stale = call(
+        &app,
+        Method::PUT,
+        &format!("/footer-comments/{cid}"),
+        Some(edit(3)),
+    )
+    .await;
+    assert_eq!(stale.status, StatusCode::CONFLICT);
+    let up = call(
+        &app,
+        Method::PUT,
+        &format!("/footer-comments/{cid}"),
+        Some(edit(2)),
+    )
+    .await;
+    assert_eq!(up.status, StatusCode::OK, "{}", up.json);
+    assert_eq!(up.json["version"]["number"], 2);
+    assert_eq!(up.json["version"]["message"], "typo");
+    assert_eq!(up.json["body"]["storage"]["value"], "<p>edited</p>");
+
+    let vs = get(
+        &app,
+        &format!("/footer-comments/{cid}/versions?body-format=storage"),
+    )
+    .await;
+    let numbers: Vec<_> = vs.json["results"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|v| v["number"].clone())
+        .collect();
+    assert_eq!(numbers, [json!(1), json!(2)]);
+    assert_eq!(
+        vs.json["results"][0]["comment"]["body"]["storage"]["value"],
+        "<p>first</p>"
+    );
+    let one = get(&app, &format!("/footer-comments/{cid}/versions/1")).await;
+    assert_eq!(one.json["nextVersion"], 2);
+    assert_eq!(one.json["number"], 1);
+    let with = get(
+        &app,
+        &format!("/footer-comments/{cid}?include-versions=true&version=1&body-format=storage"),
+    )
+    .await;
+    assert_eq!(with.json["body"]["storage"]["value"], "<p>first</p>");
+    assert_eq!(
+        with.json["versions"]["results"].as_array().unwrap().len(),
+        2
+    );
+
+    assert_eq!(
+        call(
+            &app,
+            Method::DELETE,
+            &format!("/footer-comments/{cid}"),
+            None
+        )
+        .await
+        .status,
+        StatusCode::NO_CONTENT
+    );
+    assert_eq!(
+        get(&app, &format!("/footer-comments/{rid}")).await.status,
+        StatusCode::NOT_FOUND
+    );
+    let bad = post_comment(
+        &app,
+        "/footer-comments",
+        json!({"pageId": pid, "parentCommentId": rid, "body": storage("<p>x</p>")}),
+    )
+    .await;
+    assert_eq!(bad.status, StatusCode::BAD_REQUEST);
+    let missing = post_comment(
+        &app,
+        "/footer-comments",
+        json!({"pageId": "999999", "body": storage("<p>x</p>")}),
+    )
+    .await;
+    assert_eq!(missing.status, StatusCode::NOT_FOUND);
+}
+
+#[tokio::test]
+async fn inline_comments_anchor_resolve_and_dangle() {
+    let app = start().await;
+    let sp = space(&app, "IC").await;
+    let pg = call(
+        &app,
+        Method::POST,
+        "/pages",
+        Some(json!({"spaceId": sp["id"], "title": "Doc",
+        "body": storage("<p>alpha beta alpha</p>")})),
+    )
+    .await
+    .json;
+    let pid = pg["id"].as_str().unwrap();
+    let props = |sel: &str, count: i64, index: i64| {
+        json!({"pageId": pid, "body": storage("<p>q</p>"),
+        "inlineCommentProperties": {"textSelection": sel, "textSelectionMatchCount": count, "textSelectionMatchIndex": index}})
+    };
+
+    let missing = post_comment(&app, "/inline-comments", props("zzz", 1, 0)).await;
+    assert_eq!(missing.status, StatusCode::BAD_REQUEST);
+    assert_eq!(
+        missing.json["errors"][0]["detail"],
+        "textSelection was not found in the page body"
+    );
+    let count = post_comment(&app, "/inline-comments", props("alpha", 1, 0)).await;
+    assert_eq!(
+        count.json["errors"][0]["detail"],
+        "textSelectionMatchCount is 1 but the selection occurs 2 times"
+    );
+    assert_eq!(
+        post_comment(
+            &app,
+            "/inline-comments",
+            json!({"pageId": pid, "body": storage("<p>q</p>")})
+        )
+        .await
+        .status,
+        StatusCode::BAD_REQUEST
+    );
+
+    let c = post_comment(&app, "/inline-comments", props("alpha", 2, 1)).await;
+    assert_eq!(c.status, StatusCode::CREATED, "{}", c.json);
+    let cid = c.json["id"].as_str().unwrap();
+    let marker = c.json["properties"]["inlineMarkerRef"]
+        .as_str()
+        .unwrap()
+        .to_string();
+    assert_eq!(marker.len(), 36);
+    assert_eq!(c.json["properties"]["inlineOriginalSelection"], "alpha");
+    assert_eq!(c.json["resolutionStatus"], "open");
+
+    let body = get(&app, &format!("/pages/{pid}?body-format=storage")).await;
+    assert_eq!(
+        body.json["body"]["storage"]["value"],
+        format!("<p>alpha beta <ac:inline-comment-marker ac:ref=\"{marker}\">alpha</ac:inline-comment-marker></p>")
+    );
+    assert_eq!(body.json["version"]["number"], 1);
+
+    let open = get(
+        &app,
+        &format!("/pages/{pid}/inline-comments?resolution-status=open"),
+    )
+    .await;
+    assert_eq!(open.json["results"][0]["resolutionStatus"], "open");
+    assert_eq!(
+        open.json["results"][0]["properties"]["inlineMarkerRef"],
+        marker
+    );
+
+    let resolve = |r: bool| json!({"resolved": r});
+    let done = call(
+        &app,
+        Method::PUT,
+        &format!("/inline-comments/{cid}"),
+        Some(resolve(true)),
+    )
+    .await;
+    assert_eq!(done.json["resolutionStatus"], "resolved");
+    assert_eq!(done.json["resolutionLastModifierId"], pg["authorId"]);
+    let filtered = get(
+        &app,
+        &format!("/pages/{pid}/inline-comments?resolution-status=open,reopened"),
+    )
+    .await;
+    assert_eq!(filtered.json["results"], json!([]));
+    let again = call(
+        &app,
+        Method::PUT,
+        &format!("/inline-comments/{cid}"),
+        Some(resolve(false)),
+    )
+    .await;
+    assert_eq!(again.json["resolutionStatus"], "reopened");
+
+    let second = post_comment(&app, "/inline-comments", props("beta", 1, 0)).await;
+    let sid = second.json["id"].as_str().unwrap();
+    assert_eq!(
+        call(
+            &app,
+            Method::DELETE,
+            &format!("/inline-comments/{sid}"),
+            None
+        )
+        .await
+        .status,
+        StatusCode::NO_CONTENT
+    );
+    let after = get(&app, &format!("/pages/{pid}?body-format=storage")).await;
+    assert_eq!(
+        after.json["body"]["storage"]["value"],
+        format!("<p>alpha beta <ac:inline-comment-marker ac:ref=\"{marker}\">alpha</ac:inline-comment-marker></p>")
+    );
+
+    let edited = put_page(&app, pid, "Doc", 2, "<p>gamma</p>").await;
+    assert_eq!(edited.status, StatusCode::OK, "{}", edited.json);
+    let dangling = get(&app, &format!("/inline-comments/{cid}")).await;
+    assert_eq!(dangling.json["resolutionStatus"], "dangling");
+    let reopen = call(
+        &app,
+        Method::PUT,
+        &format!("/inline-comments/{cid}"),
+        Some(resolve(true)),
+    )
+    .await;
+    assert_eq!(reopen.status, StatusCode::BAD_REQUEST);
+}

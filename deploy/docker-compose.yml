@@ -23,11 +23,11 @@ services:
     environment:
       KK_DATABASE_URL: postgres://kk:kk@postgres:5432/kk
       KK_BIND: 0.0.0.0:8080
-      KK_BASE_URL: http://localhost:8080
+      KK_BASE_URL: http://localhost:${KK_PORT:-8080}
       KK_ADMIN_EMAIL: ${KK_ADMIN_EMAIL:-admin@kaijukit.local}
       KK_ADMIN_TOKEN: ${KK_ADMIN_TOKEN:-kk-dev-token}
     ports:
-      - "8080:8080"
+      - "${KK_PORT:-8080}:8080"
     depends_on:
       postgres:
         condition: service_healthy

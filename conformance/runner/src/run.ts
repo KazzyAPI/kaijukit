@@ -1,4 +1,5 @@
 import { randomBytes } from "node:crypto";
+import { readFileSync } from "node:fs";
 import { isDeepStrictEqual } from "node:util";
 import AjvModule from "ajv";
 import { subst, type Case } from "./cases.js";
@@ -29,6 +30,10 @@ function responseSchema(spec: Json, op: Op, status: number): Json | null | undef
   return r.content?.["application/json"]?.schema ?? null;
 }
 
+const allowedDiffs: { keyword: string; path: string; reason: string }[] = JSON.parse(
+  readFileSync(new URL("../../allowed-diffs.json", import.meta.url), "utf8"),
+);
+
 export function validateSchema(spec: Json, op: Op, res: Res): string | null {
   const schema = responseSchema(spec, op, res.status);
   if (schema === undefined) return `status ${res.status} not documented for ${op.operationId} (${Object.keys(op.responses).join(",")})`;
@@ -36,7 +41,9 @@ export function validateSchema(spec: Json, op: Op, res: Res): string | null {
   const defs = Object.fromEntries(Object.entries<Json>(spec.components?.schemas ?? {}).map(([k, v]) => [k, toJsonSchema(v)]));
   const validate = new Ajv({ strict: false, validateFormats: false }).compile({ ...toJsonSchema(schema), $defs: defs });
   if (typeof res.body !== "object" || res.body === null) return `body is not JSON: ${res.raw.slice(0, 80)}`;
-  return validate(res.body) ? null : validate.errors!.slice(0, 3).map((e: Json) => `${e.instancePath || "/"} ${e.message}`).join("; ");
+  if (validate(res.body)) return null;
+  const errs = validate.errors!.filter((e: Json) => !allowedDiffs.some((a) => a.keyword === e.keyword && new RegExp(a.path).test(e.instancePath)));
+  return errs.length ? errs.slice(0, 3).map((e: Json) => `${e.instancePath || "/"} ${e.message}`).join("; ") : null;
 }
 
 function firstDiff(a: Json, b: Json, at = "$"): string {

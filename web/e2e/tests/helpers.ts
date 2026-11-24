@@ -23,8 +23,8 @@ export async function createSpace(page: Page, name: string) {
 }
 
 export async function publishNewPage(page: Page, title: string, body: string[]) {
-  await page.getByLabel('Title').fill(title);
-  await page.getByLabel('Title').press('Enter');
+  await page.getByLabel('Title', { exact: true }).fill(title);
+  await page.getByLabel('Title', { exact: true }).press('Enter');
   const editor = page.getByRole('textbox', { name: 'Page content' });
   await expect(editor).toBeFocused();
   await page.keyboard.type(body.join('\n'));

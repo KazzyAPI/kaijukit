@@ -33,7 +33,7 @@ test('create space, create page, edit, publish, view', async ({ page }) => {
   const first = Number((await page.getByText(/Version \d+/).textContent())!.match(/Version (\d+)/)![1]);
   await expect(page.getByRole('treeitem', { name: 'Getting started' })).toBeVisible();
 
-  await page.getByRole('button', { name: 'Edit' }).click();
+  await page.getByRole('button', { name: 'Edit', exact: true }).click();
   await expect(page).toHaveURL(/pages\/edit-v2\/\d+$/);
   const editor = page.getByRole('textbox', { name: 'Page content' });
   await editor.click();
@@ -43,7 +43,7 @@ test('create space, create page, edit, publish, view', async ({ page }) => {
   await page.getByRole('button', { name: 'Publish', exact: true }).click();
   await page.getByLabel('Version comment (optional)').fill('second pass');
   await page.getByRole('dialog').getByRole('button', { name: 'Publish' }).click();
-  await expect(page.getByText(/Version \d+/)).not.toHaveText(`Updated just now · Version ${first}`);
+  await expect(page.getByText(/Version \d+/)).not.toHaveText(`Version ${first}`);
   await expect(page.getByText('second pass').or(page.getByText(/Version \d+/))).toBeVisible();
   await expect(page.getByText('Added later')).toBeVisible();
 });
@@ -53,7 +53,7 @@ test('create child page and navigate the tree by keyboard', async ({ page }) => 
   await createSpace(page, `Tree ${Date.now()}`);
   await page.getByRole('button', { name: 'Create page', exact: true }).click();
   await publishNewPage(page, 'Parent', ['hello']);
-  await page.getByRole('button', { name: 'More actions' }).click();
+  await page.getByRole('button', { name: 'More actions', exact: true }).click();
   await page.getByRole('menuitem', { name: 'Add child page' }).click();
   await publishNewPage(page, 'Child', ['kid']);
 
@@ -77,4 +77,51 @@ test('unknown routes show not found', async ({ page }) => {
   await expect(page.getByText("We can't find that page")).toBeVisible();
   await page.goto('/wiki/nothing-here');
   await expect(page.getByText("We can't find that page")).toBeVisible();
+});
+
+test('shell: byline, quick search, flyouts, share, toolbar', async ({ page }) => {
+  await login(page);
+  await createSpace(page, `Shell ${Date.now()}`);
+  const title = `Searchable ${Date.now()}`;
+  await page.getByRole('button', { name: 'Create page', exact: true }).click();
+  await page.getByLabel('Title', { exact: true }).fill(title);
+  await page.getByLabel('Title', { exact: true }).press('Enter');
+  await page.keyboard.type('Intro');
+  await page.getByRole('button', { name: 'Text style' }).click();
+  await page.getByRole('menuitem', { name: 'Heading 2' }).click();
+  await expect(page.locator('.kk-doc h2')).toHaveText('Intro');
+  const image = page.getByRole('button', { name: 'Image', exact: true });
+  await expect(image).toHaveAttribute('aria-disabled', 'true');
+  await image.hover();
+  await expect(page.getByRole('tooltip')).toHaveText('Image is not built yet');
+  await page.getByRole('button', { name: 'Pin toolbar' }).click();
+  await expect(page.getByRole('button', { name: 'Pin toolbar' })).toHaveAttribute('aria-pressed', 'false');
+  await page.getByRole('button', { name: 'Publish', exact: true }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Publish' }).click();
+
+  await expect(page.getByText(/By \S+/)).toBeVisible();
+  await expect(page.getByText('1 min read')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'See views' })).toHaveAttribute('aria-disabled', 'true');
+
+  await page.getByRole('button', { name: 'Share', exact: true }).click();
+  await expect(page.getByRole('dialog', { name: /Share/ }).getByLabel('Page link')).toHaveValue(/\/pages\/\d+\//);
+  await page.keyboard.press('Escape');
+
+  await page.getByRole('button', { name: 'Recent' }).click();
+  await expect(page.getByRole('menuitem', { name: title })).toBeVisible();
+  await page.keyboard.press('Escape');
+  await page.getByRole('button', { name: 'Starred' }).click();
+  await expect(page.getByRole('menu', { name: 'Starred' })).toContainText("isn't built yet");
+  await page.keyboard.press('Escape');
+
+  await page.goto('/wiki/home');
+  await page.getByRole('button', { name: 'Search', exact: true }).click();
+  await page.getByLabel('Search pages by title').fill(title.slice(2, 14).toLowerCase());
+  await page.getByRole('dialog').getByRole('link', { name: title }).click();
+  await expect(page.getByRole('heading', { level: 1, name: title })).toBeVisible();
+
+  await page.getByLabel('Search by title').fill('no-such-page-xyz');
+  await expect(page.getByText('No pages match "no-such-page-xyz".')).toBeVisible();
+  await page.getByLabel('Search by title').fill(title.slice(2, 14).toLowerCase());
+  await expect(page.getByRole('link', { name: title })).toBeVisible();
 });

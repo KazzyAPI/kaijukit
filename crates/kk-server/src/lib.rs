@@ -5,13 +5,14 @@ mod http;
 mod pages;
 mod spaces;
 mod tree;
+mod users;
 mod versions;
 
 use axum::{
     extract::{DefaultBodyLimit, Request, State},
     middleware,
     response::IntoResponse,
-    routing::{get, put},
+    routing::{get, post, put},
     Router,
 };
 use error::{E, R};
@@ -57,6 +58,11 @@ pub fn app(state: AppState) -> Router {
         .route(
             "/pages/{id}",
             get(pages::get).put(pages::update).delete(pages::delete),
+        )
+        .route("/users-bulk", post(users::bulk))
+        .route(
+            "/user/access/check-access-by-email",
+            post(users::check_access),
         )
         .route("/pages/{id}/title", put(pages::update_title))
         .route("/pages/{id}/versions", get(versions::list))

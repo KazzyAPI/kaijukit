@@ -127,6 +127,42 @@ fn statuses(q: &Q, default: &[&str]) -> Result<Vec<String>, ApiError> {
         .collect()
 }
 
+/// Replaces a published row's title/body/author with the page's draft, if one exists.
+async fn overlay_draft(conn: &mut PgConnection, r: &mut PageRow) -> Result<(), sqlx::Error> {
+    let d: Option<(String, Value, i64, DateTime<Utc>)> = sqlx::query_as(
+        "SELECT title, body, author_id, updated_at FROM content_drafts WHERE content_id = $1",
+    )
+    .bind(r.id)
+    .fetch_optional(conn)
+    .await?;
+    if let Some((title, body, author, at)) = d {
+        (r.status, r.title, r.body, r.v_author, r.v_created) =
+            ("draft".into(), title, body, author, at);
+        (r.v_message, r.v_minor) = (String::new(), false);
+    }
+    Ok(())
+}
+
+async fn save_draft(
+    tx: &mut PgConnection,
+    id: i64,
+    title: &str,
+    adf: &Value,
+    user: i64,
+) -> Result<(), sqlx::Error> {
+    sqlx::query(
+        "INSERT INTO content_drafts (content_id, title, body, author_id) VALUES ($1, $2, $3, $4) \
+         ON CONFLICT (content_id) DO UPDATE SET title = $2, body = $3, author_id = $4, updated_at = now()",
+    )
+    .bind(id)
+    .bind(title)
+    .bind(adf)
+    .bind(user)
+    .execute(tx)
+    .await
+    .map(|_| ())
+}
+
 pub async fn get(
     State(s): State<AppState>,
     Path(id): Path<String>,
@@ -136,10 +172,14 @@ pub async fn get(
     let repr = body::format(&q, body::SINGLE)?;
     let allowed = statuses(&q, &["current", "draft", "archived"])?;
     let mut conn = s.db.acquire().await?;
-    let row = load(&mut conn, parse_id(&id)?, q.int("version")?)
+    let version = q.int("version")?;
+    let mut row = load(&mut conn, parse_id(&id)?, version)
         .await?
         .filter(|r| allowed.contains(&r.status))
         .ok_or_else(not_found)?;
+    if q.flag("get-draft")? && version.is_none() {
+        overlay_draft(&mut conn, &mut row).await?;
+    }
     Ok(single(&s, &row, repr)?)
 }
 
@@ -392,18 +432,20 @@ async fn put_version(
         .bind(v.title)
         .bind(v.status)
         .bind(v.number)
-        .execute(tx)
+        .execute(&mut *tx)
         .await
         .map_err(|e| db_err(e, dup))?;
+    sqlx::query("DELETE FROM content_drafts WHERE content_id = $1")
+        .bind(id)
+        .execute(tx)
+        .await
+        .map_err(|e| db_err(e, ""))?;
     Ok(())
 }
 
 /// Shared by full and title-only updates: checks the status transition.
 fn transition(was: &str, to: &str) -> Result<(), ApiError> {
     match (was, to) {
-        ("current", "draft") => Err(ApiError::BadRequest(
-            "a published page cannot become a draft".into(),
-        )),
         ("trashed", "draft") => Err(not_found()),
         _ => Ok(()),
     }
@@ -433,6 +475,13 @@ pub async fn update(
     let mut tx = s.db.begin().await?;
     let (was, current) = lock(&mut tx, id).await?;
     transition(&was, status)?;
+    if status == "draft" && was != "draft" {
+        save_draft(&mut tx, id, title, &adf, user.0).await?;
+        let mut row = load(&mut tx, id, None).await?.ok_or_else(not_found)?;
+        overlay_draft(&mut tx, &mut row).await?;
+        tx.commit().await?;
+        return Ok(single(&s, &row, Some(repr))?);
+    }
     if number != current + 1 {
         return Err(ApiError::Conflict(format!(
             "version.number must be {}, got {number}",
@@ -483,6 +532,18 @@ pub async fn update_title(
     .bind(current)
     .fetch_one(&mut *tx)
     .await?;
+    if status == "draft" && was != "draft" {
+        let body = sqlx::query_scalar("SELECT body FROM content_drafts WHERE content_id = $1")
+            .bind(id)
+            .fetch_optional(&mut *tx)
+            .await?
+            .unwrap_or(adf);
+        save_draft(&mut tx, id, title, &body, user.0).await?;
+        let mut row = load(&mut tx, id, None).await?.ok_or_else(not_found)?;
+        overlay_draft(&mut tx, &mut row).await?;
+        tx.commit().await?;
+        return Ok(single(&s, &row, None)?);
+    }
     let v = NewVersion {
         number: current + 1,
         status,
@@ -508,14 +569,15 @@ pub async fn delete(
     let mut tx = s.db.begin().await?;
     let (status, _) = lock(&mut tx, id).await?;
     if draft {
-        if status != "draft" {
+        let sql = if status == "draft" {
+            "DELETE FROM content WHERE id = $1"
+        } else {
+            "DELETE FROM content_drafts WHERE content_id = $1"
+        };
+        let gone = sqlx::query(sql).bind(id).execute(&mut *tx).await;
+        if gone.map_err(|e| db_err(e, ""))?.rows_affected() == 0 {
             return Err(not_found().into());
         }
-        sqlx::query("DELETE FROM content WHERE id = $1")
-            .bind(id)
-            .execute(&mut *tx)
-            .await
-            .map_err(|e| db_err(e, ""))?;
     } else if purge {
         if status != "trashed" {
             return Err(ApiError::BadRequest("only trashed pages can be purged".into()).into());

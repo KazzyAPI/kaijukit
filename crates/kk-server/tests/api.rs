@@ -306,14 +306,6 @@ async fn drafts_root_level_and_title_rules() {
         (publish.status, publish.json["status"].as_str()),
         (StatusCode::OK, Some("current"))
     );
-    let back = call(
-        &app,
-        Method::PUT,
-        &format!("/pages/{id}"),
-        Some(json!({"id": id, "status": "draft", "title": "Published", "body": {"representation": "storage", "value": ""}, "version": {"number": 3}})),
-    )
-    .await;
-    assert_eq!(back.status, StatusCode::BAD_REQUEST);
 }
 
 #[tokio::test]
@@ -657,5 +649,178 @@ async fn request_validation() {
     assert_eq!(
         (r.status, r.json["errors"][0]["status"].clone()),
         (StatusCode::PAYLOAD_TOO_LARGE, json!(413))
+    );
+}
+
+fn draft_put(id: &str, title: &str, text: &str) -> Value {
+    json!({"id": id, "status": "draft", "title": title,
+        "body": {"representation": "storage", "value": text}, "version": {"number": 99}})
+}
+
+#[tokio::test]
+async fn drafts_of_published_pages() {
+    let app = start().await;
+    let sp = space(&app, "PDR").await;
+    let p = page(&app, &sp["id"], "Live", None).await;
+    let id = p["id"].as_str().unwrap();
+    let path = format!("/pages/{id}");
+    let body = |r: &Res| {
+        r.json["body"]["storage"]["value"]
+            .as_str()
+            .unwrap()
+            .to_string()
+    };
+
+    let saved = call(
+        &app,
+        Method::PUT,
+        &path,
+        Some(draft_put(id, "Live v2", "<p>wip</p>")),
+    )
+    .await;
+    assert_eq!(saved.status, StatusCode::OK, "{}", saved.json);
+    assert_eq!(
+        (
+            saved.json["status"].as_str(),
+            saved.json["title"].as_str(),
+            saved.json["version"]["number"].as_i64()
+        ),
+        (Some("draft"), Some("Live v2"), Some(1))
+    );
+    call(
+        &app,
+        Method::PUT,
+        &path,
+        Some(draft_put(id, "Live v2", "<p>wip2</p>")),
+    )
+    .await;
+
+    let cur = get(&app, &format!("{path}?body-format=storage")).await;
+    assert_eq!(
+        (
+            cur.json["status"].as_str(),
+            cur.json["title"].as_str(),
+            body(&cur).as_str()
+        ),
+        (Some("current"), Some("Live"), "<p>Live</p>")
+    );
+    let d = get(&app, &format!("{path}?get-draft=true&body-format=storage")).await;
+    assert_eq!(
+        (
+            d.json["status"].as_str(),
+            d.json["title"].as_str(),
+            body(&d).as_str()
+        ),
+        (Some("draft"), Some("Live v2"), "<p>wip2</p>")
+    );
+    let vs = get(&app, &format!("{path}/versions")).await;
+    assert_eq!(vs.json["results"].as_array().unwrap().len(), 1);
+    assert_eq!(
+        titles(&get(&app, "/pages").await)
+            .iter()
+            .filter(|t| **t == "Live")
+            .count(),
+        1
+    );
+
+    let gone = call(&app, Method::DELETE, &format!("{path}?draft=true"), None).await;
+    assert_eq!(gone.status, StatusCode::NO_CONTENT);
+    let after = get(&app, &format!("{path}?get-draft=true&body-format=storage")).await;
+    assert_eq!(
+        (after.json["status"].as_str(), body(&after).as_str()),
+        (Some("current"), "<p>Live</p>")
+    );
+    let again = call(&app, Method::DELETE, &format!("{path}?draft=true"), None).await;
+    assert_eq!(again.status, StatusCode::NOT_FOUND);
+
+    call(
+        &app,
+        Method::PUT,
+        &path,
+        Some(draft_put(id, "Live v2", "<p>wip3</p>")),
+    )
+    .await;
+    let published = put_page(&app, id, "Live v2", 2, "<p>final</p>").await;
+    assert_eq!(
+        (
+            published.json["status"].as_str(),
+            published.json["version"]["number"].as_i64()
+        ),
+        (Some("current"), Some(2))
+    );
+    let after = get(&app, &format!("{path}?get-draft=true&body-format=storage")).await;
+    assert_eq!(
+        (
+            after.json["status"].as_str(),
+            after.json["title"].as_str(),
+            body(&after).as_str()
+        ),
+        (Some("current"), Some("Live v2"), "<p>final</p>")
+    );
+    let stale = put_page(&app, id, "Live v2", 2, "x").await;
+    assert_eq!(stale.status, StatusCode::CONFLICT);
+}
+
+#[tokio::test]
+async fn users_bulk_and_access_check() {
+    let app = start().await;
+    let sp = space(&app, "USR").await;
+    let author = sp["authorId"].as_str().unwrap().to_string();
+    let r = call(
+        &app,
+        Method::POST,
+        "/users-bulk",
+        Some(json!({"accountIds": [author, "999999", "abc"]})),
+    )
+    .await;
+    assert_eq!(r.status, StatusCode::OK, "{}", r.json);
+    assert_eq!(
+        r.json["results"],
+        json!([{"accountId": author, "displayName": "Admin", "publicName": "Admin", "email": "admin@kaijukit.local",
+            "accountType": "atlassian", "accountStatus": "active", "isExternalCollaborator": false}])
+    );
+    let empty = call(
+        &app,
+        Method::POST,
+        "/users-bulk",
+        Some(json!({"accountIds": []})),
+    )
+    .await;
+    assert_eq!(empty.status, StatusCode::BAD_REQUEST);
+    let c = call(
+        &app,
+        Method::POST,
+        "/user/access/check-access-by-email",
+        Some(json!({"emails": ["ADMIN@kaijukit.local", "nobody@x.io", "bad"]})),
+    )
+    .await;
+    assert_eq!(
+        c.json,
+        json!({"emailsWithoutAccess": ["nobody@x.io"], "invalidEmails": ["bad"]})
+    );
+}
+
+#[tokio::test]
+async fn list_filters_and_sorts() {
+    let app = start().await;
+    let sp = space(&app, "FLT").await;
+    let a = page(&app, &sp["id"], "Alpha", None).await;
+    let b = page(&app, &sp["id"], "Beta", None).await;
+    put_page(&app, a["id"].as_str().unwrap(), "Alpha", 2, "<p>x</p>").await;
+    let q = |extra: &str| format!("/pages?space-id={}&{extra}", sp["id"].as_str().unwrap());
+    assert_eq!(titles(&get(&app, &q("title=Beta")).await), ["Beta"]);
+    assert_eq!(
+        titles(&get(&app, &q("sort=-modified-date&title=Alpha")).await),
+        ["Alpha"]
+    );
+    let all = get(&app, &q("sort=-modified-date")).await;
+    assert_eq!(titles(&all)[0], "Alpha");
+    let ids = q(&format!("id={}", b["id"].as_str().unwrap()));
+    assert_eq!(titles(&get(&app, &ids).await), ["Beta"]);
+    let trashed = get(&app, &q("status=trashed")).await;
+    assert_eq!(titles(&trashed).len(), 0);
+    assert_eq!(
+        get(&app, &q("sort=bogus")).await.status,
+        StatusCode::BAD_REQUEST
     );
 }

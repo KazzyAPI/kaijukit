@@ -57,8 +57,10 @@ pub async fn bootstrap_admin(db: &PgPool, email: &str, token: &str) -> Result<()
         tracing::warn!("admin token is the development default; set KK_ADMIN_TOKEN");
     }
     let id: i64 = sqlx::query_scalar(
-        "INSERT INTO users (email, display_name, is_admin) VALUES ($1, $1, true) \
-         ON CONFLICT (lower(email)) DO UPDATE SET is_admin = true RETURNING id",
+        "INSERT INTO users (email, display_name, is_admin) VALUES ($1, 'Admin', true) \
+         ON CONFLICT (lower(email)) DO UPDATE SET is_admin = true, \
+         display_name = CASE WHEN users.display_name = users.email THEN 'Admin' ELSE users.display_name END \
+         RETURNING id",
     )
     .bind(email)
     .fetch_one(db)

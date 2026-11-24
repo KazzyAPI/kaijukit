@@ -23,6 +23,8 @@ Last reviewed: 2026-11-24 · `[V]` = verify by capture. Parity = function, layou
 
 Client-side routing (SPA) with history API; deep links work on full load; unauthorized -> login with `next=`; hidden content -> the same 404 page as nonexistent.
 
+> **Superseded in part by observed capture [001](../../../../conformance/ui/captures/001-page-live-edit.md):** the reference places global destinations (For you, Recent, Starred, Spaces, Apps, Teams, More) and the space block in a left navigation panel. The top bar holds only sidebar toggle, app switcher, logo, a wide search field, Create, notifications, help and the avatar. Where this file says menus live in the top bar, follow the capture.
+
 ## Global top bar (fixed, all screens)
 
 Left to right: (1) site switcher/app menu (ours), (2) product logo+name -> home, (3) menus **Recent**, **Spaces**, **People**, **Starred**, **Templates**, **Apps** `[V]` each opens a dropdown panel (recent list with type icon + title + space + time; "Filter by title"; "View all recent" link), (4) **Create** button (primary) -> create dialog (see F06 templates), (5) search box expands on focus into quick-search overlay, (6) right cluster: notifications bell with unread badge (panel, tabs Direct/Watching `[V]`, mark all read, settings link), help menu, settings (admin) gear, profile avatar menu (profile, personal space, tasks, drafts, preferences, appearance/theme, log out).

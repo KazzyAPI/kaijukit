@@ -1,0 +1,8 @@
+jira
+atlassian
+confluence
+bitbucket
+trello
+opsgenie
+statuspage
+loom

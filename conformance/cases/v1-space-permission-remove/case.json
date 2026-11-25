@@ -1,0 +1,47 @@
+{
+  "id": "v1-space-permission-remove",
+  "ops": [
+    "removePermission"
+  ],
+  "setup": [
+    {
+      "as": "space",
+      "method": "POST",
+      "path": "/wiki/api/v2/spaces",
+      "body": {
+        "name": "Conf {{run}}",
+        "key": "K{{run}}"
+      }
+    },
+    {
+      "as": "grp",
+      "method": "POST",
+      "path": "/wiki/rest/api/group",
+      "body": {
+        "name": "grp{{run}}"
+      }
+    },
+    {
+      "as": "perm",
+      "method": "POST",
+      "path": "/wiki/rest/api/space/{{space.key}}/permission",
+      "body": {
+        "subject": {
+          "type": "group",
+          "identifier": "{{grp.id}}"
+        },
+        "operation": {
+          "key": "archive",
+          "target": "page"
+        }
+      }
+    }
+  ],
+  "request": {
+    "method": "DELETE",
+    "path": "/wiki/rest/api/space/{{space.key}}/permission/{{perm.id}}"
+  },
+  "expect": {
+    "status": 204
+  }
+}

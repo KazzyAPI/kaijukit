@@ -94,3 +94,22 @@ Choices made where the reference gives no visible signal or is marked `[V]`. Eac
 - `body` is the item's inline content wrapped in one paragraph. `assignedTo` is the first `mention` whose id is an existing user id, `dueAt` the first `date` node. `createdBy` is the publishing user, `completedBy` and `completedAt` are set when a sync sees the item move to done and cleared when it moves back.
 - Blank tasks (no text) are hidden unless `include-blank-tasks=true`. `blogpost-id` filters match nothing because blog posts are not built.
 - `PUT /tasks/{id}` honours only `status`: it flips the item's state in the current body and publishes a minor-edit version with message "Task status changed". Other fields in the request are ignored.
+
+## Permissions (M3)
+
+All `[V]`: no reference capture exists for any of this; the public spec gives shapes, not rules.
+
+- Subjects are users and groups. Group ids and account ids are numeric ids as strings. The built-in group `kk-users` has every user as an implicit member, cannot be deleted or edited, and carries the default grants of a new space. Anonymous access is not built (`anonymous` identifiers never match anything).
+- Site administrators (`users.is_admin`) pass every space and content check. There is no admin-key flow. Mutating groups and global settings needs a site administrator.
+- A new space grants its creator every space permission and `kk-users`: `read/space`, `create` page/blogpost/comment/attachment, `delete` comment/attachment. Spaces that existed before the permission tables get the same grants for `kk-users` and their author.
+- `administer/space` implies every other space permission. `delete/space` is only recorded; space deletion is not built.
+- No `read/space`: the space and everything in it is 404. Read allowed but an operation denied: 403 with code `FORBIDDEN`.
+- Operation to permission: page `read` = view; `update`, `move` = `create/page` and the page's update restriction; `delete` = `delete/page` and the update restriction; `copy` = `create/page`; `archive` = `archive/page` and the update restriction; `restrict_content` = `restrict_content/space` or the right to update the page; comment `create` = `create/comment`; comment `update` = author; comment `delete` = author with `delete/comment`, or `administer/space`; attachment `create`/`update` = `create/attachment`, `delete` = `delete/attachment`. Space operations list every key/target pair the caller holds.
+- Restrictions: per content row, per operation (`read`, `update`), a set of users and groups; no rows = unrestricted. View needs every ancestor-or-self read set (if any) to contain the caller (directly, or through a group) or the same level's update set. Update restrictions apply to the page itself only, not to descendants. Trashing keeps restrictions; purging removes them.
+- Restricted content is excluded from lists, children, descendants, ancestors, search and watcher notifications; its comments and attachments follow the container.
+- A restriction change that leaves a non-admin caller unable to view, or unable to update when they could before, is 400.
+- `restrictionsHash` is the sha256 of the sorted restriction rows. The `expand` values `restrictions.user`, `restrictions.group` (also with the `read.`/`update.` prefix) fill the subject lists; `content` is accepted and ignored.
+- Search index: plain text of the published body plus title, stored in `content_search` in the same transaction as the write (no indexing delay). Drafts are not indexed. CQL `text ~` is a stemmed (english) full-text match, `title ~` a case-insensitive substring match. Excerpt highlight markers are `@@@hl@@@` and `@@@endhl@@@`.
+- CQL week starts on Monday; all relative dates are UTC.
+- Notifications: a page create or publish enqueues a `notify.content` job in the same transaction; the worker inserts one `notifications` row per watcher (page watch, ancestor page watch for child-created, or space watch) who can view the content and is not the author. There is no public REST surface for reading notifications. Jobs are claimed with `FOR UPDATE SKIP LOCKED`, retried with a growing delay up to 5 attempts, then marked `failed`.
+- Not built: v1 content CRUD, `/content/{id}/child`, `/content/{id}/history`, `GET /space`: they are absent from the pinned v1 spec so they cannot have a schema case (see report). Space roles, custom-content permissions, label watches, email delivery.

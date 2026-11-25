@@ -1,0 +1,63 @@
+{
+  "id": "v1-restrictions-get",
+  "ops": [
+    "getRestrictions"
+  ],
+  "setup": [
+    {
+      "as": "space",
+      "method": "POST",
+      "path": "/wiki/api/v2/spaces",
+      "body": {
+        "name": "Conf {{run}}",
+        "key": "K{{run}}"
+      }
+    },
+    {
+      "as": "page1",
+      "method": "POST",
+      "path": "/wiki/api/v2/pages",
+      "body": {
+        "spaceId": "{{space.id}}",
+        "status": "current",
+        "title": "page1 {{run}}",
+        "body": {
+          "representation": "storage",
+          "value": "<p>alpha beta alpha</p>"
+        }
+      }
+    },
+    {
+      "as": "grp",
+      "method": "POST",
+      "path": "/wiki/rest/api/group",
+      "body": {
+        "name": "grp{{run}}"
+      }
+    },
+    {
+      "as": "r",
+      "method": "POST",
+      "path": "/wiki/rest/api/content/{{page1.id}}/restriction",
+      "body": [
+        {
+          "operation": "read",
+          "restrictions": {
+            "group": [
+              {
+                "id": "{{grp.id}}"
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "request": {
+    "method": "GET",
+    "path": "/wiki/rest/api/content/{{page1.id}}/restriction?expand=restrictions.user,restrictions.group"
+  },
+  "expect": {
+    "status": 200
+  }
+}

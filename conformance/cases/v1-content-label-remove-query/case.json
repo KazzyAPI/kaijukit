@@ -1,0 +1,48 @@
+{
+  "id": "v1-content-label-remove-query",
+  "ops": [
+    "removeLabelFromContentUsingQueryParameter"
+  ],
+  "setup": [
+    {
+      "as": "space",
+      "method": "POST",
+      "path": "/wiki/api/v2/spaces",
+      "body": {
+        "name": "Conf {{run}}",
+        "key": "K{{run}}"
+      }
+    },
+    {
+      "as": "page1",
+      "method": "POST",
+      "path": "/wiki/api/v2/pages",
+      "body": {
+        "spaceId": "{{space.id}}",
+        "status": "current",
+        "title": "page1 {{run}}",
+        "body": {
+          "representation": "storage",
+          "value": "<p>alpha beta alpha</p>"
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/wiki/rest/api/content/{{page1.id}}/label",
+      "body": [
+        {
+          "name": "docs"
+        }
+      ],
+      "as": "l"
+    }
+  ],
+  "request": {
+    "method": "DELETE",
+    "path": "/wiki/rest/api/content/{{page1.id}}/label?name=docs"
+  },
+  "expect": {
+    "status": 204
+  }
+}

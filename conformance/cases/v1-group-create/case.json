@@ -1,0 +1,17 @@
+{
+  "id": "v1-group-create",
+  "ops": [
+    "createGroup"
+  ],
+  "setup": [],
+  "request": {
+    "method": "POST",
+    "path": "/wiki/rest/api/group",
+    "body": {
+      "name": "grp{{run}}"
+    }
+  },
+  "expect": {
+    "status": 201
+  }
+}

@@ -1,0 +1,38 @@
+{
+  "id": "v1-restriction-user-add",
+  "ops": [
+    "addUserToContentRestriction"
+  ],
+  "setup": [
+    {
+      "as": "space",
+      "method": "POST",
+      "path": "/wiki/api/v2/spaces",
+      "body": {
+        "name": "Conf {{run}}",
+        "key": "K{{run}}"
+      }
+    },
+    {
+      "as": "page1",
+      "method": "POST",
+      "path": "/wiki/api/v2/pages",
+      "body": {
+        "spaceId": "{{space.id}}",
+        "status": "current",
+        "title": "page1 {{run}}",
+        "body": {
+          "representation": "storage",
+          "value": "<p>alpha beta alpha</p>"
+        }
+      }
+    }
+  ],
+  "request": {
+    "method": "PUT",
+    "path": "/wiki/rest/api/content/{{page1.id}}/restriction/byOperation/update/user?accountId={{page1.authorId}}"
+  },
+  "expect": {
+    "status": 200
+  }
+}

@@ -1,0 +1,45 @@
+{
+  "id": "v1-content-permission-check",
+  "ops": [
+    "checkContentPermission"
+  ],
+  "setup": [
+    {
+      "as": "space",
+      "method": "POST",
+      "path": "/wiki/api/v2/spaces",
+      "body": {
+        "name": "Conf {{run}}",
+        "key": "K{{run}}"
+      }
+    },
+    {
+      "as": "page1",
+      "method": "POST",
+      "path": "/wiki/api/v2/pages",
+      "body": {
+        "spaceId": "{{space.id}}",
+        "status": "current",
+        "title": "page1 {{run}}",
+        "body": {
+          "representation": "storage",
+          "value": "<p>alpha beta alpha</p>"
+        }
+      }
+    }
+  ],
+  "request": {
+    "method": "POST",
+    "path": "/wiki/rest/api/content/{{page1.id}}/permission/check",
+    "body": {
+      "subject": {
+        "type": "user",
+        "identifier": "{{page1.authorId}}"
+      },
+      "operation": "update"
+    }
+  },
+  "expect": {
+    "status": 200
+  }
+}

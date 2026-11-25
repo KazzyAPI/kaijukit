@@ -1,0 +1,53 @@
+{
+  "id": "v1-content-descendants-of-type",
+  "ops": [
+    "getDescendantsOfType"
+  ],
+  "setup": [
+    {
+      "as": "space",
+      "method": "POST",
+      "path": "/wiki/api/v2/spaces",
+      "body": {
+        "name": "Conf {{run}}",
+        "key": "K{{run}}"
+      }
+    },
+    {
+      "as": "page1",
+      "method": "POST",
+      "path": "/wiki/api/v2/pages",
+      "body": {
+        "spaceId": "{{space.id}}",
+        "status": "current",
+        "title": "page1 {{run}}",
+        "body": {
+          "representation": "storage",
+          "value": "<p>alpha beta alpha</p>"
+        }
+      }
+    },
+    {
+      "as": "child",
+      "method": "POST",
+      "path": "/wiki/api/v2/pages",
+      "body": {
+        "spaceId": "{{space.id}}",
+        "status": "current",
+        "title": "child {{run}}",
+        "body": {
+          "representation": "storage",
+          "value": "<p>alpha beta alpha</p>"
+        },
+        "parentId": "{{page1.id}}"
+      }
+    }
+  ],
+  "request": {
+    "method": "GET",
+    "path": "/wiki/rest/api/content/{{page1.id}}/descendant/page?limit=10"
+  },
+  "expect": {
+    "status": 200
+  }
+}

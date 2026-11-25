@@ -1,0 +1,23 @@
+{
+  "id": "v1-groups-list",
+  "ops": [
+    "getGroups"
+  ],
+  "setup": [
+    {
+      "as": "grp",
+      "method": "POST",
+      "path": "/wiki/rest/api/group",
+      "body": {
+        "name": "grp{{run}}"
+      }
+    }
+  ],
+  "request": {
+    "method": "GET",
+    "path": "/wiki/rest/api/group"
+  },
+  "expect": {
+    "status": 200
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "id": "v1-group-delete",
+  "ops": [
+    "removeGroupById"
+  ],
+  "setup": [
+    {
+      "as": "grp",
+      "method": "POST",
+      "path": "/wiki/rest/api/group",
+      "body": {
+        "name": "grp{{run}}"
+      }
+    }
+  ],
+  "request": {
+    "method": "DELETE",
+    "path": "/wiki/rest/api/group/by-id?id={{grp.id}}"
+  },
+  "expect": {
+    "status": 204
+  }
+}

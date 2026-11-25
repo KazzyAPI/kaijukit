@@ -1,0 +1,49 @@
+{
+  "id": "v1-group-member-add",
+  "ops": [
+    "addUserToGroupByGroupId"
+  ],
+  "setup": [
+    {
+      "as": "space",
+      "method": "POST",
+      "path": "/wiki/api/v2/spaces",
+      "body": {
+        "name": "Conf {{run}}",
+        "key": "K{{run}}"
+      }
+    },
+    {
+      "as": "page1",
+      "method": "POST",
+      "path": "/wiki/api/v2/pages",
+      "body": {
+        "spaceId": "{{space.id}}",
+        "status": "current",
+        "title": "page1 {{run}}",
+        "body": {
+          "representation": "storage",
+          "value": "<p>alpha beta alpha</p>"
+        }
+      }
+    },
+    {
+      "as": "grp",
+      "method": "POST",
+      "path": "/wiki/rest/api/group",
+      "body": {
+        "name": "grp{{run}}"
+      }
+    }
+  ],
+  "request": {
+    "method": "POST",
+    "path": "/wiki/rest/api/group/userByGroupId?groupId={{grp.id}}",
+    "body": {
+      "accountId": "{{page1.authorId}}"
+    }
+  },
+  "expect": {
+    "status": 201
+  }
+}

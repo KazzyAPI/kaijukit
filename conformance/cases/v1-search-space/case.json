@@ -1,0 +1,38 @@
+{
+  "id": "v1-search-space",
+  "ops": [
+    "searchByCQL"
+  ],
+  "setup": [
+    {
+      "as": "space",
+      "method": "POST",
+      "path": "/wiki/api/v2/spaces",
+      "body": {
+        "name": "Conf {{run}}",
+        "key": "K{{run}}"
+      }
+    },
+    {
+      "as": "page1",
+      "method": "POST",
+      "path": "/wiki/api/v2/pages",
+      "body": {
+        "spaceId": "{{space.id}}",
+        "status": "current",
+        "title": "page1 {{run}}",
+        "body": {
+          "representation": "storage",
+          "value": "<p>alpha beta alpha</p>"
+        }
+      }
+    }
+  ],
+  "request": {
+    "method": "GET",
+    "path": "/wiki/rest/api/search?cql=space%3D%22{{space.key}}%22%20AND%20title~%22page1%22"
+  },
+  "expect": {
+    "status": 200
+  }
+}

@@ -1,0 +1,43 @@
+{
+  "id": "v1-space-watches",
+  "ops": [
+    "getWatchesForSpace"
+  ],
+  "setup": [
+    {
+      "as": "space",
+      "method": "POST",
+      "path": "/wiki/api/v2/spaces",
+      "body": {
+        "name": "Conf {{run}}",
+        "key": "K{{run}}"
+      }
+    },
+    {
+      "as": "page1",
+      "method": "POST",
+      "path": "/wiki/api/v2/pages",
+      "body": {
+        "spaceId": "{{space.id}}",
+        "status": "current",
+        "title": "page1 {{run}}",
+        "body": {
+          "representation": "storage",
+          "value": "<p>alpha beta alpha</p>"
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/wiki/rest/api/user/watch/space/{{space.key}}",
+      "as": "w"
+    }
+  ],
+  "request": {
+    "method": "GET",
+    "path": "/wiki/rest/api/content/{{page1.id}}/notification/created"
+  },
+  "expect": {
+    "status": 200
+  }
+}

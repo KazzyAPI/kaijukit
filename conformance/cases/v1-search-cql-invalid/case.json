@@ -1,0 +1,14 @@
+{
+  "id": "v1-search-cql-invalid",
+  "ops": [
+    "searchByCQL"
+  ],
+  "setup": [],
+  "request": {
+    "method": "GET",
+    "path": "/wiki/rest/api/search?cql=type%20%3D%20%3D"
+  },
+  "expect": {
+    "status": 400
+  }
+}

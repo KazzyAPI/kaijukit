@@ -1,0 +1,23 @@
+{
+  "id": "v1-group-get",
+  "ops": [
+    "getGroupByGroupId"
+  ],
+  "setup": [
+    {
+      "as": "grp",
+      "method": "POST",
+      "path": "/wiki/rest/api/group",
+      "body": {
+        "name": "grp{{run}}"
+      }
+    }
+  ],
+  "request": {
+    "method": "GET",
+    "path": "/wiki/rest/api/group/by-id?id={{grp.id}}"
+  },
+  "expect": {
+    "status": 200
+  }
+}

@@ -376,9 +376,9 @@ Status: `not started` | `partial` | `done`. `done` requires a conformance case. 
 
 | Method | Path | operationId | Summary | Status | Case |
 |---|---|---|---|---|---|
-| GET | `/tasks` | `getTasks` | Get tasks | not started | - |
-| GET | `/tasks/{id}` | `getTaskById` | Get task by id | not started | - |
-| PUT | `/tasks/{id}` | `updateTask` | Update task | not started | - |
+| GET | `/tasks` | `getTasks` | Get tasks | partial (schema) | v2-tasks-list |
+| GET | `/tasks/{id}` | `getTaskById` | Get task by id | partial (schema) | v2-task-get |
+| PUT | `/tasks/{id}` | `updateTask` | Update task | partial (schema) | v2-task-update |
 
 ## User
 

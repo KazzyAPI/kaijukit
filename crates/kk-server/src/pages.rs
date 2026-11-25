@@ -6,6 +6,7 @@ use axum::{
 };
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
 use chrono::{DateTime, Utc};
+use kk_adf::Doc;
 use kk_core::{ApiError, ContentStatus, ContentType, UserId};
 use serde::Deserialize;
 use serde_json::{json, Value};
@@ -282,9 +283,14 @@ pub async fn insert_page(
         .bind(title)
         .bind(adf)
         .bind(user)
-        .execute(conn)
+        .execute(&mut *conn)
         .await
         .map_err(|e| db_err(e, dup))?;
+    if status == "current" {
+        crate::tasks::sync(conn, id, adf, user)
+            .await
+            .map_err(|e| db_err(e, ""))?;
+    }
     Ok(id)
 }
 
@@ -442,7 +448,57 @@ async fn put_version(
         .map_err(|e| db_err(e, ""))?;
     crate::comments::mark_dangling(tx, id, v.adf)
         .await
-        .map_err(|e| db_err(e, ""))
+        .map_err(|e| db_err(e, ""))?;
+    if v.status == "current" {
+        crate::tasks::sync(tx, id, v.adf, v.user)
+            .await
+            .map_err(|e| db_err(e, ""))?;
+    }
+    Ok(())
+}
+
+/// Applies `change` to the current body and publishes the result as a minor-edit version.
+pub async fn write_back(
+    tx: &mut PgConnection,
+    id: i64,
+    user: i64,
+    change: impl FnOnce(&mut Doc) -> bool,
+) -> Result<(), ApiError> {
+    let (was, number) = lock(tx, id).await?;
+    let (title, body): (String, Value) = sqlx::query_as(
+        "SELECT v.title, v.body FROM content_versions v WHERE v.content_id = $1 AND v.number = $2",
+    )
+    .bind(id)
+    .bind(number)
+    .fetch_one(&mut *tx)
+    .await
+    .map_err(|e| db_err(e, ""))?;
+    let mut doc: Doc = serde_json::from_value(body)
+        .map_err(|e| ApiError::Internal(format!("stored body is not ADF: {e}")))?;
+    if !change(&mut doc) {
+        return Err(ApiError::NotFound(
+            "task item not found in the page body".into(),
+        ));
+    }
+    let adf = serde_json::to_value(&doc).map_err(|e| ApiError::Internal(e.to_string()))?;
+    let v = NewVersion {
+        number: number + 1,
+        status: "current",
+        title: &title,
+        adf: &adf,
+        user,
+        message: "Task status changed",
+    };
+    put_version(tx, id, &was, v).await?;
+    sqlx::query(
+        "UPDATE content_versions SET minor_edit = true WHERE content_id = $1 AND number = $2",
+    )
+    .bind(id)
+    .bind(number + 1)
+    .execute(tx)
+    .await
+    .map_err(|e| db_err(e, ""))?;
+    Ok(())
 }
 
 /// Shared by full and title-only updates: checks the status transition.

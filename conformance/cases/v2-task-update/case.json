@@ -1,0 +1,49 @@
+{
+  "id": "v2-task-update",
+  "ops": [
+    "updateTask"
+  ],
+  "setup": [
+    {
+      "as": "space",
+      "method": "POST",
+      "path": "/wiki/api/v2/spaces",
+      "body": {
+        "name": "Conf {{run}}",
+        "key": "K{{run}}"
+      }
+    },
+    {
+      "as": "tpage",
+      "method": "POST",
+      "path": "/wiki/api/v2/pages",
+      "body": {
+        "spaceId": "{{space.id}}",
+        "status": "current",
+        "title": "tasks {{run}}",
+        "body": {
+          "representation": "atlas_doc_format",
+          "value": "{\"version\": 1, \"type\": \"doc\", \"content\": [{\"type\": \"taskList\", \"attrs\": {\"localId\": \"l1\"}, \"content\": [{\"type\": \"taskItem\", \"attrs\": {\"localId\": \"t1\", \"state\": \"TODO\"}, \"content\": [{\"type\": \"text\", \"text\": \"write\"}]}]}]}"
+        }
+      }
+    },
+    {
+      "as": "tl",
+      "method": "GET",
+      "path": "/wiki/api/v2/tasks",
+      "query": {
+        "page-id": "{{tpage.id}}"
+      }
+    }
+  ],
+  "request": {
+    "method": "PUT",
+    "path": "/wiki/api/v2/tasks/{{tl.results.0.id}}",
+    "body": {
+      "status": "complete"
+    }
+  },
+  "expect": {
+    "status": 200
+  }
+}

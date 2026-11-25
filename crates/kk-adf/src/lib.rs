@@ -6,10 +6,12 @@
 mod annotate;
 mod rich;
 mod storage;
+mod tasks;
 mod xml;
 
 pub use annotate::{annotate, annotation_ids, unannotate};
 pub use storage::{from_storage, to_storage};
+pub use tasks::{set_task_done, tasks, Task};
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;

@@ -87,3 +87,10 @@ Choices made where the reference gives no visible signal or is marked `[V]`. Eac
 - The v1 download endpoint redirects (302) to the download link instead of returning a JSON URI.
 - `webuiLink` is `/spaces/<key>/pages/<pageId>?preview=%2F<pageId>%2Fatt<id>%2F<filename>`.
 - Not built: blog post and custom content attachments, label attachments, `include-*` expansions, v1 `updateAttachmentProperties`, version delete and restore, thumbnails, antivirus hook, resolving ADF `media` filenames to attachments on render.
+
+## Tasks (M2)
+
+- Task rows are synced from `taskItem` nodes (by `localId`) whenever a page is created or published as `current`; rows of removed items are deleted, rows of trashed pages are hidden. The body stays the source of truth; drafts are not extracted.
+- `body` is the item's inline content wrapped in one paragraph. `assignedTo` is the first `mention` whose id is an existing user id, `dueAt` the first `date` node. `createdBy` is the publishing user, `completedBy` and `completedAt` are set when a sync sees the item move to done and cleared when it moves back.
+- Blank tasks (no text) are hidden unless `include-blank-tasks=true`. `blogpost-id` filters match nothing because blog posts are not built.
+- `PUT /tasks/{id}` honours only `status`: it flips the item's state in the current body and publishes a minor-edit version with message "Task status changed". Other fields in the request are ignored.

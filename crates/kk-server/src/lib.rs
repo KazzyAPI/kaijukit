@@ -12,6 +12,7 @@ mod pages;
 mod props;
 mod spaces;
 mod target;
+mod tasks;
 mod tree;
 mod users;
 mod versions;
@@ -139,6 +140,8 @@ pub fn app(state: AppState) -> Router {
             "/attachments/{id}/footer-comments",
             get(comments::list_attachment),
         )
+        .route("/tasks", get(tasks::list))
+        .route("/tasks/{id}", get(tasks::get).put(tasks::update))
         .route("/attachments", get(attachments::list_all))
         .route(
             "/attachments/{id}",

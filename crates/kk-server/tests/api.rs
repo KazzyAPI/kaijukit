@@ -1862,3 +1862,125 @@ async fn attachments_upload_versions_download_and_delete() {
         StatusCode::NOT_FOUND
     );
 }
+
+#[tokio::test]
+async fn tasks_follow_page_bodies_and_write_back() {
+    let app = start().await;
+    let sp = space(&app, "TK").await;
+    let adf = |items: Value| {
+        let doc = json!({"version": 1, "type": "doc", "content": [
+            {"type": "taskList", "attrs": {"localId": "list"}, "content": items}]});
+        json!({"representation": "atlas_doc_format", "value": doc.to_string()})
+    };
+    let item = |id: &str, state: &str, text: &str| {
+        json!({"type": "taskItem", "attrs": {"localId": id, "state": state},
+               "content": [{"type": "text", "text": text}]})
+    };
+    let pg = call(
+        &app,
+        Method::POST,
+        "/pages",
+        Some(json!({"spaceId": sp["id"], "title": "Todo",
+        "body": adf(json!([item("a", "TODO", "write"), item("b", "DONE", "test"),
+                           {"type": "taskItem", "attrs": {"localId": "c", "state": "TODO"}}]))})),
+    )
+    .await;
+    assert_eq!(pg.status, StatusCode::OK, "{}", pg.json);
+    let pid = pg.json["id"].as_str().unwrap();
+    let admin = pg.json["authorId"].as_str().unwrap();
+
+    let all = get(&app, "/tasks?body-format=storage").await;
+    let r = all.json["results"].as_array().unwrap();
+    assert_eq!(r.len(), 2, "blank task is hidden");
+    assert_eq!(
+        (r[0]["localId"].as_str(), r[0]["status"].as_str()),
+        (Some("a"), Some("incomplete"))
+    );
+    assert_eq!(r[0]["pageId"], pid);
+    assert_eq!(r[0]["spaceId"], sp["id"]);
+    assert_eq!(r[0]["createdBy"], admin);
+    assert_eq!(r[0]["body"]["storage"]["value"], "<p>write</p>");
+    assert_eq!(r[1]["status"], "complete");
+    assert_eq!(r[1]["completedBy"], admin);
+    assert_eq!(
+        get(&app, "/tasks?include-blank-tasks=true").await.json["results"]
+            .as_array()
+            .unwrap()
+            .len(),
+        3
+    );
+    assert_eq!(
+        get(&app, "/tasks?status=complete").await.json["results"]
+            .as_array()
+            .unwrap()
+            .len(),
+        1
+    );
+    assert_eq!(
+        get(&app, &format!("/tasks?page-id={pid}&space-id=1"))
+            .await
+            .json["results"],
+        json!([])
+    );
+    assert_eq!(
+        get(&app, "/tasks?status=bogus").await.status,
+        StatusCode::BAD_REQUEST
+    );
+
+    let tid = r[0]["id"].as_str().unwrap();
+    let up = call(
+        &app,
+        Method::PUT,
+        &format!("/tasks/{tid}"),
+        Some(json!({"status": "complete"})),
+    )
+    .await;
+    assert_eq!(up.status, StatusCode::OK, "{}", up.json);
+    assert_eq!(up.json["status"], "complete");
+    assert_eq!(up.json["completedBy"], admin);
+    let page = get(&app, &format!("/pages/{pid}?body-format=atlas_doc_format")).await;
+    assert_eq!(page.json["version"]["number"], 2);
+    assert_eq!(page.json["version"]["minorEdit"], true);
+    assert_eq!(page.json["version"]["message"], "Task status changed");
+    assert!(
+        page.json["body"]["atlas_doc_format"]["value"]
+            .as_str()
+            .unwrap()
+            .contains("\"state\":\"DONE\",\"localId\":\"a\"")
+            || page.json["body"]["atlas_doc_format"]["value"]
+                .as_str()
+                .unwrap()
+                .contains("\"localId\":\"a\",\"state\":\"DONE\"")
+    );
+    let back = call(
+        &app,
+        Method::PUT,
+        &format!("/tasks/{tid}"),
+        Some(json!({"status": "incomplete"})),
+    )
+    .await;
+    assert_eq!(back.json["status"], "incomplete");
+    assert!(back.json.get("completedBy").is_none());
+    assert_eq!(
+        call(
+            &app,
+            Method::PUT,
+            &format!("/tasks/{tid}"),
+            Some(json!({"status": "x"}))
+        )
+        .await
+        .status,
+        StatusCode::BAD_REQUEST
+    );
+
+    let edited = put_page(&app, pid, "Todo", 4, "<p>no tasks</p>").await;
+    assert_eq!(edited.status, StatusCode::OK, "{}", edited.json);
+    assert_eq!(
+        get(&app, "/tasks?include-blank-tasks=true").await.json["results"],
+        json!([])
+    );
+    assert_eq!(
+        get(&app, &format!("/tasks/{tid}")).await.status,
+        StatusCode::NOT_FOUND
+    );
+}

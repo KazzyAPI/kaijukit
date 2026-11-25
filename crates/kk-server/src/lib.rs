@@ -16,6 +16,7 @@ pub mod jobs;
 mod kinds;
 mod labels;
 mod likes;
+mod longtasks;
 mod multipart;
 mod notifications;
 mod pages;
@@ -623,6 +624,20 @@ pub fn app(state: AppState) -> Router {
             "/template/{contentTemplateId}",
             get(templates::get).delete(templates::remove),
         )
+        .route("/longtask/{id}", get(longtasks::get))
+        .route(
+            "/content/{id}/pageTree",
+            delete(longtasks::delete_page_tree),
+        )
+        .route(
+            "/content/{id}/notification/child-created",
+            get(watches::of_page),
+        )
+        .route(
+            "/content/{id}/notification/created",
+            get(watches::of_page_space),
+        )
+        .route("/space/{key}/watch", get(watches::of_space))
         .route("/user", get(users::get))
         .route("/user/bulk", get(users::bulk_lookup))
         .route("/user/anonymous", get(users::anonymous))

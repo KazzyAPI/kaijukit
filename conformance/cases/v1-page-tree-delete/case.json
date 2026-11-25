@@ -1,0 +1,53 @@
+{
+  "id": "v1-page-tree-delete",
+  "ops": [
+    "deletePageTree"
+  ],
+  "setup": [
+    {
+      "as": "space",
+      "method": "POST",
+      "path": "/wiki/api/v2/spaces",
+      "body": {
+        "name": "Conf {{run}}",
+        "key": "K{{run}}"
+      }
+    },
+    {
+      "as": "page1",
+      "method": "POST",
+      "path": "/wiki/api/v2/pages",
+      "body": {
+        "spaceId": "{{space.id}}",
+        "status": "current",
+        "title": "page1 {{run}}",
+        "body": {
+          "representation": "storage",
+          "value": "<p>alpha</p>"
+        }
+      }
+    },
+    {
+      "as": "child",
+      "method": "POST",
+      "path": "/wiki/api/v2/pages",
+      "body": {
+        "spaceId": "{{space.id}}",
+        "parentId": "{{page1.id}}",
+        "status": "current",
+        "title": "child {{run}}",
+        "body": {
+          "representation": "storage",
+          "value": "<p>beta</p>"
+        }
+      }
+    }
+  ],
+  "request": {
+    "method": "DELETE",
+    "path": "/wiki/rest/api/content/{{page1.id}}/pageTree"
+  },
+  "expect": {
+    "status": 202
+  }
+}

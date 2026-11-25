@@ -1,0 +1,29 @@
+{
+  "id": "v1-space-watchers",
+  "ops": [
+    "getWatchersForSpace"
+  ],
+  "setup": [
+    {
+      "as": "space",
+      "method": "POST",
+      "path": "/wiki/api/v2/spaces",
+      "body": {
+        "name": "Conf {{run}}",
+        "key": "K{{run}}"
+      }
+    },
+    {
+      "as": "w2",
+      "method": "POST",
+      "path": "/wiki/rest/api/user/watch/space/K{{run}}"
+    }
+  ],
+  "request": {
+    "method": "GET",
+    "path": "/wiki/rest/api/space/K{{run}}/watch"
+  },
+  "expect": {
+    "status": 200
+  }
+}

@@ -279,7 +279,7 @@ fn needed(ty: &str, method: &Method, route: &str) -> &'static str {
     {
         return "read";
     }
-    let exact = route.ends_with("/{id}");
+    let exact = route.ends_with("/{id}") || route.ends_with("/pageTree");
     match ty {
         "comment" | "attachment" => {
             if *method == Method::DELETE {

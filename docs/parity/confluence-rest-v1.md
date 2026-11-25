@@ -125,9 +125,9 @@ Status: `not started` | `partial` | `done`. `done` requires a conformance case. 
 
 | Method | Path | operationId | Summary | Status | Case |
 |---|---|---|---|---|---|
-| GET | `/wiki/rest/api/content/{id}/notification/child-created` | `getWatchesForPage` | Get watches for page | not started | - |
-| GET | `/wiki/rest/api/content/{id}/notification/created` | `getWatchesForSpace` | Get watches for space | not started | - |
-| GET | `/wiki/rest/api/space/{spaceKey}/watch` | `getWatchersForSpace` | Get space watchers | not started | - |
+| GET | `/wiki/rest/api/content/{id}/notification/child-created` | `getWatchesForPage` | Get watches for page | partial (schema) | v1-watches-page |
+| GET | `/wiki/rest/api/content/{id}/notification/created` | `getWatchesForSpace` | Get watches for space | partial (schema) | v1-watches-space-of-content |
+| GET | `/wiki/rest/api/space/{spaceKey}/watch` | `getWatchersForSpace` | Get space watchers | partial (schema) | v1-space-watchers |
 | DELETE | `/wiki/rest/api/user/watch/content/{contentId}` | `removeContentWatcher` | Remove content watcher | partial (schema) | v1-watch-content-remove |
 | GET | `/wiki/rest/api/user/watch/content/{contentId}` | `getContentWatchStatus` | Get content watch status | partial (schema) | v1-watch-content-get |
 | POST | `/wiki/rest/api/user/watch/content/{contentId}` | `addContentWatcher` | Add content watcher | partial (schema) | v1-watch-content-add |
@@ -150,7 +150,7 @@ Status: `not started` | `partial` | `done`. `done` requires a conformance case. 
 
 | Method | Path | operationId | Summary | Status | Case |
 |---|---|---|---|---|---|
-| DELETE | `/wiki/rest/api/content/{id}/pageTree` | `deletePageTree` | Delete page tree | not started | - |
+| DELETE | `/wiki/rest/api/content/{id}/pageTree` | `deletePageTree` | Delete page tree | partial (schema) | v1-page-tree-delete |
 | DELETE | `/wiki/rest/api/space/{spaceKey}/label` | `deleteLabelFromSpace` | Remove label from a space | partial (schema) | v1-space-label-remove |
 | GET | `/wiki/rest/api/space/{spaceKey}/label` | `getLabelsForSpace` | Get Space Labels | not started | - |
 | POST | `/wiki/rest/api/space/{spaceKey}/label` | `addLabelsToSpace` | Add labels to a space | partial (schema) | v1-space-label-add |
@@ -179,7 +179,7 @@ Status: `not started` | `partial` | `done`. `done` requires a conformance case. 
 | Method | Path | operationId | Summary | Status | Case |
 |---|---|---|---|---|---|
 | GET | `/wiki/rest/api/longtask` | `getTasks` | Get long-running tasks | partial (schema) | v2-tasks-list |
-| GET | `/wiki/rest/api/longtask/{id}` | `getTask` | Get long-running task | not started | - |
+| GET | `/wiki/rest/api/longtask/{id}` | `getTask` | Get long-running task | partial (schema) | v1-longtask-get |
 
 ## Relation
 

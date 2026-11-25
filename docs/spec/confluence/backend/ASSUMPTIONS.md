@@ -188,3 +188,11 @@ All `[V]`.
 - `GET /user?accountId=` returns the long user shape (avatar `isDefault`, `isGuest=false`, `operations=[]`, `personalSpace=null`, `_expandable`); unknown or non-numeric ids are 404. `GET /user/bulk?accountId=` takes up to 100 ids (repeated or comma lists), skips unknown ones, answers 400 for none or too many. `expand` is accepted and ignored. `GET /user/anonymous` is a static record (anonymous access does not exist).
 - `GET /user/email` and `/user/email/bulk` answer any authenticated caller (the reference restricts them to apps; we have no app identity yet, and `users-bulk` already returns emails). Bulk returns a bare array and skips unknown ids; the single form is 404 for an unknown id.
 - `GET /user/memberof` lists the user's groups plus the built-in `kk-users`, ordered by name. `GET /group/picker?query=` is a case-insensitive substring match on the group name; `shouldReturnTotalSize` adds `totalSize`.
+
+## M4c: watch lists, long-running tasks, page tree delete (v1)
+
+All `[V]`.
+
+- `GET /content/{id}/notification/child-created` lists the users watching that page; `GET /content/{id}/notification/created` lists the users watching its space; `GET /space/{key}/watch` the space's watchers. Items are `{type: "watch", watcher: <long user shape>, contentId|spaceKey}`, ordered by account id, v1-paged (default limit 200). Visibility follows the page or space read check; the watchers' own access is not re-checked. Label watches (`/user/watch/label/...`) are not built.
+- `DELETE /content/{id}/pageTree` trashes the page and its live descendants exactly like the v2 delete (same rules: not a homepage, not already trashed), inline, and answers 202 `{id, links.status}`. It needs the same right as deleting the page.
+- Table `long_tasks` (migration 0013): a task is recorded finished at creation (`percentageComplete` 100, `finished` and `successful` true, `status` COMPLETE, empty `messages`). `GET /longtask/{id}` is visible to its creator and site administrators, 404 otherwise. Task name key is `kk.longtask.<kind>`. Real asynchrony arrives with export/import.

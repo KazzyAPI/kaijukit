@@ -4240,3 +4240,100 @@ async fn v1_user_and_group_lookups() {
         StatusCode::BAD_REQUEST
     );
 }
+
+#[tokio::test]
+async fn watch_lists_and_page_tree_delete() {
+    let (app, db) = start_db().await;
+    let (dee, dee_id) = user(&db, "dee").await;
+    let sp = space(&app, "WLST").await;
+    let p = page(&app, &sp["id"], "Top", None).await;
+    let c = page(&app, &sp["id"], "Leaf", Some(&p["id"])).await;
+    let pid = p["id"].as_str().unwrap();
+    as_user_v1(
+        &app,
+        &dee,
+        Method::POST,
+        &format!("/user/watch/content/{pid}"),
+        None,
+    )
+    .await;
+    as_user_v1(&app, &dee, Method::POST, "/user/watch/space/WLST", None).await;
+    let w = v1(
+        &app,
+        Method::GET,
+        &format!("/content/{pid}/notification/child-created"),
+        None,
+    )
+    .await;
+    assert_eq!(w.json["size"], 1);
+    assert_eq!(w.json["results"][0]["watcher"]["accountId"], dee_id);
+    assert_eq!(w.json["results"][0]["contentId"].to_string(), pid);
+    let s = v1(
+        &app,
+        Method::GET,
+        &format!("/content/{pid}/notification/created"),
+        None,
+    )
+    .await;
+    assert_eq!(s.json["results"][0]["spaceKey"], "WLST");
+    assert_eq!(
+        v1(&app, Method::GET, "/space/WLST/watch", None).await.json["size"],
+        1
+    );
+    assert_eq!(
+        v1(&app, Method::GET, "/space/NOPE/watch", None)
+            .await
+            .status,
+        StatusCode::NOT_FOUND
+    );
+
+    // tree delete trashes the leaf too, a stranger without delete rights is refused, the task is readable
+    let denied = as_user_v1(
+        &app,
+        &dee,
+        Method::DELETE,
+        &format!("/content/{pid}/pageTree"),
+        None,
+    )
+    .await;
+    assert_eq!(denied.status, StatusCode::FORBIDDEN);
+    let d = v1(
+        &app,
+        Method::DELETE,
+        &format!("/content/{pid}/pageTree"),
+        None,
+    )
+    .await;
+    assert_eq!(d.status, StatusCode::ACCEPTED);
+    let tid = d.json["id"].as_str().unwrap();
+    for id in [pid, c["id"].as_str().unwrap()] {
+        assert_eq!(
+            get(&app, &format!("/pages/{id}")).await.status,
+            StatusCode::NOT_FOUND
+        );
+    }
+    let t = v1(&app, Method::GET, &format!("/longtask/{tid}"), None).await;
+    assert_eq!(t.json["finished"], true);
+    assert_eq!(t.json["successful"], true);
+    assert_eq!(
+        as_user_v1(&app, &dee, Method::GET, &format!("/longtask/{tid}"), None)
+            .await
+            .status,
+        StatusCode::NOT_FOUND
+    );
+    assert_eq!(
+        v1(&app, Method::GET, "/longtask/abc", None).await.status,
+        StatusCode::NOT_FOUND
+    );
+    assert_eq!(
+        v1(
+            &app,
+            Method::DELETE,
+            &format!("/content/{pid}/pageTree"),
+            None
+        )
+        .await
+        .status,
+        StatusCode::NOT_FOUND
+    );
+}

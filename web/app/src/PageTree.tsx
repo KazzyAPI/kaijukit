@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { childPages, getAncestors, pagesByTitle, rootPages, type ChildPage, type Space } from './api';
 import { ContentIcon } from './ContentIcon';
+import { MoveDialog, useMove } from './MovePage';
 import { useDebounced } from './hooks';
 import { pageUrl } from './format';
 import { getJson, store } from './storage';
@@ -62,6 +63,8 @@ function TitleHits({ space, q }: { space: Space; q: string }) {
 function TreeRows({ space, currentId }: { space: Space; currentId?: string }) {
   const navigate = useNavigate();
   const toast = useToast();
+  const move = useMove();
+  const [moving, setMoving] = useState<ChildPage | null>(null);
   const storeKey = `kk.tree.${space.key}`;
   const [expanded, setExpanded] = useState<string[]>(() => getJson(storeKey, []));
   useEffect(() => store.set(storeKey, JSON.stringify(expanded)), [storeKey, expanded]);
@@ -97,6 +100,7 @@ function TreeRows({ space, currentId }: { space: Space; currentId?: string }) {
       <IconButton label={`Create child page under ${p.title || 'Untitled'}`} icon={<Icon name="plus" />} tabIndex={-1} onClick={() => navigate(`/wiki/spaces/${space.key}/pages/create?parentPageId=${p.id}`)} />
       <Menu label={`Actions for ${p.title || 'Untitled'}`} align="end" renderTrigger={(t) => <IconButton label={`More actions for ${p.title || 'Untitled'}`} icon={<Icon name="more" />} tabIndex={-1} {...t} />}>
         <MenuItem onSelect={() => navigate(`/wiki/spaces/${space.key}/pages/edit-v2/${p.id}`)}>Edit</MenuItem>
+        <MenuItem onSelect={() => setMoving(p)}>Move</MenuItem>
         <MenuItem
           onSelect={() =>
             void navigator.clipboard?.writeText(`${location.origin}${pageUrl(space.key, p.id, p.title)}`).then(
@@ -116,12 +120,16 @@ function TreeRows({ space, currentId }: { space: Space; currentId?: string }) {
   if (items.length === 0) return <p className="kk-muted kk-nav__empty">No pages yet.</p>;
 
   return (
+    <>
+    <MoveDialog page={moving} onClose={() => setMoving(null)} />
     <Tree
       label="Pages"
       items={items}
       selectedId={currentId}
       onSelect={(id) => navigate(pageUrl(space.key, id, titles[id] ?? ''))}
       onToggle={(id, open) => setExpanded((e) => (open ? [...new Set([...e, id])] : e.filter((x) => x !== id)))}
+      onDrop={(id, target, position) => move.mutate({ id, target, position })}
     />
+    </>
   );
 }

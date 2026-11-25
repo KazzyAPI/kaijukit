@@ -8,6 +8,7 @@ import { deletePage, getAncestors, getPage, resolveMedia, type Space } from '../
 import { Attachments } from '../Attachments';
 import { FooterComments } from '../Comments';
 import { InlinePanel, isOpen, SelectionButton, useInlineComments, type Pending } from '../InlineComments';
+import { MoveDialog } from '../MovePage';
 import { Labels } from '../Labels';
 import { LikeButton } from '../LikeButton';
 import { ContentIcon } from '../ContentIcon';
@@ -15,6 +16,7 @@ import { pageUrl, readingMinutes } from '../format';
 import { Collaborators, EditedAt, NotBuilt, PageHeaderBar, ShareControl, useCopyLink } from '../PageHeader';
 import { QueryState } from '../QueryState';
 import { useUserNames } from '../users';
+import { WatchButton } from '../Watch';
 import { NotFound } from './Errors';
 
 export function PageRoute() {
@@ -40,6 +42,7 @@ function PageView({ id }: { id: string }) {
   const qc = useQueryClient();
   const toast = useToast();
   const [confirm, setConfirm] = useState(false);
+  const [moving, setMoving] = useState(false);
   const [params] = useSearchParams();
   const deepLink = params.get('focusedCommentId') ?? undefined;
   const [panelOpen, setPanelOpen] = useState(false);
@@ -136,6 +139,7 @@ function PageView({ id }: { id: string }) {
                 <Menu label="Page actions" align="end" renderTrigger={(t) => <IconButton label="More actions" icon={<Icon name="more" />} {...t} />}>
                   <MenuItem onSelect={() => navigate(`/wiki/spaces/${space.key}/pages/create?parentPageId=${p.id}`)}>Add child page</MenuItem>
                   <MenuItem onSelect={copy}>Copy link</MenuItem>
+                  <MenuItem onSelect={() => setMoving(true)}>Move</MenuItem>
                   <MenuItem onSelect={() => navigate(`/wiki/spaces/${space.key}/pages/history/${p.id}`)}>Page history</MenuItem>
                   <MenuItem danger onSelect={() => setConfirm(true)}>Move to trash</MenuItem>
                 </Menu>
@@ -158,6 +162,7 @@ function PageView({ id }: { id: string }) {
                   <NotBuilt icon="chart" label="See views" />
                   <NotBuilt icon="smilePlus" label="Add a reaction" />
                   <LikeButton pageId={p.id} />
+                  <WatchButton kind="content" id={p.id} />
                   <Link className="kk-byline__item" to={`/wiki/spaces/${space.key}/pages/history/${p.id}`}>Version {p.version.number}</Link>
                   {p.status === 'draft' && <Lozenge appearance="warning">Draft</Lozenge>}
                 </div>
@@ -171,6 +176,7 @@ function PageView({ id }: { id: string }) {
               {panelOpen && <InlinePanel pageId={p.id} pending={pending} onDone={() => setPending(null)} focusedId={focusedId} onClose={() => { setPanelOpen(false); setPending(null); }} />}
               </div>
               <SelectionButton root={docRef} onStart={startComment} />
+              <MoveDialog page={moving ? p : null} onClose={() => setMoving(false)} />
               <Dialog
                 open={confirm}
                 onClose={() => setConfirm(false)}

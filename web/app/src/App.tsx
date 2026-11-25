@@ -5,11 +5,13 @@ import { useAuth } from './auth';
 import { Chrome } from './Chrome';
 import { ErrorPage, NotFound } from './screens/Errors';
 import { History } from './screens/History';
+import { Groups } from './screens/Groups';
 import { Home } from './screens/Home';
 import { LabelPages } from './screens/LabelPages';
 import { Login } from './screens/Login';
 import { Overview, PageRoute } from './screens/PageView';
 import { Search } from './screens/Search';
+import { SpaceSettings } from './screens/SpaceSettings';
 import { SpaceShell } from './screens/SpaceShell';
 import { Spaces } from './screens/Spaces';
 import { Tasks } from './screens/Tasks';
@@ -54,12 +56,14 @@ export function App() {
           <Route path="/wiki/spaces/:key" element={<SpaceShell />}>
             <Route index element={<Navigate to="overview" replace />} />
             <Route path="overview" element={<Overview />} />
+            <Route path="settings" element={<SpaceSettings />} />
             <Route path="pages/edit-v2/:id" element={<Suspense fallback={<Loading />}><EditorRoute /></Suspense>} />
             <Route path="pages/create" element={<Suspense fallback={<Loading />}><CreateRoute /></Suspense>} />
             <Route path="pages/history/:id" element={<History />} />
             <Route path="pages/:id/*" element={<PageRoute />} />
             <Route path="*" element={<NotFound />} />
           </Route>
+          <Route path="/wiki/admin/groups" element={<Groups />} />
           <Route path="/wiki/error/:code" element={<ErrorRoute />} />
           <Route path="*" element={<NotFound />} />
         </Route>

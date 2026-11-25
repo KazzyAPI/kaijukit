@@ -17,11 +17,17 @@ export interface TreeProps {
   selectedId?: string;
   onSelect: (id: string) => void;
   onToggle: (id: string, expand: boolean) => void;
+  /** Enables pointer drag and drop; keyboard users need another route (a move dialog). */
+  onDrop?: (id: string, targetId: string, position: DropPosition) => void;
 }
 
+export type DropPosition = 'before' | 'after' | 'append';
+
 // Flat visible-rows model: the caller owns expansion/lazy loading, the tree owns keyboard and ARIA.
-export function Tree({ items, label, selectedId, onSelect, onToggle }: TreeProps) {
+export function Tree({ items, label, selectedId, onSelect, onToggle, onDrop }: TreeProps) {
   const [focusId, setFocusId] = useState<string | undefined>();
+  const [drag, setDrag] = useState<string>();
+  const [hint, setHint] = useState<{ id: string; position: DropPosition }>();
   const ul = useRef<HTMLUListElement>(null);
   const uid = useId();
   const active = items.some((i) => i.id === focusId) ? focusId : items.some((i) => i.id === selectedId) ? selectedId : items[0]?.id;
@@ -83,7 +89,37 @@ export function Tree({ items, label, selectedId, onSelect, onToggle }: TreeProps
           className="kk-tree__item"
           onFocus={(e) => e.target === e.currentTarget && setFocusId(it.id)}
         >
-          <div className="kk-tree__row" style={{ paddingLeft: (it.level - 1) * 16 }} onClick={() => onSelect(it.id)}>
+          <div
+            className="kk-tree__row"
+            style={{ paddingLeft: (it.level - 1) * 16 }}
+            data-drop={hint?.id === it.id ? hint.position : undefined}
+            draggable={onDrop ? true : undefined}
+            onDragStart={(e) => {
+              setDrag(it.id);
+              e.dataTransfer.effectAllowed = 'move';
+              e.dataTransfer.setData('text/plain', it.id);
+            }}
+            onDragEnd={() => {
+              setDrag(undefined);
+              setHint(undefined);
+            }}
+            onDragOver={(e) => {
+              if (!drag || drag === it.id) return;
+              e.preventDefault();
+              const r = e.currentTarget.getBoundingClientRect();
+              const y = (e.clientY - r.top) / r.height;
+              const position = y < 0.25 ? 'before' : y > 0.75 ? 'after' : 'append';
+              if (hint?.id !== it.id || hint.position !== position) setHint({ id: it.id, position });
+            }}
+            onDragLeave={(e) => !e.currentTarget.contains(e.relatedTarget as Node | null) && setHint(undefined)}
+            onDrop={(e) => {
+              e.preventDefault();
+              if (drag && hint && drag !== it.id) onDrop?.(drag, it.id, hint.position);
+              setDrag(undefined);
+              setHint(undefined);
+            }}
+            onClick={() => onSelect(it.id)}
+          >
             <span
               className="kk-tree__chev"
               data-open={it.expanded || undefined}

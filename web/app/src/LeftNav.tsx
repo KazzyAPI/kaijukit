@@ -50,6 +50,11 @@ function RecentItems() {
   );
 }
 
+function MoreItems() {
+  const navigate = useNavigate();
+  return <MenuItem onSelect={() => navigate('/wiki/admin/groups')}>Groups</MenuItem>;
+}
+
 function SpaceItems() {
   const navigate = useNavigate();
   const spaces = useQuery({ queryKey: ['spaces', 'current'], queryFn: () => listSpaces() });
@@ -111,7 +116,7 @@ function SpaceBlock({ space }: { space: Space }) {
         <Menu label="Space actions" align="end" renderTrigger={(t) => <IconButton label="Space actions" icon={<Icon name="more" />} {...t} />}>
           <MenuItem onSelect={() => navigate(`/wiki/spaces/${space.key}/overview`)}>Space overview</MenuItem>
           <MenuItem onSelect={() => navigate('/wiki/spaces')}>All spaces</MenuItem>
-          {todoItem('Space settings')}
+          <MenuItem onSelect={() => navigate(`/wiki/spaces/${space.key}/settings`)}>Space settings</MenuItem>
         </Menu>
       </div>
       <Section title="Shortcuts">
@@ -184,7 +189,7 @@ export function LeftNav({ space, loading }: { space?: Space; loading: boolean })
           <Note>Teams aren't built yet</Note>
         </Flyout>
         <Flyout icon="more" label="More" chevron={false}>
-          <Note>Nothing else here yet</Note>
+          <MoreItems />
         </Flyout>
       </div>
       {space ? (

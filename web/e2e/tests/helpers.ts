@@ -2,10 +2,12 @@ import { expect, type Page } from '@playwright/test';
 
 export const ADMIN = { email: 'admin@kaijukit.local', token: 'kk-dev-token' };
 
-export async function login(page: Page, next = '/wiki/home') {
+export const BOB = { email: 'bob@kaijukit.local', token: 'bob-token' };
+
+export async function login(page: Page, next = '/wiki/home', who = ADMIN) {
   await page.goto(`/wiki/login?next=${encodeURIComponent(next)}`);
-  await page.getByLabel('Email').fill(ADMIN.email);
-  await page.getByLabel('API token').fill(ADMIN.token);
+  await page.getByLabel('Email').fill(who.email);
+  await page.getByLabel('API token').fill(who.token);
   await page.getByRole('button', { name: 'Log in' }).click();
   await expect(page).toHaveURL(new RegExp(next.replace(/[?]/g, '\\?')));
 }
@@ -33,7 +35,7 @@ export async function publishNewPage(page: Page, title: string, body: string[]) 
   await expect(page.getByRole('heading', { level: 1, name: title })).toBeVisible();
 }
 
-const auth = { Authorization: `Basic ${Buffer.from(`${ADMIN.email}:${ADMIN.token}`).toString('base64')}` };
+export const auth = { Authorization: `Basic ${Buffer.from(`${ADMIN.email}:${ADMIN.token}`).toString('base64')}` };
 const V2 = '/wiki/api/v2';
 export const adfBody = (d: object) => ({ representation: 'atlas_doc_format', value: JSON.stringify(d) });
 export const para = (...text: string[]) => ({ type: 'paragraph', content: text.map((t) => ({ type: 'text', text: t })) });

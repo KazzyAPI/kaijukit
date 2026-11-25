@@ -19,6 +19,10 @@ const API: &str = "/wiki/api/v2";
 static N: AtomicU32 = AtomicU32::new(0);
 
 async fn start() -> Router {
+    start_db().await.0
+}
+
+async fn start_db() -> (Router, PgPool) {
     let url = std::env::var("KK_TEST_DATABASE_URL")
         .expect("set KK_TEST_DATABASE_URL (see docs/arch/backend-dev.md)");
     let name = format!(
@@ -37,15 +41,16 @@ async fn start() -> Router {
     bootstrap_admin(&db, "admin@kaijukit.local", "kk-dev-token")
         .await
         .unwrap();
-    app(AppState {
-        db,
+    let router = app(AppState {
+        db: db.clone(),
         base_url: "http://localhost:8080".into(),
         blobs: std::sync::Arc::new(
             kk_server::LocalBlobs::new(std::env::temp_dir().join(format!("kk-blobs-{name}")))
                 .unwrap(),
         ),
         max_upload: 1024,
-    })
+    });
+    (router, db)
 }
 
 struct Res {
@@ -1982,5 +1987,631 @@ async fn tasks_follow_page_bodies_and_write_back() {
     assert_eq!(
         get(&app, &format!("/tasks/{tid}")).await.status,
         StatusCode::NOT_FOUND
+    );
+}
+
+// ---- permissions (M3) ----
+
+/// A non-admin user with its own token; returns the `email:token` credentials and the account id.
+async fn user(db: &PgPool, name: &str) -> (String, String) {
+    let email = format!("{name}@example.test");
+    let token = format!("tok-{name}");
+    bootstrap_admin(db, &email, &token).await.unwrap();
+    let id: i64 =
+        sqlx::query_scalar("UPDATE users SET is_admin = false WHERE email = $1 RETURNING id")
+            .bind(&email)
+            .fetch_one(db)
+            .await
+            .unwrap();
+    (format!("{email}:{token}"), id.to_string())
+}
+
+async fn as_user(app: &Router, who: &str, method: Method, path: &str, body: Option<Value>) -> Res {
+    send(app, method, &format!("/wiki/api/v2{path}"), body, Some(who)).await
+}
+
+async fn as_user_v1(
+    app: &Router,
+    who: &str,
+    method: Method,
+    path: &str,
+    body: Option<Value>,
+) -> Res {
+    send(
+        app,
+        method,
+        &format!("/wiki/rest/api{path}"),
+        body,
+        Some(who),
+    )
+    .await
+}
+
+fn ids(r: &Res) -> Vec<String> {
+    r.json["results"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|p| p["id"].as_str().unwrap().to_string())
+        .collect()
+}
+
+#[tokio::test]
+async fn permissions_space_read_grant_decides_existence() {
+    let (app, db) = start_db().await;
+    let (alice, alice_id) = user(&db, "alice").await;
+    let sp = space(&app, "PERM").await;
+    let sid = sp["id"].as_str().unwrap();
+    let p = page(&app, &sp["id"], "Visible", None).await;
+    let pid = p["id"].as_str().unwrap();
+
+    // defaults: everyone reads and creates, but does not administer or archive
+    assert_eq!(
+        as_user(&app, &alice, Method::GET, &format!("/pages/{pid}"), None)
+            .await
+            .status,
+        StatusCode::OK
+    );
+    let ops = as_user(
+        &app,
+        &alice,
+        Method::GET,
+        &format!("/spaces/{sid}/operations"),
+        None,
+    )
+    .await;
+    let keys: Vec<String> = ops.json["operations"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|o| {
+            format!(
+                "{}/{}",
+                o["operation"].as_str().unwrap(),
+                o["targetType"].as_str().unwrap()
+            )
+        })
+        .collect();
+    assert!(
+        keys.contains(&"read/space".into()) && !keys.contains(&"administer/space".into()),
+        "{keys:?}"
+    );
+    let denied = as_user_v1(&app, &alice, Method::POST, "/space/PERM/permission", Some(json!({
+        "subject": {"type": "user", "identifier": alice_id}, "operation": {"key": "administer", "target": "space"}}))).await;
+    assert_eq!(denied.status, StatusCode::FORBIDDEN);
+
+    // take read away from the everyone group
+    let grants = get(&app, &format!("/spaces/{sid}/permissions")).await;
+    let read = grants.json["results"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|g| g["principal"]["type"] == "group" && g["operation"]["key"] == "read")
+        .unwrap()["id"]
+        .as_str()
+        .unwrap()
+        .to_string();
+    let r = v1(
+        &app,
+        Method::DELETE,
+        &format!("/space/PERM/permission/{read}"),
+        None,
+    )
+    .await;
+    assert_eq!(r.status, StatusCode::NO_CONTENT);
+    for path in [
+        format!("/pages/{pid}"),
+        format!("/spaces/{sid}"),
+        format!("/pages/{pid}/children"),
+        format!("/pages/{pid}/operations"),
+    ] {
+        assert_eq!(
+            as_user(&app, &alice, Method::GET, &path, None).await.status,
+            StatusCode::NOT_FOUND,
+            "{path}"
+        );
+    }
+    assert!(
+        !ids(&as_user(&app, &alice, Method::GET, "/pages", None).await).contains(&pid.to_string())
+    );
+    assert!(
+        !ids(&as_user(&app, &alice, Method::GET, "/spaces", None).await).contains(&sid.to_string())
+    );
+    assert!(
+        ids(&get(&app, "/pages").await).contains(&pid.to_string()),
+        "admin still sees it"
+    );
+
+    // a direct user grant brings it back
+    let r = v1(&app, Method::POST, "/space/PERM/permission", Some(json!({
+        "subject": {"type": "user", "identifier": alice_id}, "operation": {"key": "read", "target": "space"}}))).await;
+    assert_eq!(r.status, StatusCode::OK, "{}", r.json);
+    assert_eq!(
+        as_user(&app, &alice, Method::GET, &format!("/pages/{pid}"), None)
+            .await
+            .status,
+        StatusCode::OK
+    );
+    // duplicate and invalid grants
+    let dup = v1(&app, Method::POST, "/space/PERM/permission", Some(json!({
+        "subject": {"type": "user", "identifier": alice_id}, "operation": {"key": "read", "target": "space"}}))).await;
+    assert_eq!(dup.status, StatusCode::BAD_REQUEST);
+    let bad = v1(&app, Method::POST, "/space/PERM/permission", Some(json!({
+        "subject": {"type": "user", "identifier": alice_id}, "operation": {"key": "read", "target": "page"}}))).await;
+    assert_eq!(bad.status, StatusCode::BAD_REQUEST);
+}
+
+#[tokio::test]
+async fn restrictions_hide_subtrees_and_limit_editing() {
+    let (app, db) = start_db().await;
+    let (alice, alice_id) = user(&db, "alice").await;
+    let (bob, bob_id) = user(&db, "bob").await;
+    let sp = space(&app, "RSTR").await;
+    let top = page(&app, &sp["id"], "Top", None).await;
+    let kid = page(&app, &sp["id"], "Kid", Some(&top["id"])).await;
+    let (top_id, kid_id) = (top["id"].as_str().unwrap(), kid["id"].as_str().unwrap());
+    let g = v1(
+        &app,
+        Method::POST,
+        "/group",
+        Some(json!({"name": "Readers"})),
+    )
+    .await;
+    assert_eq!(g.status, StatusCode::CREATED, "{}", g.json);
+    let gid = g.json["id"].as_str().unwrap();
+
+    // read restriction to group Readers hides the page and its child from alice
+    let r = v1(
+        &app,
+        Method::POST,
+        &format!("/content/{top_id}/restriction?expand=restrictions.group"),
+        Some(json!([{"operation": "read", "restrictions": {"group": [{"id": gid}]}}])),
+    )
+    .await;
+    assert_eq!(r.status, StatusCode::OK, "{}", r.json);
+    assert_eq!(
+        r.json["results"][0]["restrictions"]["group"]["results"][0]["name"],
+        "Readers"
+    );
+    for id in [top_id, kid_id] {
+        assert_eq!(
+            as_user(&app, &alice, Method::GET, &format!("/pages/{id}"), None)
+                .await
+                .status,
+            StatusCode::NOT_FOUND,
+            "{id}"
+        );
+    }
+    let listed = ids(&as_user(
+        &app,
+        &alice,
+        Method::GET,
+        &format!("/spaces/{}/pages", sp["id"].as_str().unwrap()),
+        None,
+    )
+    .await);
+    assert!(
+        !listed.contains(&top_id.to_string()) && !listed.contains(&kid_id.to_string()),
+        "{listed:?}"
+    );
+    let home = sp["homepageId"].as_str().unwrap();
+    let kids = ids(&as_user(
+        &app,
+        &alice,
+        Method::GET,
+        &format!("/pages/{home}/descendants"),
+        None,
+    )
+    .await);
+    assert!(kids.is_empty(), "{kids:?}");
+    assert!(
+        ids(&get(&app, &format!("/pages/{home}/descendants")).await).contains(&kid_id.to_string())
+    );
+    assert_eq!(
+        as_user_v1(
+            &app,
+            &alice,
+            Method::GET,
+            &format!("/content/{top_id}/restriction"),
+            None
+        )
+        .await
+        .status,
+        StatusCode::NOT_FOUND
+    );
+
+    // membership opens it up
+    let m = v1(
+        &app,
+        Method::POST,
+        &format!("/group/userByGroupId?groupId={gid}"),
+        Some(json!({"accountId": alice_id})),
+    )
+    .await;
+    assert_eq!(m.status, StatusCode::CREATED);
+    assert_eq!(
+        as_user(&app, &alice, Method::GET, &format!("/pages/{kid_id}"), None)
+            .await
+            .status,
+        StatusCode::OK
+    );
+    assert_eq!(
+        as_user(&app, &bob, Method::GET, &format!("/pages/{kid_id}"), None)
+            .await
+            .status,
+        StatusCode::NOT_FOUND
+    );
+
+    // edit restriction: only bob may update the kid; alice still reads it
+    let r = v1(
+        &app,
+        Method::PUT,
+        &format!("/content/{top_id}/restriction/byOperation/read/byGroupId/{gid}"),
+        None,
+    )
+    .await;
+    assert_eq!(r.status, StatusCode::OK);
+    let r = v1(
+        &app,
+        Method::DELETE,
+        &format!("/content/{top_id}/restriction/byOperation/read/byGroupId/{gid}"),
+        None,
+    )
+    .await;
+    assert_eq!(r.status, StatusCode::OK);
+    let r = v1(
+        &app,
+        Method::PUT,
+        &format!("/content/{kid_id}/restriction/byOperation/update/user?accountId={bob_id}"),
+        None,
+    )
+    .await;
+    assert_eq!(r.status, StatusCode::OK, "{}", r.json);
+    assert_eq!(
+        v1(
+            &app,
+            Method::GET,
+            &format!("/content/{kid_id}/restriction/byOperation/update/user?accountId={bob_id}"),
+            None
+        )
+        .await
+        .status,
+        StatusCode::OK
+    );
+    assert_eq!(
+        v1(
+            &app,
+            Method::GET,
+            &format!("/content/{kid_id}/restriction/byOperation/update/user?accountId={alice_id}"),
+            None
+        )
+        .await
+        .status,
+        StatusCode::NOT_FOUND
+    );
+    let state = as_user(
+        &app,
+        &alice,
+        Method::GET,
+        &format!("/pages/{kid_id}/restriction-state"),
+        None,
+    )
+    .await;
+    assert_eq!(state.json["state"], "EDIT_RESTRICTED");
+    let perms = as_user(
+        &app,
+        &alice,
+        Method::GET,
+        &format!("/pages/{kid_id}/permissions"),
+        None,
+    )
+    .await;
+    assert_eq!(
+        perms.json["results"][0]["principal"],
+        json!({"principalType": "user", "principalId": bob_id})
+    );
+    let upd = |who: &str, n: i64| {
+        let who = who.to_string();
+        let (app, kid_id) = (&app, kid_id);
+        let body = json!({"id": kid_id, "status": "current", "title": "Kid", "body": {"representation": "storage", "value": "<p>e</p>"},
+            "version": {"number": n}});
+        async move {
+            as_user(
+                app,
+                &who,
+                Method::PUT,
+                &format!("/pages/{kid_id}"),
+                Some(body),
+            )
+            .await
+        }
+    };
+    assert_eq!(upd(&alice, 2).await.status, StatusCode::FORBIDDEN);
+    assert_eq!(upd(&bob, 2).await.status, StatusCode::OK);
+    let ops = as_user(
+        &app,
+        &alice,
+        Method::GET,
+        &format!("/pages/{kid_id}/operations"),
+        None,
+    )
+    .await;
+    let has = |op: &str| {
+        ops.json["operations"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|o| o["operation"] == op && o["targetType"] == "page")
+    };
+    assert!(has("read") && !has("update") && !has("delete"));
+    let del = as_user(
+        &app,
+        &alice,
+        Method::DELETE,
+        &format!("/pages/{kid_id}"),
+        None,
+    )
+    .await;
+    assert_eq!(del.status, StatusCode::FORBIDDEN);
+    // restrictions are not inherited for editing: the top page stays editable by alice
+    let top_put = as_user(&app, &alice, Method::PUT, &format!("/pages/{top_id}"), Some(json!({"id": top_id, "status": "current",
+        "title": "Top", "body": {"representation": "storage", "value": "<p>t</p>"}, "version": {"number": 2}}))).await;
+    assert_eq!(top_put.status, StatusCode::OK, "{}", top_put.json);
+
+    // permission check answers for users and groups
+    let chk = |kind: &str, ident: &str, op: &str| {
+        let body = json!({"subject": {"type": kind, "identifier": ident}, "operation": op});
+        let (app, kid_id) = (&app, kid_id);
+        async move {
+            v1(
+                app,
+                Method::POST,
+                &format!("/content/{kid_id}/permission/check"),
+                Some(body),
+            )
+            .await
+        }
+    };
+    assert_eq!(
+        chk("user", &bob_id, "update").await.json["hasPermission"],
+        true
+    );
+    let no = chk("user", &alice_id, "update").await;
+    assert_eq!(no.json["hasPermission"], false);
+    assert!(no.json["errors"][0]["translation"]
+        .as_str()
+        .unwrap()
+        .contains("content"));
+    assert_eq!(
+        chk("user", "anonymous", "read").await.json["hasPermission"],
+        false
+    );
+    assert_eq!(
+        chk("group", gid, "read").await.json["hasPermission"],
+        false,
+        "group has no space grant"
+    );
+
+    // an edit restriction that would lock the caller out is refused; an admin may do it
+    let lock = as_user_v1(
+        &app,
+        &bob,
+        Method::PUT,
+        &format!("/content/{kid_id}/restriction"),
+        Some(json!([{"operation": "update", "restrictions": {"user": [{"accountId": alice_id}]}}])),
+    )
+    .await;
+    assert_eq!(lock.status, StatusCode::BAD_REQUEST, "{}", lock.json);
+    // delete all
+    let r = v1(
+        &app,
+        Method::DELETE,
+        &format!("/content/{kid_id}/restriction"),
+        None,
+    )
+    .await;
+    assert_eq!(r.status, StatusCode::OK);
+    assert_eq!(
+        get(&app, &format!("/pages/{kid_id}/restriction-state"))
+            .await
+            .json["state"],
+        "OPEN"
+    );
+}
+
+#[tokio::test]
+async fn restricted_pages_hide_comments_attachments_and_tasks() {
+    let (app, db) = start_db().await;
+    let (alice, _) = user(&db, "alice").await;
+    let sp = space(&app, "HIDE").await;
+    let p = page(&app, &sp["id"], "Secret", None).await;
+    let pid = p["id"].as_str().unwrap();
+    let c = call(
+        &app,
+        Method::POST,
+        "/footer-comments",
+        Some(json!({"pageId": pid,
+        "body": {"representation": "storage", "value": "<p>hi</p>"}})),
+    )
+    .await;
+    assert_eq!(c.status, StatusCode::CREATED, "{}", c.json);
+    let cid = c.json["id"].as_str().unwrap();
+    // alice may comment while she can see the page, and edit only her own comment
+    let mine = as_user(
+        &app,
+        &alice,
+        Method::POST,
+        "/footer-comments",
+        Some(json!({"pageId": pid,
+        "body": {"representation": "storage", "value": "<p>mine</p>"}})),
+    )
+    .await;
+    assert_eq!(mine.status, StatusCode::CREATED, "{}", mine.json);
+    let edit = |id: &str, who: &str| {
+        let (id, who, app) = (id.to_string(), who.to_string(), &app);
+        async move {
+            let body = json!({"version": {"number": 2}, "body": {"representation": "storage", "value": "<p>x</p>"}});
+            as_user(
+                app,
+                &who,
+                Method::PUT,
+                &format!("/footer-comments/{id}"),
+                Some(body),
+            )
+            .await
+        }
+    };
+    assert_eq!(edit(cid, &alice).await.status, StatusCode::FORBIDDEN);
+    assert_eq!(
+        edit(mine.json["id"].as_str().unwrap(), &alice).await.status,
+        StatusCode::OK
+    );
+
+    let g = v1(
+        &app,
+        Method::POST,
+        "/group",
+        Some(json!({"name": "Nobody"})),
+    )
+    .await;
+    let r = v1(
+        &app,
+        Method::PUT,
+        &format!("/content/{pid}/restriction"),
+        Some(json!([{"operation": "read", "restrictions": {"group": [{"id": g.json["id"]}]}}])),
+    )
+    .await;
+    assert_eq!(r.status, StatusCode::OK, "{}", r.json);
+    for path in [
+        format!("/footer-comments/{cid}"),
+        format!("/pages/{pid}/footer-comments"),
+        format!("/pages/{pid}/attachments"),
+    ] {
+        assert_eq!(
+            as_user(&app, &alice, Method::GET, &path, None).await.status,
+            StatusCode::NOT_FOUND,
+            "{path}"
+        );
+    }
+    assert!(ids(&as_user(&app, &alice, Method::GET, "/footer-comments", None).await).is_empty());
+    let denied = as_user(
+        &app,
+        &alice,
+        Method::POST,
+        "/footer-comments",
+        Some(json!({"pageId": pid,
+        "body": {"representation": "storage", "value": "<p>no</p>"}})),
+    )
+    .await;
+    assert_eq!(denied.status, StatusCode::NOT_FOUND);
+    assert!(!ids(&get(&app, "/footer-comments").await).is_empty());
+}
+
+#[tokio::test]
+async fn groups_crud_and_membership() {
+    let (app, db) = start_db().await;
+    let (alice, alice_id) = user(&db, "alice").await;
+    let denied = as_user_v1(
+        &app,
+        &alice,
+        Method::POST,
+        "/group",
+        Some(json!({"name": "Mine"})),
+    )
+    .await;
+    assert_eq!(denied.status, StatusCode::FORBIDDEN);
+    let g = v1(
+        &app,
+        Method::POST,
+        "/group",
+        Some(json!({"name": " Team "})),
+    )
+    .await;
+    assert_eq!(g.json["name"], "Team");
+    assert_eq!(
+        v1(&app, Method::POST, "/group", Some(json!({"name": "team"})))
+            .await
+            .status,
+        StatusCode::BAD_REQUEST
+    );
+    let gid = g.json["id"].as_str().unwrap();
+    let list = v1(&app, Method::GET, "/group", None).await;
+    let names: Vec<&str> = list.json["results"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|g| g["name"].as_str().unwrap())
+        .collect();
+    assert_eq!(names, ["kk-users", "Team"]);
+    assert_eq!(
+        v1(&app, Method::GET, &format!("/group/by-id?id={gid}"), None)
+            .await
+            .json["name"],
+        "Team"
+    );
+    assert_eq!(
+        v1(&app, Method::GET, "/group/by-id?id=999999", None)
+            .await
+            .status,
+        StatusCode::NOT_FOUND
+    );
+    let m = format!("/group/userByGroupId?groupId={gid}");
+    assert_eq!(
+        v1(&app, Method::POST, &m, Some(json!({"accountId": alice_id})))
+            .await
+            .status,
+        StatusCode::CREATED
+    );
+    assert_eq!(
+        v1(&app, Method::POST, &m, Some(json!({"accountId": "424242"})))
+            .await
+            .status,
+        StatusCode::NOT_FOUND
+    );
+    let members = v1(
+        &app,
+        Method::GET,
+        &format!("/group/{gid}/membersByGroupId"),
+        None,
+    )
+    .await;
+    assert_eq!(members.json["results"][0]["accountId"], alice_id);
+    let kk: String = sqlx::query_scalar("SELECT id::text FROM groups WHERE everyone")
+        .fetch_one(&db)
+        .await
+        .unwrap();
+    let all = v1(
+        &app,
+        Method::GET,
+        &format!("/group/{kk}/membersByGroupId"),
+        None,
+    )
+    .await;
+    assert_eq!(all.json["size"], 2, "admin and alice");
+    assert_eq!(
+        v1(&app, Method::DELETE, &format!("/group/by-id?id={kk}"), None)
+            .await
+            .status,
+        StatusCode::BAD_REQUEST
+    );
+    let rm = format!("/group/userByGroupId?groupId={gid}&accountId={alice_id}");
+    assert_eq!(
+        v1(&app, Method::DELETE, &rm, None).await.status,
+        StatusCode::NO_CONTENT
+    );
+    assert_eq!(
+        v1(&app, Method::DELETE, &rm, None).await.status,
+        StatusCode::NOT_FOUND
+    );
+    assert_eq!(
+        v1(
+            &app,
+            Method::DELETE,
+            &format!("/group/by-id?id={gid}"),
+            None
+        )
+        .await
+        .status,
+        StatusCode::NO_CONTENT
     );
 }

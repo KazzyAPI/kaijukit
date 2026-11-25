@@ -1,20 +1,25 @@
 mod attachments;
 mod auth;
+mod authz;
 mod blob;
 mod body;
 mod comments;
 mod error;
+mod groups;
 mod http;
 mod labels;
 mod likes;
 mod multipart;
 mod pages;
 mod props;
+mod restrictions;
+mod space_perms;
 mod spaces;
 mod target;
 mod tasks;
 mod tree;
 mod users;
+mod v1;
 mod versions;
 
 use axum::{
@@ -73,6 +78,16 @@ pub fn app(state: AppState) -> Router {
             get(pages::get).put(pages::update).delete(pages::delete),
         )
         .route("/users-bulk", post(users::bulk))
+        .route("/space-permissions", get(space_perms::available))
+        .route("/spaces/{id}/permissions", get(space_perms::assignments))
+        .route(
+            "/pages/{id}/permissions",
+            get(restrictions::page_permissions),
+        )
+        .route(
+            "/pages/{id}/restriction-state",
+            get(restrictions::restriction_state),
+        )
         .route(
             "/user/access/check-access-by-email",
             post(users::check_access),
@@ -222,6 +237,7 @@ pub fn app(state: AppState) -> Router {
             "/inline-comments/{id}/operations",
             get(likes::comment_ops::<2>),
         )
+        .route_layer(middleware::from_fn_with_state(state.clone(), authz::guard))
         .route_layer(middleware::from_fn_with_state(
             state.clone(),
             auth::require_auth,
@@ -233,6 +249,7 @@ pub fn app(state: AppState) -> Router {
             "/attachments/{container}/{filename}",
             get(attachments::download),
         )
+        .route_layer(middleware::from_fn_with_state(state.clone(), authz::guard))
         .route_layer(middleware::from_fn_with_state(
             state.clone(),
             auth::require_auth,
@@ -262,6 +279,44 @@ pub fn app(state: AppState) -> Router {
             get(attachments::v1_download),
         )
         .route("/content/{id}/like", put(likes::set).delete(likes::set))
+        .route(
+            "/content/{id}/restriction",
+            get(restrictions::get)
+                .post(restrictions::add)
+                .put(restrictions::update)
+                .delete(restrictions::delete_all),
+        )
+        .route(
+            "/content/{id}/restriction/byOperation",
+            get(restrictions::by_operation),
+        )
+        .route(
+            "/content/{id}/restriction/byOperation/{op}",
+            get(restrictions::for_operation),
+        )
+        .route(
+            "/content/{id}/restriction/byOperation/{op}/user",
+            get(restrictions::user_get)
+                .put(restrictions::user_put)
+                .delete(restrictions::user_delete),
+        )
+        .route(
+            "/content/{id}/restriction/byOperation/{op}/byGroupId/{gid}",
+            get(restrictions::group_get)
+                .put(restrictions::group_put)
+                .delete(restrictions::group_delete),
+        )
+        .route("/content/{id}/permission/check", post(restrictions::check))
+        .route("/space/{key}/permission", post(space_perms::add))
+        .route("/space/{key}/permission/{id}", delete(space_perms::remove))
+        .route("/group", get(groups::list).post(groups::create))
+        .route("/group/by-id", get(groups::get).delete(groups::delete))
+        .route(
+            "/group/userByGroupId",
+            post(groups::add_member).delete(groups::remove_member),
+        )
+        .route("/group/{id}/membersByGroupId", get(groups::members))
+        .route_layer(middleware::from_fn_with_state(state.clone(), authz::guard))
         .route_layer(middleware::from_fn_with_state(
             state.clone(),
             auth::require_auth,

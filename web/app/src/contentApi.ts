@@ -12,6 +12,7 @@ export interface Comment {
   parentCommentId?: string;
   version: Version;
   body?: { atlas_doc_format?: { value: string } };
+  authorId?: string; // original author (kaijukit extension); version.authorId is the last editor
   resolutionStatus?: Resolution;
   properties?: { inlineMarkerRef?: string; inlineOriginalSelection?: string };
 }
@@ -89,4 +90,24 @@ export const restoreVersion = async (id: string, v: Page, message: string) => {
   const current = await request<Page>('GET', `/pages/${id}`);
   return request<Page>('PUT', `/pages/${id}`, { body: { id, status: 'current', title: v.title, body: adfBody(v.body?.atlas_doc_format?.value ?? ''), version: { number: current.version.number + 1, message } } });
 };
-export const searchPages = (title: string) => list<Page>('/pages', { title, 'body-format': ADF });
+export const cql = (s: string) => `"${s.replace(/[\\"]/g, '\\$&')}"`;
+export interface SearchHit {
+  title: string;
+  excerpt: string;
+  lastModified: string;
+  content: { id: string; space: { key: string; name: string } };
+}
+export const searchPages = (text: string, limit = 25) =>
+  request<{ results: SearchHit[] }>('GET', `${V1}/search`, { query: { cql: `type = page AND (title ~ ${cql(text)} OR text ~ ${cql(text)})`, limit } }).then((r) => r.results);
+
+export interface Person {
+  accountId: string;
+  displayName?: string;
+}
+export const searchPeople = (name: string) =>
+  request<{ results: { user: Person }[] }>('GET', `${V1}/search/user`, { query: { cql: `user.fullname ~ ${cql(name)}`, limit: 10 } }).then((r) => r.results.map((x) => x.user));
+
+export const labelPages = (labelId: string) => list<Page>(`/labels/${labelId}/pages`);
+
+export type RestrictionState = 'OPEN' | 'VIEW_RESTRICTED' | 'EDIT_RESTRICTED';
+export const restrictionState = (pageId: string) => request<{ state: RestrictionState }>('GET', `/pages/${pageId}/restriction-state`).then((r) => r.state);

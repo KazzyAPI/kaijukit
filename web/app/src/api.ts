@@ -120,6 +120,7 @@ export const deletePage = (id: string, draft = false) => request<void>('DELETE',
 
 export const pagesByTitle = (title: string, spaceId?: string) =>
   request<Paged<Page>>('GET', '/pages', { query: { title, limit: 250, 'space-id': spaceId } }).then((r) => r.results);
+export const currentUser = () => request<User>('GET', '/wiki/rest/api/user/current');
 export const lookupUsers = (accountIds: string[]) => request<{ results: User[] }>('POST', '/users-bulk', { body: { accountIds } }).then((r) => r.results);
 
 const V1 = '/wiki/rest/api';

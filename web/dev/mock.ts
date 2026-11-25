@@ -174,6 +174,7 @@ function route(method: string, path: string, q: URLSearchParams, body: Record<st
     return [200, paged(kids.map((p) => ({ id: p.id, status: 'current', title: p.title, type: 'page', spaceId: p.spaceId, childPosition: p.position })), q, path)];
   }
   if ((m = path.match(/^\/pages\/(\d+)\/ancestors$/)) && method === 'GET') return [200, paged(ancestors(getPage(m[1])).map((p) => ({ id: p.id, type: 'page' })), q, path)];
+  if ((m = path.match(/^\/pages\/(\d+)\/restriction-state$/)) && method === 'GET') { getPage(m[1]); return [200, { state: 'OPEN' }]; }
   if ((m = path.match(/^\/pages\/(\d+)\/versions$/)) && method === 'GET') return [200, paged([...getPage(m[1]).history].reverse(), q, path)];
   throw new HttpError(404, 'No such endpoint.');
 }
@@ -200,6 +201,7 @@ function send(res: ServerResponse, status: number, data?: unknown) {
 }
 
 const V1 = '/wiki/rest/api';
+const plainText = (body: string) => (body.match(/"text":"([^"]*)"/g) ?? []).map((t) => t.slice(8, -1)).join(' ');
 const files = new Map<string, { name: string; type: string; data: Buffer }>();
 
 function readRaw(req: IncomingMessage): Promise<Buffer> {
@@ -221,6 +223,21 @@ function parseFilePart(raw: Buffer, contentType: string) {
     return { name: Buffer.from(head[1]!, 'latin1').toString('utf8'), type: head[2]!, data: raw.subarray(start, start + part.length - head.index - head[0].length - 2) };
   }
   return null;
+}
+
+// Minimal stand-ins for the v1 search and current-user endpoints: substring match on `title ~ "x"` / `text ~ "x"` clauses only.
+function v1Json(url: URL, path: string): unknown {
+  if (path === '/user/current') return { type: 'known', accountId: USER.id, accountType: 'standard', email: USER.email, publicName: 'Admin', displayName: 'Ada Admin' };
+  const cql = url.searchParams.get('cql') ?? '';
+  const term = /~ "((?:[^"\\]|\\.)*)"/.exec(cql)?.[1]?.toLowerCase() ?? '';
+  if (path === '/search/user') return { results: 'ada admin'.includes(term) ? [{ user: { accountId: USER.id, displayName: 'Ada Admin' } }] : [] };
+  const hits = pages.filter((p) => live(p) && (p.title.toLowerCase().includes(term) || plainText(p.body).toLowerCase().includes(term)));
+  return {
+    results: hits.map((p) => {
+      const s = spaces.find((x) => x.id === p.spaceId)!;
+      return { title: p.title, excerpt: plainText(p.body), lastModified: p.version.createdAt, content: { id: p.id, type: 'page', space: { key: s.key, name: s.name } } };
+    }),
+  };
 }
 
 async function attachments(req: IncomingMessage, res: ServerResponse, path: string): Promise<boolean> {
@@ -253,6 +270,8 @@ export function mockApi(): Plugin {
     configureServer(server) {
       server.middlewares.use(async (req, res, next) => {
         const url = new URL(req.url ?? '/', 'http://x');
+        const v1 = url.pathname.startsWith(V1 + '/') ? url.pathname.slice(V1.length) : '';
+        if (['/search', '/search/user', '/user/current'].includes(v1)) return send(res, 200, v1Json(url, v1));
         if (url.pathname.startsWith(V1 + '/') && (await attachments(req, res, url.pathname.slice(V1.length)))) return;
         if (!url.pathname.startsWith(BASE + '/')) return next();
         if (url.pathname === BASE + '/__reset') {

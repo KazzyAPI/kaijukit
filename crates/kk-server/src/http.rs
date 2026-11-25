@@ -78,6 +78,15 @@ impl Q {
             .collect()
     }
 
+    /// The query pairs except the named keys, for building paging links.
+    pub fn without(&self, skip: &[&str]) -> Vec<(String, String)> {
+        self.0
+            .iter()
+            .filter(|(k, _)| !skip.contains(&k.as_str()))
+            .cloned()
+            .collect()
+    }
+
     pub fn ids(&self, k: &str) -> Result<Option<Vec<i64>>, ApiError> {
         let l = self.list(k);
         if l.is_empty() {

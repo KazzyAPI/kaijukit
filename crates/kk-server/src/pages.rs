@@ -11,8 +11,10 @@ use kk_core::{ApiError, ContentStatus, ContentType, UserId};
 use serde::Deserialize;
 use serde_json::{json, Value};
 use sqlx::PgConnection;
+use std::sync::Arc;
 
 use crate::{
+    authz::Access,
     body,
     error::{db_err, R},
     http::{paged, parse_id, ts, JsonBody, Q},
@@ -184,7 +186,7 @@ pub async fn get(
     Ok(single(&s, &row, repr)?)
 }
 
-async fn list_pages(s: &AppState, path: &str, q: Q, space: Option<i64>) -> R<Response> {
+async fn list_pages(s: &AppState, a: &Access, path: &str, q: Q, space: Option<i64>) -> R<Response> {
     let (limit, offset) = (q.limit()?, q.offset()?);
     let repr = body::format(&q, body::PRIMARY)?;
     let order = q.order_by(
@@ -209,6 +211,7 @@ async fn list_pages(s: &AppState, path: &str, q: Q, space: Option<i64>) -> R<Res
         "{} WHERE c.type = 'page' AND ($1::bigint[] IS NULL OR c.id = ANY($1)) \
          AND ($2::bigint[] IS NULL OR c.space_id = ANY($2)) AND c.status = ANY($3) \
          AND ($4::text IS NULL OR v.title = $4) AND (NOT $5 OR c.parent_id IS NULL) \
+         AND ($8::bigint[] IS NULL OR c.space_id = ANY($8)) AND NOT (c.id = ANY($9)) \
          ORDER BY {order} LIMIT $6 OFFSET $7",
         select("c.version_number")
     );
@@ -220,6 +223,8 @@ async fn list_pages(s: &AppState, path: &str, q: Q, space: Option<i64>) -> R<Res
         .bind(root_only)
         .bind(limit + 1)
         .bind(offset)
+        .bind(a.readable_spaces())
+        .bind(a.hidden(&s.db).await?)
         .fetch_all(&s.db)
         .await?;
     let rows = rows
@@ -229,12 +234,17 @@ async fn list_pages(s: &AppState, path: &str, q: Q, space: Option<i64>) -> R<Res
     Ok(paged(&q, path, &s.site(), rows, limit, offset))
 }
 
-pub async fn list(State(s): State<AppState>, RawQuery(raw): RawQuery) -> R<Response> {
-    list_pages(&s, "/wiki/api/v2/pages", Q::parse(raw), None).await
+pub async fn list(
+    State(s): State<AppState>,
+    Extension(a): Extension<Arc<Access>>,
+    RawQuery(raw): RawQuery,
+) -> R<Response> {
+    list_pages(&s, &a, "/wiki/api/v2/pages", Q::parse(raw), None).await
 }
 
 pub async fn in_space(
     State(s): State<AppState>,
+    Extension(a): Extension<Arc<Access>>,
     Path(id): Path<String>,
     RawQuery(raw): RawQuery,
 ) -> R<Response> {
@@ -246,6 +256,7 @@ pub async fn in_space(
         .ok_or_else(|| ApiError::NotFound("space not found".into()))?;
     list_pages(
         &s,
+        &a,
         &format!("/wiki/api/v2/spaces/{id}/pages"),
         Q::parse(raw),
         Some(id),
@@ -316,6 +327,7 @@ fn draft_or_current(s: &str) -> Result<&str, ApiError> {
 pub async fn create(
     State(s): State<AppState>,
     Extension(user): Extension<UserId>,
+    Extension(access): Extension<Arc<Access>>,
     RawQuery(raw): RawQuery,
     JsonBody(req): JsonBody<CreateReq>,
 ) -> R<Json<Value>> {
@@ -339,6 +351,13 @@ pub async fn create(
         None => (kk_adf::Doc::new(vec![]), None),
     };
     let space = parse_id(&req.space_id)?;
+    let spaced: Option<i64> = sqlx::query_scalar("SELECT id FROM spaces WHERE id = $1")
+        .bind(space)
+        .fetch_optional(&s.db)
+        .await?;
+    if spaced.is_some() {
+        access.require_space(space, "create", "page")?;
+    }
     let mut tx = s.db.begin().await?;
     let home: Option<i64> =
         sqlx::query_scalar("SELECT homepage_id FROM spaces WHERE id = $1 AND status = 'current'")
@@ -355,7 +374,12 @@ pub async fn create(
             .bind(space)
             .fetch_optional(&mut *tx)
             .await?;
-            Some(ok.ok_or_else(|| ApiError::NotFound("parent not found in space".into()))?)
+            let p = ok.ok_or_else(|| ApiError::NotFound("parent not found in space".into()))?;
+            access
+                .visible(&s.db, p)
+                .await
+                .map_err(|_| ApiError::NotFound("parent not found in space".into()))?;
+            Some(p)
         }
         None if root_level => None,
         None => home,

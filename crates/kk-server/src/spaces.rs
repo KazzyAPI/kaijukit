@@ -5,11 +5,16 @@ use axum::{
     Extension, Json,
 };
 use chrono::{DateTime, Utc};
-use kk_core::{ApiError, UserId};
+use kk_core::{
+    perm::{DEFAULT_GRANTS, SPACE_PERMS},
+    ApiError, UserId,
+};
 use serde::Deserialize;
 use serde_json::{json, Value};
+use std::sync::Arc;
 
 use crate::{
+    authz::Access,
     error::{db_err, R},
     http::{paged, parse_id, ts, JsonBody, Q},
     pages::insert_page,
@@ -77,7 +82,11 @@ fn one_of<'a>(q: &'a Q, k: &str, allowed: &[&str]) -> Result<Option<&'a str>, Ap
     }
 }
 
-pub async fn list(State(s): State<AppState>, RawQuery(raw): RawQuery) -> R<Response> {
+pub async fn list(
+    State(s): State<AppState>,
+    Extension(access): Extension<Arc<Access>>,
+    RawQuery(raw): RawQuery,
+) -> R<Response> {
     let q = Q::parse(raw);
     let (limit, offset) = (q.limit()?, q.offset()?);
     let order = q.order_by(&[("id", "id"), ("key", "key"), ("name", "name")], "id")?;
@@ -85,7 +94,8 @@ pub async fn list(State(s): State<AppState>, RawQuery(raw): RawQuery) -> R<Respo
     let sql = format!(
         "SELECT {COLS} FROM spaces WHERE ($1::bigint[] IS NULL OR id = ANY($1)) \
          AND ($2::text[] IS NULL OR key = ANY($2)) AND ($3::text IS NULL OR type = $3) \
-         AND status = $4 ORDER BY {order} LIMIT $5 OFFSET $6"
+         AND status = $4 AND ($7::bigint[] IS NULL OR id = ANY($7)) \
+         ORDER BY {order} LIMIT $5 OFFSET $6"
     );
     let fmt = desc_format(&q)?;
     let rows: Vec<Space> = sqlx::query_as(&sql)
@@ -95,6 +105,7 @@ pub async fn list(State(s): State<AppState>, RawQuery(raw): RawQuery) -> R<Respo
         .bind(one_of(&q, "status", STATUSES)?.unwrap_or("current"))
         .bind(limit + 1)
         .bind(offset)
+        .bind(access.readable_spaces())
         .fetch_all(&s.db)
         .await?;
     let rows = rows.iter().map(|r| space_json(r, fmt)).collect();
@@ -183,6 +194,7 @@ pub async fn create(
         user.0,
     )
     .await?;
+    grant_defaults(&mut tx, id, user.0).await?;
     sqlx::query("UPDATE spaces SET homepage_id = $1 WHERE id = $2")
         .bind(home)
         .bind(id)
@@ -196,4 +208,40 @@ pub async fn create(
     let mut v = space_json(&row, Some("plain"));
     v["_links"]["base"] = json!(s.site());
     Ok((StatusCode::CREATED, Json(v)))
+}
+
+/// The creator gets every space permission, the everyone group the defaults.
+async fn grant_defaults(
+    tx: &mut sqlx::PgConnection,
+    space: i64,
+    creator: i64,
+) -> Result<(), sqlx::Error> {
+    let split = |pairs: &[(&str, &str)]| -> (Vec<String>, Vec<String>) {
+        pairs
+            .iter()
+            .map(|(k, t)| (k.to_string(), t.to_string()))
+            .unzip()
+    };
+    let (k, t) = split(SPACE_PERMS);
+    sqlx::query(
+        "INSERT INTO space_permissions (space_id, subject_type, subject_id, operation, target) \
+         SELECT $1, 'user', $2, k, t FROM unnest($3::text[], $4::text[]) AS p (k, t)",
+    )
+    .bind(space)
+    .bind(creator)
+    .bind(k)
+    .bind(t)
+    .execute(&mut *tx)
+    .await?;
+    let (k, t) = split(DEFAULT_GRANTS);
+    sqlx::query(
+        "INSERT INTO space_permissions (space_id, subject_type, subject_id, operation, target) \
+         SELECT $1, 'group', g.id, k, t FROM groups g, unnest($2::text[], $3::text[]) AS p (k, t) WHERE g.everyone",
+    )
+    .bind(space)
+    .bind(k)
+    .bind(t)
+    .execute(tx)
+    .await
+    .map(|_| ())
 }

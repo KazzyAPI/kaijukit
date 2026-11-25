@@ -16,6 +16,7 @@ use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 
 use crate::{
+    authz::Access,
     blob::BlobStore,
     error::{db_err, R},
     http::{paged, parse_attachment_id, parse_id, ts, Q},
@@ -106,7 +107,7 @@ async fn blocking<T: Send + 'static>(
         })
 }
 
-async fn list(s: &AppState, q: Q, container: Option<i64>, path: &str) -> R<Response> {
+async fn list(s: &AppState, a: &Access, q: Q, container: Option<i64>, path: &str) -> R<Response> {
     let (limit, offset) = (q.limit_or(50)?, q.offset()?);
     let order = q.order_by(&ORDER, "c.id")?;
     let status: Vec<String> = match q.list("status") {
@@ -124,6 +125,7 @@ async fn list(s: &AppState, q: Q, container: Option<i64>, path: &str) -> R<Respo
     let sql = format!(
         "{SELECT} AND c.status = ANY($2) AND ($3::bigint IS NULL OR a.container_id = $3) \
          AND ($4::text IS NULL OR av.media_type = $4) AND ($5::text IS NULL OR lower(c.title) = lower($5)) \
+         AND NOT (c.id = ANY($8)) AND ($9::bigint[] IS NULL OR c.space_id = ANY($9)) \
          ORDER BY {order} LIMIT $6 OFFSET $7"
     );
     let rows: Vec<Row> = sqlx::query_as(&sql)
@@ -134,6 +136,8 @@ async fn list(s: &AppState, q: Q, container: Option<i64>, path: &str) -> R<Respo
         .bind(q.get("filename"))
         .bind(limit + 1)
         .bind(offset)
+        .bind(a.hidden(&s.db).await?)
+        .bind(a.readable_spaces())
         .fetch_all(&s.db)
         .await?;
     Ok(paged(
@@ -146,18 +150,24 @@ async fn list(s: &AppState, q: Q, container: Option<i64>, path: &str) -> R<Respo
     ))
 }
 
-pub async fn list_all(State(s): State<AppState>, RawQuery(raw): RawQuery) -> R<Response> {
-    list(&s, Q::parse(raw), None, "/wiki/api/v2/attachments").await
+pub async fn list_all(
+    State(s): State<AppState>,
+    Extension(a): Extension<Arc<Access>>,
+    RawQuery(raw): RawQuery,
+) -> R<Response> {
+    list(&s, &a, Q::parse(raw), None, "/wiki/api/v2/attachments").await
 }
 
 pub async fn list_page(
     State(s): State<AppState>,
+    Extension(a): Extension<Arc<Access>>,
     Path(id): Path<String>,
     RawQuery(raw): RawQuery,
 ) -> R<Response> {
     let id = target::owner(&s.db, &id, "page").await?;
     list(
         &s,
+        &a,
         Q::parse(raw),
         Some(id),
         &format!("/wiki/api/v2/pages/{id}/attachments"),

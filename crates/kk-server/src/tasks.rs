@@ -11,8 +11,10 @@ use kk_core::{ApiError, UserId};
 use serde::Deserialize;
 use serde_json::{json, Value};
 use sqlx::PgConnection;
+use std::sync::Arc;
 
 use crate::{
+    authz::Access,
     body,
     error::{db_err, R},
     http::{paged, parse_id, ts, JsonBody, Q},
@@ -136,7 +138,11 @@ fn range(q: &Q, from: &str, to: &str) -> Result<(Option<i64>, Option<i64>), ApiE
     Ok((n(from)?, n(to)?))
 }
 
-pub async fn list(State(s): State<AppState>, RawQuery(raw): RawQuery) -> R<Response> {
+pub async fn list(
+    State(s): State<AppState>,
+    Extension(a): Extension<Arc<Access>>,
+    RawQuery(raw): RawQuery,
+) -> R<Response> {
     let q = Q::parse(raw);
     let (limit, offset) = (q.limit()?, q.offset()?);
     let repr = body::format(&q, body::PRIMARY)?;
@@ -158,7 +164,8 @@ pub async fn list(State(s): State<AppState>, RawQuery(raw): RawQuery) -> R<Respo
          AND ($3::bigint[] IS NULL OR t.space_id = ANY($3)) AND ($4::bigint[] IS NULL OR t.page_id = ANY($4)) \
          AND ($5::bigint[] IS NULL OR t.created_by = ANY($5)) AND ($6::bigint[] IS NULL OR t.assigned_to = ANY($6)) \
          AND ($7::bigint[] IS NULL OR t.completed_by = ANY($7)) AND ($8 OR NOT t.blank) AND NOT $9 \
-         AND {} AND {} AND {} ORDER BY t.id LIMIT $16 OFFSET $17",
+         AND {} AND {} AND {} AND NOT (t.page_id = ANY($18)) \
+         AND ($19::bigint[] IS NULL OR t.space_id = ANY($19)) ORDER BY t.id LIMIT $16 OFFSET $17",
         ms("t.created_at", 10),
         ms("t.due_at", 12),
         ms("t.completed_at", 14),
@@ -182,6 +189,8 @@ pub async fn list(State(s): State<AppState>, RawQuery(raw): RawQuery) -> R<Respo
         .bind(done.1)
         .bind(limit + 1)
         .bind(offset)
+        .bind(a.hidden(&s.db).await?)
+        .bind(a.readable_spaces())
         .fetch_all(&s.db)
         .await?;
     let rows = rows

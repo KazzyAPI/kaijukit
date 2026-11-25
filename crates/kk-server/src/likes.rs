@@ -6,10 +6,12 @@ use axum::{
     response::Response,
     Extension, Json,
 };
-use kk_core::{ApiError, UserId};
+use kk_core::{perm, ApiError, UserId};
 use serde_json::{json, Value};
+use std::sync::Arc;
 
 use crate::{
+    authz::Access,
     error::R,
     http::{paged, Q},
     target, AppState,
@@ -103,41 +105,7 @@ pub async fn set(
     Ok(StatusCode::NO_CONTENT)
 }
 
-const PAGE: &[(&str, &str)] = &[
-    ("read", "page"),
-    ("update", "page"),
-    ("delete", "page"),
-    ("copy", "page"),
-    ("move", "page"),
-    ("archive", "page"),
-    ("restrict_content", "page"),
-    ("create", "comment"),
-    ("create", "attachment"),
-];
-const SPACE: &[(&str, &str)] = &[
-    ("read", "space"),
-    ("create", "page"),
-    ("create", "blogpost"),
-    ("create", "comment"),
-    ("create", "attachment"),
-    ("delete", "space"),
-    ("export", "space"),
-    ("administer", "space"),
-    ("archive", "page"),
-    ("restrict_content", "space"),
-];
-const COMMENT: &[(&str, &str)] = &[
-    ("read", "comment"),
-    ("update", "comment"),
-    ("delete", "comment"),
-];
-const ATTACHMENT: &[(&str, &str)] = &[
-    ("read", "attachment"),
-    ("update", "attachment"),
-    ("delete", "attachment"),
-];
-
-fn operations(ops: &[(&str, &str)]) -> Json<Value> {
+fn operations(ops: Vec<(&str, &str)>) -> Json<Value> {
     let ops: Vec<_> = ops
         .iter()
         .map(|(o, t)| json!({"operation": o, "targetType": t}))
@@ -145,26 +113,50 @@ fn operations(ops: &[(&str, &str)]) -> Json<Value> {
     Json(json!({"operations": ops}))
 }
 
-/// Until permissions exist every authenticated user holds every operation.
-pub async fn page_ops(State(s): State<AppState>, Path(id): Path<String>) -> R<Json<Value>> {
-    target::owner(&s.db, &id, "page").await?;
-    Ok(operations(PAGE))
+/// Operations the caller holds on a content row, from their permissions and restrictions.
+async fn content_ops(s: &AppState, a: &Access, id: i64) -> R<Json<Value>> {
+    let (t, chain) = a.visible(&s.db, id).await?;
+    let g = a.grants(t.space_id);
+    let own = t.author_id == a.p.id;
+    Ok(operations(match t.ty.as_str() {
+        "comment" => perm::comment_ops(&a.p, &g, &chain, own),
+        "attachment" => perm::attachment_ops(&a.p, &g, &chain),
+        _ => perm::page_ops(&a.p, &g, &chain),
+    }))
 }
 
-pub async fn space_ops(State(s): State<AppState>, Path(id): Path<String>) -> R<Json<Value>> {
-    target::space(&s.db, &id).await?;
-    Ok(operations(SPACE))
+pub async fn page_ops(
+    State(s): State<AppState>,
+    Extension(a): Extension<Arc<Access>>,
+    Path(id): Path<String>,
+) -> R<Json<Value>> {
+    let id = target::owner(&s.db, &id, "page").await?;
+    content_ops(&s, &a, id).await
 }
 
-pub async fn attachment_ops(State(s): State<AppState>, Path(id): Path<String>) -> R<Json<Value>> {
-    target::owner(&s.db, &id, "attachment").await?;
-    Ok(operations(ATTACHMENT))
+pub async fn space_ops(
+    State(s): State<AppState>,
+    Extension(a): Extension<Arc<Access>>,
+    Path(id): Path<String>,
+) -> R<Json<Value>> {
+    let id = target::space(&s.db, &id).await?;
+    Ok(operations(perm::space_ops(&a.grants(id))))
+}
+
+pub async fn attachment_ops(
+    State(s): State<AppState>,
+    Extension(a): Extension<Arc<Access>>,
+    Path(id): Path<String>,
+) -> R<Json<Value>> {
+    let id = target::owner(&s.db, &id, "attachment").await?;
+    content_ops(&s, &a, id).await
 }
 
 pub async fn comment_ops<const TY: u8>(
     State(s): State<AppState>,
+    Extension(a): Extension<Arc<Access>>,
     Path(id): Path<String>,
 ) -> R<Json<Value>> {
-    liked::<TY>(&s, &id).await?;
-    Ok(operations(COMMENT))
+    let id = liked::<TY>(&s, &id).await?;
+    content_ops(&s, &a, id).await
 }

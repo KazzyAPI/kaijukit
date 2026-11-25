@@ -9,12 +9,14 @@ use axum::{
 };
 use chrono::{DateTime, Utc};
 use kk_adf::Doc;
-use kk_core::{ApiError, UserId};
+use kk_core::{perm, ApiError, UserId};
 use serde::Deserialize;
 use serde_json::{json, Value};
 use sqlx::PgConnection;
+use std::sync::Arc;
 
 use crate::{
+    authz::Access,
     body,
     error::{db_err, R},
     http::{paged, parse_attachment_id, parse_id, ts, JsonBody, Q},
@@ -191,7 +193,7 @@ struct Scope<'a> {
     id: Option<i64>,
 }
 
-async fn list(s: &AppState, q: Q, sc: Scope<'_>) -> R<Response> {
+async fn list(s: &AppState, a: &Access, q: Q, sc: Scope<'_>) -> R<Response> {
     let (limit, offset) = (q.limit()?, q.offset()?);
     let repr = body::format(&q, body::PRIMARY)?;
     let order = q.order_by(&ORDER, "c.id")?;
@@ -199,6 +201,7 @@ async fn list(s: &AppState, q: Q, sc: Scope<'_>) -> R<Response> {
     let resolution = enum_list(&q, "resolution-status", &RESOLUTIONS, &RESOLUTIONS)?;
     let sql = format!(
         "{SELECT} WHERE k.kind = $3 AND c.status = ANY($4) AND k.resolution = ANY($5) AND {} \
+         AND NOT (c.id = ANY($8)) AND ($9::bigint[] IS NULL OR c.space_id = ANY($9)) \
          ORDER BY {order} LIMIT $6 OFFSET $7",
         sc.filter
     );
@@ -210,6 +213,8 @@ async fn list(s: &AppState, q: Q, sc: Scope<'_>) -> R<Response> {
         .bind(resolution)
         .bind(limit + 1)
         .bind(offset)
+        .bind(a.hidden(&s.db).await?)
+        .bind(a.readable_spaces())
         .fetch_all(&s.db)
         .await?;
     let rows = rows
@@ -242,11 +247,13 @@ fn enum_list(
 
 pub async fn list_all<const INLINE: bool>(
     State(s): State<AppState>,
+    Extension(a): Extension<Arc<Access>>,
     RawQuery(raw): RawQuery,
 ) -> R<Response> {
     let path = format!("/wiki/api/v2/{}-comments", kind(INLINE));
     list(
         &s,
+        &a,
         Q::parse(raw),
         Scope {
             inline: INLINE,
@@ -260,6 +267,7 @@ pub async fn list_all<const INLINE: bool>(
 
 pub async fn list_page<const INLINE: bool>(
     State(s): State<AppState>,
+    Extension(a): Extension<Arc<Access>>,
     Path(id): Path<String>,
     RawQuery(raw): RawQuery,
 ) -> R<Response> {
@@ -269,6 +277,7 @@ pub async fn list_page<const INLINE: bool>(
     let filter = "k.container_id = $2 AND k.parent_id IS NULL";
     list(
         &s,
+        &a,
         Q::parse(raw),
         Scope {
             inline: INLINE,
@@ -282,6 +291,7 @@ pub async fn list_page<const INLINE: bool>(
 
 pub async fn list_attachment(
     State(s): State<AppState>,
+    Extension(a): Extension<Arc<Access>>,
     Path(id): Path<String>,
     RawQuery(raw): RawQuery,
 ) -> R<Response> {
@@ -291,6 +301,7 @@ pub async fn list_attachment(
     let filter = "k.container_id = $2 AND k.parent_id IS NULL";
     list(
         &s,
+        &a,
         Q::parse(raw),
         Scope {
             inline: false,
@@ -304,6 +315,7 @@ pub async fn list_attachment(
 
 pub async fn children<const INLINE: bool>(
     State(s): State<AppState>,
+    Extension(a): Extension<Arc<Access>>,
     Path(id): Path<String>,
     RawQuery(raw): RawQuery,
 ) -> R<Response> {
@@ -312,6 +324,7 @@ pub async fn children<const INLINE: bool>(
     let path = format!("/wiki/api/v2/{}-comments/{id}/children", kind(INLINE));
     list(
         &s,
+        &a,
         Q::parse(raw),
         Scope {
             inline: INLINE,
@@ -410,6 +423,7 @@ async fn anchor(tx: &mut PgConnection, page: i64, p: &InlineProps) -> Result<Str
 pub async fn create<const INLINE: bool>(
     State(s): State<AppState>,
     Extension(user): Extension<UserId>,
+    Extension(access): Extension<Arc<Access>>,
     JsonBody(req): JsonBody<CreateReq>,
 ) -> R<(StatusCode, Json<Value>)> {
     if req.blog_post_id.is_some() || req.custom_content_id.is_some() {
@@ -447,6 +461,18 @@ pub async fn create<const INLINE: bool>(
             _ => unreachable!("one target was checked above"),
         };
     let (space, container_title) = target::live(&mut *tx, container, &container_type).await?;
+    let (t, chain) = access
+        .visible(&s.db, container)
+        .await
+        .map_err(|_| ApiError::NotFound(format!("{container_type} not found")))?;
+    if !perm::page_can(
+        "create_comment",
+        &access.p,
+        &access.grants(t.space_id),
+        &chain,
+    ) {
+        return Err(ApiError::Forbidden("you may not comment here".into()).into());
+    }
     let (marker, selection) = match (&req.inline_comment_properties, INLINE, parent) {
         (Some(p), true, None) => (
             Some(anchor(&mut tx, container, p).await?),
@@ -514,6 +540,15 @@ pub async fn update<const INLINE: bool>(
     }
     let mut tx = s.db.begin().await?;
     let row = load(&mut tx, id, INLINE, None).await?;
+    if parsed.is_some() {
+        let author: i64 = sqlx::query_scalar("SELECT author_id FROM content WHERE id = $1")
+            .bind(id)
+            .fetch_one(&mut *tx)
+            .await?;
+        if author != user.0 && !user_is_admin(&mut tx, user.0).await? {
+            return Err(ApiError::Forbidden("only the author can edit a comment".into()).into());
+        }
+    }
     if let Some((doc, _)) = &parsed {
         let number = req
             .version
@@ -654,4 +689,11 @@ pub async fn version_get<const INLINE: bool>(
     let id = parse_id(&id)?;
     load(&mut *s.db.acquire().await?, id, INLINE, None).await?;
     versions::detail(&s, id, &number, "comment").await
+}
+
+async fn user_is_admin(tx: &mut PgConnection, id: i64) -> Result<bool, sqlx::Error> {
+    sqlx::query_scalar("SELECT is_admin FROM users WHERE id = $1")
+        .bind(id)
+        .fetch_one(tx)
+        .await
 }

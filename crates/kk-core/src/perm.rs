@@ -32,6 +32,20 @@ pub const DEFAULT_GRANTS: &[(&str, &str)] = &[
     ("delete", "attachment"),
 ];
 
+/// Operations listed on a space response (a subset of the grantable pairs).
+const SPACE_OPS: &[(&str, &str)] = &[
+    ("read", "space"),
+    ("create", "page"),
+    ("create", "blogpost"),
+    ("create", "comment"),
+    ("create", "attachment"),
+    ("delete", "space"),
+    ("export", "space"),
+    ("administer", "space"),
+    ("archive", "page"),
+    ("restrict_content", "space"),
+];
+
 const PAGE_OPS: &[(&str, &str)] = &[
     ("read", "page"),
     ("update", "page"),
@@ -166,7 +180,7 @@ pub fn page_ops(
 }
 
 pub fn space_ops(g: &Grants) -> Vec<(&'static str, &'static str)> {
-    SPACE_PERMS
+    SPACE_OPS
         .iter()
         .filter(|(k, t)| g.has(k, t))
         .copied()
@@ -300,7 +314,7 @@ mod tests {
     #[test]
     fn administer_implies_everything_and_ops_follow_grants() {
         let admin_space = grants(&[("read", "space"), ("administer", "space")]);
-        assert_eq!(space_ops(&admin_space).len(), SPACE_PERMS.len());
+        assert_eq!(space_ops(&admin_space).len(), SPACE_OPS.len());
         let g = grants(DEFAULT_GRANTS);
         let ops = page_ops(&user(1, &[]), &g, &[]);
         assert!(ops.contains(&("update", "page")) && !ops.contains(&("archive", "page")));

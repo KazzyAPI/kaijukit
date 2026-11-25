@@ -85,11 +85,7 @@ async fn start_db() -> (TestApp, PgPool) {
         ),
         max_upload: 1024,
     });
-    let guard = TestApp {
-        router,
-        url,
-        name,
-    };
+    let guard = TestApp { router, url, name };
     (guard, db)
 }
 
@@ -3030,7 +3026,14 @@ async fn text_search_uses_the_stored_tsvector_and_gin_index() {
     let (app, db) = start_db().await;
     let sp = space(&app, "TS").await;
     let p = page(&app, &sp["id"], "Searchable", None).await;
-    put_page(&app, p["id"].as_str().unwrap(), "Searchable", 2, "zebra crossing").await;
+    put_page(
+        &app,
+        p["id"].as_str().unwrap(),
+        "Searchable",
+        2,
+        "zebra crossing",
+    )
+    .await;
     let n: i64 = sqlx::query_scalar(
         "SELECT count(*) FROM content_search WHERE tsv @@ plainto_tsquery('english', 'zebras')",
     )
@@ -3049,5 +3052,199 @@ async fn text_search_uses_the_stored_tsvector_and_gin_index() {
     .fetch_all(&mut *tx)
     .await
     .unwrap();
-    assert!(plan.join("\n").contains("content_search_tsv_idx"), "{plan:?}");
+    assert!(
+        plan.join("\n").contains("content_search_tsv_idx"),
+        "{plan:?}"
+    );
+}
+
+/// Property-style parity check: for generated trees, restriction sets and callers, the list
+/// filter (SQL descendant closure), the per-id guard (SQL ancestor chain + kk-core rules) and an
+/// independent oracle written from the documented rule must agree.
+#[tokio::test]
+async fn restriction_filters_agree_with_the_core_rules() {
+    let (app, db) = start_db().await;
+    let admin: i64 = sqlx::query_scalar("SELECT id FROM users LIMIT 1")
+        .fetch_one(&db)
+        .await
+        .unwrap();
+    let sp = space(&app, "PAR").await;
+    let home = sp["homepageId"].as_str().unwrap().to_string();
+    let mut nodes = vec![home.clone()];
+    let mut parent_of = vec![usize::MAX];
+    let mut seed: u64 = 0x9e3779b97f4a7c15;
+    let mut rnd = move |n: usize| {
+        seed ^= seed << 13;
+        seed ^= seed >> 7;
+        seed ^= seed << 17;
+        (seed % n as u64) as usize
+    };
+    for i in 1..=12 {
+        let p = rnd(nodes.len());
+        let pg = page(&app, &sp["id"], &format!("n{i}"), Some(&json!(nodes[p]))).await;
+        nodes.push(pg["id"].as_str().unwrap().to_string());
+        parent_of.push(p);
+    }
+    let mut comments = vec![];
+    for n in [3, 7, 10] {
+        let c = post_comment(
+            &app,
+            "/footer-comments",
+            json!({"pageId": nodes[n], "body": {"representation": "storage", "value": "<p>c</p>"}}),
+        )
+        .await;
+        comments.push((c.json["id"].as_str().unwrap().to_string(), n));
+    }
+    let mut people = vec![];
+    for name in ["pa", "pb", "pc", "pd"] {
+        people.push(user(&db, name).await);
+    }
+    let mut groups = vec![];
+    for g in ["ga", "gb"] {
+        let id: i64 = sqlx::query_scalar("INSERT INTO groups (name) VALUES ($1) RETURNING id")
+            .bind(g)
+            .fetch_one(&db)
+            .await
+            .unwrap();
+        groups.push(id);
+    }
+    let (mut hidden_total, mut shown_total) = (0, 0);
+    for round in 0..25 {
+        sqlx::query("DELETE FROM content_restrictions")
+            .execute(&db)
+            .await
+            .unwrap();
+        sqlx::query("DELETE FROM group_members")
+            .execute(&db)
+            .await
+            .unwrap();
+        // membership[person] = bitmask over groups
+        let member: Vec<usize> = (0..people.len()).map(|_| rnd(4)).collect();
+        for (i, m) in member.iter().enumerate() {
+            for (g, gid) in groups.iter().enumerate() {
+                if m >> g & 1 == 1 {
+                    sqlx::query("INSERT INTO group_members VALUES ($1, $2)")
+                        .bind(gid)
+                        .bind(people[i].1.parse::<i64>().unwrap())
+                        .execute(&db)
+                        .await
+                        .unwrap();
+                }
+            }
+        }
+        // restrictions[node] = (read subjects, update subjects); subject = (is_group, index)
+        let mut restr: Vec<(Vec<(bool, usize)>, Vec<(bool, usize)>)> =
+            vec![Default::default(); nodes.len()];
+        for n in 0..nodes.len() {
+            if rnd(3) != 0 {
+                continue;
+            }
+            for (op, set) in [("read", 0), ("update", 1)] {
+                let count = if set == 0 { 1 + rnd(2) } else { rnd(2) };
+                for _ in 0..count {
+                    let s = if rnd(2) == 0 {
+                        (true, rnd(groups.len()))
+                    } else {
+                        (false, rnd(people.len()))
+                    };
+                    let list = if set == 0 {
+                        &mut restr[n].0
+                    } else {
+                        &mut restr[n].1
+                    };
+                    if list.contains(&s) {
+                        continue;
+                    }
+                    list.push(s);
+                    let (ty, sid) = if s.0 {
+                        ("group", groups[s.1])
+                    } else {
+                        ("user", people[s.1].1.parse().unwrap())
+                    };
+                    sqlx::query("INSERT INTO content_restrictions (content_id, operation, subject_type, subject_id, created_by) VALUES ($1, $2, $3, $4, $5)")
+                        .bind(nodes[n].parse::<i64>().unwrap())
+                        .bind(op)
+                        .bind(ty)
+                        .bind(sid)
+                        .bind(admin)
+                        .execute(&db)
+                        .await
+                        .unwrap();
+                }
+            }
+        }
+        for (pi, (creds, _)) in people.iter().enumerate() {
+            let holds = |set: &[(bool, usize)]| {
+                set.iter().any(|(g, i)| {
+                    if *g {
+                        member[pi] >> i & 1 == 1
+                    } else {
+                        *i == pi
+                    }
+                })
+            };
+            let node_ok = |mut n: usize| loop {
+                let (r, u) = &restr[n];
+                if !r.is_empty() && !holds(r) && !holds(u) {
+                    break false;
+                }
+                if parent_of[n] == usize::MAX {
+                    break true;
+                }
+                n = parent_of[n];
+            };
+            let want: Vec<String> = (0..nodes.len())
+                .filter(|n| node_ok(*n))
+                .map(|n| nodes[n].clone())
+                .collect();
+            let mut by_guard = vec![];
+            for (n, id) in nodes.iter().enumerate() {
+                let r = as_user(&app, creds, Method::GET, &format!("/pages/{id}"), None).await;
+                match r.status {
+                    StatusCode::OK => by_guard.push(id.clone()),
+                    StatusCode::NOT_FOUND => {}
+                    s => panic!("round {round} node {n}: {s}"),
+                }
+            }
+            let mut listed =
+                ids(&as_user(&app, creds, Method::GET, "/pages?limit=250", None).await);
+            listed.sort();
+            let (mut want_sorted, mut guard_sorted) = (want.clone(), by_guard.clone());
+            want_sorted.sort();
+            guard_sorted.sort();
+            hidden_total += nodes.len() - want_sorted.len();
+            shown_total += want_sorted.len();
+            assert_eq!(
+                guard_sorted, want_sorted,
+                "round {round} person {pi}: guard vs oracle"
+            );
+            assert_eq!(
+                listed, want_sorted,
+                "round {round} person {pi}: list vs oracle"
+            );
+            let listed_comments = {
+                let mut v =
+                    ids(
+                        &as_user(&app, creds, Method::GET, "/footer-comments?limit=250", None)
+                            .await,
+                    );
+                v.sort();
+                v
+            };
+            let mut want_comments: Vec<String> = comments
+                .iter()
+                .filter(|(_, n)| node_ok(*n))
+                .map(|(c, _)| c.clone())
+                .collect();
+            want_comments.sort();
+            assert_eq!(
+                listed_comments, want_comments,
+                "round {round} person {pi}: comments"
+            );
+        }
+    }
+    assert!(
+        hidden_total > 50 && shown_total > 50,
+        "generator is too tame: {hidden_total} hidden, {shown_total} shown"
+    );
 }

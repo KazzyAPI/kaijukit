@@ -74,3 +74,16 @@ Choices made where the reference gives no visible signal or is marked `[V]`. Eac
 - App properties are global per instance, accept any authenticated user, store the request body as the value; PUT returns 201 on create, 200 on update. The 403 case is not produced.
 - Likes have no v2 write. `PUT/DELETE /wiki/rest/api/content/{id}/like` is a KaijuKit extension, idempotent, on pages and comments. `limit=0` on like users is rejected (minimum 1 enforced).
 - Operations lists are static (every authenticated user holds every operation) until permissions land in M3. The operation and target pairs follow the permission model in 04.
+
+## Attachments (M2)
+
+- An attachment is a `content` row of type `attachment` (title = filename) plus `attachments` (container page, stable `fileId`) and `attachment_versions` (blob key, media type, size, comment per version). Only pages can contain attachments. Ids are exposed as `att<id>`; bare ids are accepted.
+- Upload is `POST` or `PUT /wiki/rest/api/content/{id}/child/attachment` (`file`, `comment`, `minorEdit`). The same filename (case-insensitive) on the same page adds a version; `POST .../{attachmentId}/data` adds a version to a known attachment. Multipart is parsed by a small in-tree reader (no new dependency) and the whole request is buffered in memory.
+- Size limit `KK_MAX_UPLOAD_BYTES`, default 25 MiB, over it is 413. No blocked-extension list. Filenames keep only the last path component; control characters and empty names are 400.
+- Media type is sniffed from content (PNG, JPEG, GIF, PDF, ZIP, WebP, SVG magic numbers), then UTF-8 text by extension (`json`, `csv`, `md`, else `text/plain`), else `application/octet-stream`. The client media type is ignored.
+- Blobs live in `KK_BLOB_DIR` (default `./blobs`) addressed by sha256 behind the `BlobStore` trait; a blob is deleted on purge only when no version references it. Versions of a live attachment never delete blobs.
+- Download is `GET /wiki/download/attachments/{containerId}/{filename}?version=`, authenticated. Images (not SVG) and PDF are `inline`, everything else `attachment`, always `nosniff`. No Range support, no cache validators, no thumbnails (`getAttachmentThumbnailById` not built).
+- `DELETE /attachments/{id}` trashes; `?purge=true` removes it at once, including from the current state. Trashed attachments appear only with `status=trashed`. Deleting a page removes its attachments with it.
+- The v1 download endpoint redirects (302) to the download link instead of returning a JSON URI.
+- `webuiLink` is `/spaces/<key>/pages/<pageId>?preview=%2F<pageId>%2Fatt<id>%2F<filename>`.
+- Not built: blog post and custom content attachments, label attachments, `include-*` expansions, v1 `updateAttachmentProperties`, version delete and restore, thumbnails, antivirus hook, resolving ADF `media` filenames to attachments on render.

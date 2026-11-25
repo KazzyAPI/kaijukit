@@ -1,0 +1,51 @@
+{
+  "id": "v2-attachment-versions",
+  "ops": [
+    "getAttachmentVersions"
+  ],
+  "setup": [
+    {
+      "as": "space",
+      "method": "POST",
+      "path": "/wiki/api/v2/spaces",
+      "body": {
+        "name": "Conf {{run}}",
+        "key": "K{{run}}"
+      }
+    },
+    {
+      "as": "page1",
+      "method": "POST",
+      "path": "/wiki/api/v2/pages",
+      "body": {
+        "spaceId": "{{space.id}}",
+        "status": "current",
+        "title": "page1 {{run}}",
+        "body": {
+          "representation": "storage",
+          "value": "<p>alpha beta alpha</p>"
+        }
+      }
+    },
+    {
+      "as": "att",
+      "method": "POST",
+      "path": "/wiki/rest/api/content/{{page1.id}}/child/attachment",
+      "multipart": {
+        "filename": "note.txt",
+        "content": "hello",
+        "fields": {
+          "comment": "first",
+          "minorEdit": "false"
+        }
+      }
+    }
+  ],
+  "request": {
+    "method": "GET",
+    "path": "/wiki/api/v2/attachments/{{att.results.0.id}}/versions"
+  },
+  "expect": {
+    "status": 200
+  }
+}

@@ -3,7 +3,8 @@ import { join } from "node:path";
 import type { Json } from "./schema.js";
 import type { Rules } from "./normalize.js";
 
-export interface Req { method: string; path: string; query?: Record<string, string>; headers?: Record<string, string>; body?: Json }
+export interface Req { method: string; path: string; query?: Record<string, string>; headers?: Record<string, string>; body?: Json; multipart?: Multipart }
+export interface Multipart { filename: string; content: string; fields?: Record<string, string> }
 export interface Case {
   id: string; ops: string[]; setup: Array<Req & { as: string }>; request: Req;
   expect?: { status?: number; body?: Json; headers?: Record<string, string> };

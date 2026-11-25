@@ -17,7 +17,7 @@ COPY migrations migrations
 RUN cargo build --release -p kk-server
 
 FROM debian:bookworm-slim
-RUN useradd --system --uid 10001 kk
+RUN useradd --system --uid 10001 kk && mkdir -p /data/blobs && chown kk /data/blobs
 COPY --from=build /src/target/release/kk-server /usr/local/bin/kk-server
 COPY --from=web /src/web/app/dist /srv/web
 ENV KK_WEB_DIR=/srv/web

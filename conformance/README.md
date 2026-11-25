@@ -12,5 +12,6 @@ pnpm --filter conformance-runner test
 - Dev stack auth defaults to `admin@kaijukit.local:kk-dev-token`; override with `KK_AUTH=user:token`.
 - Pinned spec URLs and sha256 live in `spec-pins.json`; without `--spec` the runner downloads to `.cache/` (gitignored) and verifies the hash.
 - Setup steps chain responses: `{"as":"page1",...}` makes `{{page1.id}}` available later; `{{run}}` is a random suffix per run.
+- A setup step or request may carry `"multipart": {"filename", "content", "fields"}` to send a `multipart/form-data` upload with one `file` part instead of a JSON body.
 - `record` needs `REF_AUTH=user:token` for a reference instance you are licensed to use; it rewrites `expect` with normalized output and never stores credentials.
 - Schema mode needs a live server; there is no teardown, so use a disposable dev database.

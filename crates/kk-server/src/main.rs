@@ -1,6 +1,6 @@
 use std::env;
 
-use kk_server::{app, bootstrap_admin, migrate, with_web, AppState, DEV_TOKEN};
+use kk_server::{app, bootstrap_admin, migrate, with_web, AppState, LocalBlobs, DEV_TOKEN};
 use sqlx::postgres::PgPoolOptions;
 
 fn var(name: &str, default: &str) -> String {
@@ -38,6 +38,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         base_url: var("KK_BASE_URL", "http://localhost:8080")
             .trim_end_matches('/')
             .into(),
+        blobs: std::sync::Arc::new(LocalBlobs::new(var("KK_BLOB_DIR", "./blobs"))?),
+        max_upload: var("KK_MAX_UPLOAD_BYTES", "26214400").parse()?,
     };
     let listener = tokio::net::TcpListener::bind(var("KK_BIND", "0.0.0.0:8080")).await?;
     tracing::info!(addr = %listener.local_addr()?, "listening");

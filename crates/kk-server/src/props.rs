@@ -295,13 +295,7 @@ pub async fn delete<const K: u8>(
 
 pub async fn app_list(State(s): State<AppState>, RawQuery(raw): RawQuery) -> R<Response> {
     let q = Q::parse(raw);
-    let limit = match q.int("limit")? {
-        None => 50,
-        Some(n) if (1..=250).contains(&n) => i64::from(n),
-        Some(_) => {
-            return Err(ApiError::BadRequest("limit must be between 1 and 250".into()).into())
-        }
-    };
+    let limit = q.limit_or(50)?;
     let offset = q.offset()?;
     let rows: Vec<(String, Value)> =
         sqlx::query_as("SELECT key, value FROM app_properties ORDER BY key LIMIT $1 OFFSET $2")

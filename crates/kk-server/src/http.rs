@@ -108,8 +108,12 @@ impl Q {
     }
 
     pub fn limit(&self) -> Result<i64, ApiError> {
+        self.limit_or(25)
+    }
+
+    pub fn limit_or(&self, default: i64) -> Result<i64, ApiError> {
         match self.int("limit")? {
-            None => Ok(25),
+            None => Ok(default),
             Some(n) if (1..=250).contains(&n) => Ok(n.into()),
             Some(_) => Err(ApiError::BadRequest(
                 "limit must be between 1 and 250".into(),

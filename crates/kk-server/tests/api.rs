@@ -40,6 +40,11 @@ async fn start() -> Router {
     app(AppState {
         db,
         base_url: "http://localhost:8080".into(),
+        blobs: std::sync::Arc::new(
+            kk_server::LocalBlobs::new(std::env::temp_dir().join(format!("kk-blobs-{name}")))
+                .unwrap(),
+        ),
+        max_upload: 1024,
     })
 }
 
@@ -1574,6 +1579,286 @@ async fn likes_and_operations() {
     );
     assert_eq!(
         get(&app, "/pages/999999/operations").await.status,
+        StatusCode::NOT_FOUND
+    );
+}
+
+async fn raw(
+    app: &Router,
+    method: Method,
+    uri: &str,
+    content_type: Option<&str>,
+    body: Vec<u8>,
+) -> (StatusCode, HeaderMap, Vec<u8>) {
+    let mut req = Request::builder().method(method).uri(uri).header(
+        header::AUTHORIZATION,
+        format!("Basic {}", STANDARD.encode(ADMIN)),
+    );
+    if let Some(c) = content_type {
+        req = req.header(header::CONTENT_TYPE, c);
+    }
+    let res = app
+        .clone()
+        .oneshot(req.body(Body::from(body)).unwrap())
+        .await
+        .unwrap();
+    let (parts, body) = res.into_parts();
+    (
+        parts.status,
+        parts.headers,
+        body.collect().await.unwrap().to_bytes().to_vec(),
+    )
+}
+
+fn form(file: (&str, &[u8]), fields: &[(&str, &str)]) -> Vec<u8> {
+    let mut out = Vec::new();
+    for (k, v) in fields {
+        out.extend(
+            format!("--BND\r\nContent-Disposition: form-data; name=\"{k}\"\r\n\r\n{v}\r\n").bytes(),
+        );
+    }
+    out.extend(format!("--BND\r\nContent-Disposition: form-data; name=\"file\"; filename=\"{}\"\r\nContent-Type: application/x-whatever\r\n\r\n", file.0).bytes());
+    out.extend(file.1);
+    out.extend(b"\r\n--BND--\r\n");
+    out
+}
+
+const MP: &str = "multipart/form-data; boundary=BND";
+
+#[tokio::test]
+async fn attachments_upload_versions_download_and_delete() {
+    let app = start().await;
+    let sp = space(&app, "AT").await;
+    let pg = page(&app, &sp["id"], "Files", None).await;
+    let pid = pg["id"].as_str().unwrap();
+    let up = format!("/wiki/rest/api/content/{pid}/child/attachment");
+    let png = b"\x89PNG\r\n\x1a\nDATA1".to_vec();
+
+    let (st, _, body) = raw(
+        &app,
+        Method::POST,
+        &up,
+        Some(MP),
+        form(
+            ("pic.txt", &png),
+            &[("comment", "first"), ("minorEdit", "true")],
+        ),
+    )
+    .await;
+    assert_eq!(st, StatusCode::OK, "{}", String::from_utf8_lossy(&body));
+    let created: Value = serde_json::from_slice(&body).unwrap();
+    let att = created["results"][0]["id"].as_str().unwrap().to_string();
+    assert!(att.starts_with("att"));
+    assert_eq!(
+        created["results"][0]["extensions"]["mediaType"],
+        "image/png"
+    );
+    assert_eq!(created["results"][0]["extensions"]["fileSize"], png.len());
+
+    let one = get(&app, &format!("/attachments/{att}")).await;
+    assert_eq!(one.json["title"], "pic.txt");
+    assert_eq!(one.json["pageId"], pid);
+    assert_eq!(one.json["mediaType"], "image/png");
+    assert_eq!(one.json["comment"], "first");
+    assert_eq!(one.json["version"]["number"], 1);
+    assert_eq!(one.json["version"]["minorEdit"], true);
+    assert_eq!(one.json["_links"]["base"], "http://localhost:8080/wiki");
+    assert!(one.json["downloadLink"]
+        .as_str()
+        .unwrap()
+        .starts_with(&format!(
+            "/download/attachments/{pid}/pic.txt?version=1&modificationDate="
+        )));
+
+    let again = b"second file".to_vec();
+    let (st, _, _) = raw(
+        &app,
+        Method::POST,
+        &up,
+        Some(MP),
+        form(("PIC.txt", &again), &[]),
+    )
+    .await;
+    assert_eq!(st, StatusCode::OK);
+    let list = get(&app, &format!("/pages/{pid}/attachments")).await;
+    assert_eq!(list.json["results"].as_array().unwrap().len(), 1);
+    assert_eq!(list.json["results"][0]["version"]["number"], 2);
+    assert_eq!(list.json["results"][0]["mediaType"], "text/plain");
+    let vs = get(&app, &format!("/attachments/{att}/versions")).await;
+    assert_eq!(vs.json["results"].as_array().unwrap().len(), 2);
+    assert_eq!(vs.json["results"][0]["attachment"]["title"], "pic.txt");
+    assert_eq!(
+        get(&app, &format!("/attachments/{att}/versions/1"))
+            .await
+            .json["nextVersion"],
+        2
+    );
+    assert_eq!(
+        get(&app, &format!("/attachments/{att}?version=1"))
+            .await
+            .json["fileSize"],
+        png.len()
+    );
+
+    let (st, h, body) = raw(
+        &app,
+        Method::GET,
+        &format!("/wiki/download/attachments/{pid}/pic.txt"),
+        None,
+        vec![],
+    )
+    .await;
+    assert_eq!((st, body.as_slice()), (StatusCode::OK, again.as_slice()));
+    assert_eq!(h[header::CONTENT_TYPE], "text/plain");
+    assert_eq!(
+        h[header::CONTENT_DISPOSITION],
+        "attachment; filename*=UTF-8''pic.txt"
+    );
+    let (_, h, body) = raw(
+        &app,
+        Method::GET,
+        &format!("/wiki/download/attachments/{pid}/pic.txt?version=1"),
+        None,
+        vec![],
+    )
+    .await;
+    assert_eq!(
+        (h[header::CONTENT_TYPE].to_str().unwrap(), body),
+        ("image/png", png.clone())
+    );
+    assert!(h[header::CONTENT_DISPOSITION]
+        .to_str()
+        .unwrap()
+        .starts_with("inline"));
+    assert_eq!(
+        raw(
+            &app,
+            Method::GET,
+            &format!("/wiki/download/attachments/{pid}/nope.txt"),
+            None,
+            vec![]
+        )
+        .await
+        .0,
+        StatusCode::NOT_FOUND
+    );
+
+    let (st, _, _) = raw(
+        &app,
+        Method::POST,
+        &up,
+        Some(MP),
+        form(("big.bin", &vec![1u8; 2048]), &[]),
+    )
+    .await;
+    assert_eq!(st, StatusCode::PAYLOAD_TOO_LARGE);
+    let (st, _, _) = raw(
+        &app,
+        Method::POST,
+        &up,
+        Some("application/json"),
+        b"{}".to_vec(),
+    )
+    .await;
+    assert_eq!(st, StatusCode::BAD_REQUEST);
+    let (st, _, _) = raw(
+        &app,
+        Method::POST,
+        "/wiki/rest/api/content/999999/child/attachment",
+        Some(MP),
+        form(("a", b"x"), &[]),
+    )
+    .await;
+    assert_eq!(st, StatusCode::NOT_FOUND);
+
+    let (st, _, body) = raw(
+        &app,
+        Method::POST,
+        &format!("{up}/{att}/data"),
+        Some(MP),
+        form(("pic.txt", b"third"), &[]),
+    )
+    .await;
+    assert_eq!(st, StatusCode::OK);
+    assert_eq!(
+        serde_json::from_slice::<Value>(&body).unwrap()["results"][0]["version"]["number"],
+        3
+    );
+
+    let c = post_comment(
+        &app,
+        "/footer-comments",
+        json!({"attachmentId": att, "body": storage("<p>nice</p>")}),
+    )
+    .await;
+    assert_eq!(c.status, StatusCode::CREATED, "{}", c.json);
+    assert_eq!(c.json["attachmentId"], att);
+    assert_eq!(
+        get(&app, &format!("/attachments/{att}/footer-comments"))
+            .await
+            .json["results"][0]["id"],
+        c.json["id"]
+    );
+    let lb = v1(
+        &app,
+        Method::POST,
+        &format!("/content/{}/label", &att[3..]),
+        Some(json!({"name": "scan"})),
+    )
+    .await;
+    assert_eq!(lb.status, StatusCode::OK);
+    assert_eq!(
+        names(&get(&app, &format!("/attachments/{att}/labels")).await),
+        ["scan"]
+    );
+    assert_eq!(
+        get(&app, &format!("/attachments/{att}/operations"))
+            .await
+            .status,
+        StatusCode::OK
+    );
+
+    assert_eq!(
+        call(&app, Method::DELETE, &format!("/attachments/{att}"), None)
+            .await
+            .status,
+        StatusCode::NO_CONTENT
+    );
+    assert_eq!(
+        get(&app, &format!("/pages/{pid}/attachments")).await.json["results"],
+        json!([])
+    );
+    assert_eq!(
+        get(&app, &format!("/pages/{pid}/attachments?status=trashed"))
+            .await
+            .json["results"]
+            .as_array()
+            .unwrap()
+            .len(),
+        1
+    );
+    assert_eq!(
+        call(
+            &app,
+            Method::DELETE,
+            &format!("/attachments/{att}?purge=true"),
+            None
+        )
+        .await
+        .status,
+        StatusCode::NO_CONTENT
+    );
+    assert_eq!(
+        get(&app, &format!("/attachments/{att}")).await.status,
+        StatusCode::NOT_FOUND
+    );
+    assert_eq!(
+        get(
+            &app,
+            &format!("/footer-comments/{}", c.json["id"].as_str().unwrap())
+        )
+        .await
+        .status,
         StatusCode::NOT_FOUND
     );
 }

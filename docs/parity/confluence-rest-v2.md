@@ -37,14 +37,14 @@ Status: `not started` | `partial` | `done`. `done` requires a conformance case. 
 
 | Method | Path | operationId | Summary | Status | Case |
 |---|---|---|---|---|---|
-| GET | `/attachments` | `getAttachments` | Get attachments | not started | - |
-| DELETE | `/attachments/{id}` | `deleteAttachment` | Delete attachment | not started | - |
-| GET | `/attachments/{id}` | `getAttachmentById` | Get attachment by id | not started | - |
+| GET | `/attachments` | `getAttachments` | Get attachments | partial (schema) | v2-attachments-list |
+| DELETE | `/attachments/{id}` | `deleteAttachment` | Delete attachment | partial (schema) | v2-attachment-delete |
+| GET | `/attachments/{id}` | `getAttachmentById` | Get attachment by id | partial (schema) | v2-attachment-get |
 | GET | `/attachments/{id}/thumbnail/download` | `getAttachmentThumbnailById` | Download attachment thumbnail by id | not started | - |
 | GET | `/blogposts/{id}/attachments` | `getBlogpostAttachments` | Get attachments for blog post | not started | - |
 | GET | `/custom-content/{id}/attachments` | `getCustomContentAttachments` | Get attachments for custom content | not started | - |
 | GET | `/labels/{id}/attachments` | `getLabelAttachments` | Get attachments for label | not started | - |
-| GET | `/pages/{id}/attachments` | `getPageAttachments` | Get attachments for page | not started | - |
+| GET | `/pages/{id}/attachments` | `getPageAttachments` | Get attachments for page | partial (schema) | v2-page-attachments |
 
 ## Blog Post
 
@@ -95,7 +95,7 @@ Status: `not started` | `partial` | `done`. `done` requires a conformance case. 
 
 | Method | Path | operationId | Summary | Status | Case |
 |---|---|---|---|---|---|
-| GET | `/attachments/{id}/footer-comments` | `getAttachmentComments` | Get attachment comments | not started | - |
+| GET | `/attachments/{id}/footer-comments` | `getAttachmentComments` | Get attachment comments | partial (schema) | v2-attachment-comments |
 | GET | `/blogposts/{id}/footer-comments` | `getBlogPostFooterComments` | Get footer comments for blog post | not started | - |
 | GET | `/blogposts/{id}/inline-comments` | `getBlogPostInlineComments` | Get inline comments for blog post | not started | - |
 | GET | `/custom-content/{id}/footer-comments` | `getCustomContentComments` | Get custom content comments | not started | - |
@@ -159,11 +159,11 @@ Status: `not started` | `partial` | `done`. `done` requires a conformance case. 
 
 | Method | Path | operationId | Summary | Status | Case |
 |---|---|---|---|---|---|
-| GET | `/attachments/{attachment-id}/properties` | `getAttachmentContentProperties` | Get content properties for attachment | not started | - |
-| POST | `/attachments/{attachment-id}/properties` | `createAttachmentProperty` | Create content property for attachment | not started | - |
-| DELETE | `/attachments/{attachment-id}/properties/{property-id}` | `deleteAttachmentPropertyById` | Delete content property for attachment by id | not started | - |
-| GET | `/attachments/{attachment-id}/properties/{property-id}` | `getAttachmentContentPropertiesById` | Get content property for attachment by id | not started | - |
-| PUT | `/attachments/{attachment-id}/properties/{property-id}` | `updateAttachmentPropertyById` | Update content property for attachment by id | not started | - |
+| GET | `/attachments/{attachment-id}/properties` | `getAttachmentContentProperties` | Get content properties for attachment | partial (schema) | v2-attachment-properties-list |
+| POST | `/attachments/{attachment-id}/properties` | `createAttachmentProperty` | Create content property for attachment | partial (schema) | v2-attachment-property-create |
+| DELETE | `/attachments/{attachment-id}/properties/{property-id}` | `deleteAttachmentPropertyById` | Delete content property for attachment by id | partial (schema) | v2-attachment-property-delete |
+| GET | `/attachments/{attachment-id}/properties/{property-id}` | `getAttachmentContentPropertiesById` | Get content property for attachment by id | partial (schema) | v2-attachment-property-get |
+| PUT | `/attachments/{attachment-id}/properties/{property-id}` | `updateAttachmentPropertyById` | Update content property for attachment by id | partial (schema) | v2-attachment-property-update |
 | GET | `/blogposts/{blogpost-id}/properties` | `getBlogpostContentProperties` | Get content properties for blog post | not started | - |
 | POST | `/blogposts/{blogpost-id}/properties` | `createBlogpostProperty` | Create content property for blog post | not started | - |
 | DELETE | `/blogposts/{blogpost-id}/properties/{property-id}` | `deleteBlogpostPropertyById` | Delete content property for blogpost by id | not started | - |
@@ -259,7 +259,7 @@ Status: `not started` | `partial` | `done`. `done` requires a conformance case. 
 
 | Method | Path | operationId | Summary | Status | Case |
 |---|---|---|---|---|---|
-| GET | `/attachments/{id}/labels` | `getAttachmentLabels` | Get labels for attachment | not started | - |
+| GET | `/attachments/{id}/labels` | `getAttachmentLabels` | Get labels for attachment | partial (schema) | v2-attachment-labels |
 | GET | `/blogposts/{id}/labels` | `getBlogPostLabels` | Get labels for blog post | not started | - |
 | GET | `/custom-content/{id}/labels` | `getCustomContentLabels` | Get labels for custom content | not started | - |
 | GET | `/labels` | `getLabels` | Get labels | partial (schema) | v2-labels-list |
@@ -284,7 +284,7 @@ Status: `not started` | `partial` | `done`. `done` requires a conformance case. 
 
 | Method | Path | operationId | Summary | Status | Case |
 |---|---|---|---|---|---|
-| GET | `/attachments/{id}/operations` | `getAttachmentOperations` | Get permitted operations for attachment | not started | - |
+| GET | `/attachments/{id}/operations` | `getAttachmentOperations` | Get permitted operations for attachment | partial (schema) | v2-attachment-operations |
 | GET | `/blogposts/{id}/operations` | `getBlogPostOperations` | Get permitted operations for blog post | not started | - |
 | GET | `/custom-content/{id}/operations` | `getCustomContentOperations` | Get permitted operations for custom content | not started | - |
 | GET | `/databases/{id}/operations` | `getDatabaseOperations` | Get permitted operations for a database | not started | - |
@@ -392,8 +392,8 @@ Status: `not started` | `partial` | `done`. `done` requires a conformance case. 
 
 | Method | Path | operationId | Summary | Status | Case |
 |---|---|---|---|---|---|
-| GET | `/attachments/{attachment-id}/versions/{version-number}` | `getAttachmentVersionDetails` | Get version details for attachment version | not started | - |
-| GET | `/attachments/{id}/versions` | `getAttachmentVersions` | Get attachment versions | not started | - |
+| GET | `/attachments/{attachment-id}/versions/{version-number}` | `getAttachmentVersionDetails` | Get version details for attachment version | partial (schema) | v2-attachment-version-get |
+| GET | `/attachments/{id}/versions` | `getAttachmentVersions` | Get attachment versions | partial (schema) | v2-attachment-versions |
 | GET | `/blogposts/{blogpost-id}/versions/{version-number}` | `getBlogPostVersionDetails` | Get version details for blog post version | not started | - |
 | GET | `/blogposts/{id}/versions` | `getBlogPostVersions` | Get blog post versions | not started | - |
 | GET | `/custom-content/{custom-content-id}/versions` | `getCustomContentVersions` | Get custom content versions | not started | - |

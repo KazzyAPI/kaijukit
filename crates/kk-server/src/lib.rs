@@ -1,10 +1,13 @@
+mod attachments;
 mod auth;
+mod blob;
 mod body;
 mod comments;
 mod error;
 mod http;
 mod labels;
 mod likes;
+mod multipart;
 mod pages;
 mod props;
 mod spaces;
@@ -31,12 +34,16 @@ use tower_http::{
 };
 
 pub use auth::{bootstrap_admin, DEV_TOKEN};
+pub use blob::{BlobStore, LocalBlobs};
 
 #[derive(Clone)]
 pub struct AppState {
     pub db: PgPool,
     /// Public origin, no trailing slash; `_links.base` is this plus `/wiki`.
     pub base_url: String,
+    pub blobs: std::sync::Arc<dyn blob::BlobStore>,
+    /// Largest accepted attachment in bytes.
+    pub max_upload: usize,
 }
 
 impl AppState {
@@ -132,6 +139,17 @@ pub fn app(state: AppState) -> Router {
             "/attachments/{id}/footer-comments",
             get(comments::list_attachment),
         )
+        .route("/attachments", get(attachments::list_all))
+        .route(
+            "/attachments/{id}",
+            get(attachments::get).delete(attachments::delete),
+        )
+        .route("/pages/{id}/attachments", get(attachments::list_page))
+        .route("/attachments/{id}/versions", get(attachments::version_list))
+        .route(
+            "/attachments/{id}/versions/{number}",
+            get(attachments::version_get),
+        )
         .route("/labels", get(labels::all))
         .route("/pages/{id}/labels", get(labels::of_content::<0>))
         .route("/attachments/{id}/labels", get(labels::of_content::<1>))
@@ -205,6 +223,17 @@ pub fn app(state: AppState) -> Router {
             state.clone(),
             auth::require_auth,
         ));
+    // multipart framing adds a little to the file itself
+    let upload_limit = state.max_upload + 64 * 1024;
+    let download = Router::new()
+        .route(
+            "/attachments/{container}/{filename}",
+            get(attachments::download),
+        )
+        .route_layer(middleware::from_fn_with_state(
+            state.clone(),
+            auth::require_auth,
+        ));
     let v1 = Router::new()
         .route(
             "/content/{id}/label",
@@ -214,6 +243,20 @@ pub fn app(state: AppState) -> Router {
         .route(
             "/space/{key}/label",
             post(labels::add_space).delete(labels::remove_space),
+        )
+        .route(
+            "/content/{id}/child/attachment",
+            post(attachments::upload)
+                .put(attachments::upload)
+                .layer(DefaultBodyLimit::max(upload_limit)),
+        )
+        .route(
+            "/content/{id}/child/attachment/{att}/data",
+            post(attachments::update_data).layer(DefaultBodyLimit::max(upload_limit)),
+        )
+        .route(
+            "/content/{id}/child/attachment/{att}/download",
+            get(attachments::v1_download),
         )
         .route("/content/{id}/like", put(likes::set).delete(likes::set))
         .route_layer(middleware::from_fn_with_state(
@@ -225,6 +268,7 @@ pub fn app(state: AppState) -> Router {
         .route("/readyz", get(ready))
         .nest("/wiki/api/v2", v2)
         .nest("/wiki/rest/api", v1)
+        .nest("/wiki/download", download)
         .fallback(|| async { E(ApiError::NotFound("no such route".into())) })
         .layer(DefaultBodyLimit::max(http::MAX_BODY))
         .layer(TraceLayer::new_for_http())

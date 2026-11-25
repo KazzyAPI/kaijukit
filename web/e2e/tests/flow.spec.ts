@@ -114,8 +114,8 @@ test('shell: byline, quick search, flyouts, share, toolbar', async ({ page }) =>
 
   await page.goto('/wiki/home');
   await page.getByRole('button', { name: 'Search', exact: true }).click();
-  await page.getByLabel('Search pages by title').fill(title);
-  await page.getByRole('dialog').getByRole('link', { name: title }).click();
+  await page.getByLabel('Search pages', { exact: true }).fill(title);
+  await page.getByRole('dialog').getByRole('link', { name: title, exact: true }).click();
   await expect(page.getByRole('heading', { level: 1, name: title })).toBeVisible();
 
   await page.getByLabel('Search by title').fill('no-such-page-xyz');

@@ -147,11 +147,11 @@ for (const scheme of ['light', 'dark'] as const) {
       }
       await page.getByRole('button', { name: 'Search', exact: true }).click();
       await shot('quick-search-empty');
-      await page.getByLabel('Search pages by title').fill('Runbooks');
-      await expect(page.getByRole('link', { name: 'Runbooks' })).toBeVisible();
+      await page.getByLabel('Search pages', { exact: true }).fill('Runbooks');
+      await expect(page.getByRole('dialog').getByRole('link', { name: 'Runbooks', exact: true })).toBeVisible();
       await shot('quick-search-results');
-      await page.getByLabel('Search pages by title').fill('zzzz');
-      await expect(page.getByText('No page is titled "zzzz".')).toBeVisible();
+      await page.getByLabel('Search pages', { exact: true }).fill('zzzz');
+      await expect(page.getByText('No pages match "zzzz".')).toBeVisible();
       await shot('quick-search-none');
       await page.keyboard.press('Escape');
       if (vpName === 'narrow') await page.getByRole('button', { name: 'Show sidebar' }).click();

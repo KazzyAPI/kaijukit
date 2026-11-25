@@ -26,6 +26,8 @@ async function seed(page: Page, tag: string) {
   for (const name of ['roadmap', 'q4-launch']) {
     expect((await page.request.post(`/wiki/rest/api/content/${p.id}/label`, { headers: auth, data: [{ prefix: 'global', name }] })).ok()).toBeTruthy();
   }
+  const me = (await (await page.request.get('/wiki/rest/api/user/current', { headers: auth })).json()) as { accountId: string };
+  expect((await page.request.post(`/wiki/rest/api/content/${p.id}/restriction`, { headers: auth, data: [{ operation: 'update', restrictions: { user: [{ accountId: me.accountId }] } }] })).ok()).toBeTruthy();
   expect((await page.request.put(`/wiki/rest/api/content/${p.id}/like`, { headers: auth })).ok()).toBeTruthy();
   for (const [name, mimeType, buffer] of [['diagram.png', 'image/png', PNG], ['launch-notes-with-a-rather-long-file-name.txt', 'text/plain', Buffer.from('notes')]] as const) {
     expect((await page.request.post(`/wiki/rest/api/content/${p.id}/child/attachment`, { headers: auth, multipart: { file: { name, mimeType, buffer }, minorEdit: 'true' } })).ok()).toBeTruthy();
@@ -54,7 +56,21 @@ for (const scheme of ['light', 'dark'] as const) {
       await login(page, p.url);
       await expect(page.locator('.kk-canvas mark.kk-annotation')).toHaveCount(1);
       await expect(page.getByRole('region', { name: /^Attachments/ }).getByRole('listitem')).toHaveCount(2);
+      await expect(page.getByRole('button', { name: 'Share, restricted' })).toBeVisible();
       await shot('view', true);
+      await page.getByRole('button', { name: 'Share, restricted' }).click();
+      await shot('lock-state');
+      await page.keyboard.press('Escape');
+      await page.getByRole('region', { name: 'Labels' }).getByRole('link', { name: 'roadmap' }).click();
+      await expect(page.getByRole('heading', { level: 1, name: 'Label: roadmap' })).toBeVisible();
+      await expect(page.getByRole('list', { name: 'Pages with this label' })).toBeVisible();
+      await shot('label-view');
+      await page.goBack();
+      await page.getByRole('button', { name: 'Search', exact: true }).click();
+      await page.getByLabel('Search pages', { exact: true }).fill('migration finishing');
+      await expect(page.getByRole('dialog').getByRole('list', { name: 'Results' })).toBeVisible();
+      await shot('quick-search-text');
+      await page.keyboard.press('Escape');
 
       await page.getByRole('button', { name: /^Inline comments/ }).click();
       await page.locator('.kk-canvas mark.kk-annotation').click();
@@ -110,7 +126,7 @@ for (const scheme of ['light', 'dark'] as const) {
       await expect(page.getByRole('list', { name: 'Search results' })).toBeVisible();
       await shot('search');
       await page.goto('/wiki/search?text=Nothing%20by%20this%20title');
-      await expect(page.getByText(/No page is titled/)).toBeVisible();
+      await expect(page.getByText(/No pages match/)).toBeVisible();
       await shot('search-none');
       await page.goto('/wiki/search');
       await shot('search-empty');

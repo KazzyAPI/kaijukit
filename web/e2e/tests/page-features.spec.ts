@@ -197,18 +197,60 @@ test('tasks page lists tasks across pages and toggles completion', async ({ page
   await expect(page.getByRole('checkbox', { name: ship })).toHaveCount(0);
 });
 
-test('search page finds a page by exact title, and quick search links to it', async ({ page }) => {
+test('search page finds a page by partial title and by text, and quick search links to it', async ({ page }) => {
   const title = `Findable ${Date.now()}`;
   await seedPage(page, title, [para('some searchable body words')]);
   await login(page);
   await page.getByRole('button', { name: 'Search' }).click();
-  await page.getByLabel('Search pages by title').fill(title);
+  await page.getByLabel('Search pages', { exact: true }).fill(title);
   await page.getByRole('link', { name: /on the results page/ }).click();
   await expect(page).toHaveURL(/\/wiki\/search\?text=/);
   const results = page.getByRole('list', { name: 'Search results' });
-  await expect(results.getByRole('link', { name: title })).toBeVisible();
+  await expect(results.getByRole('link', { name: title, exact: true })).toBeVisible();
   await expect(results).toContainText('some searchable body words');
-  await page.getByLabel('Search pages by title').fill('No such page anywhere');
+  await page.getByLabel('Search pages', { exact: true }).fill('No such page anywhere');
   await page.getByRole('main').getByRole('button', { name: 'Search', exact: true }).click();
-  await expect(page.getByText('No page is titled "No such page anywhere"')).toBeVisible();
+  await expect(page.getByText('No pages match "No such page anywhere"')).toBeVisible();
+});
+
+test('search matches part of a title and words in the body', async ({ page }) => {
+  const stamp = Date.now();
+  await seedPage(page, `Quokka handbook ${stamp}`, [para(`zebrafish${stamp} migrate`)]);
+  await login(page, `/wiki/search?text=${encodeURIComponent(`okka handbook ${stamp}`)}`);
+  await expect(page.getByRole('list', { name: 'Search results' }).getByRole('link', { name: `Quokka handbook ${stamp}`, exact: true })).toBeVisible();
+  await page.goto(`/wiki/search?text=zebrafish${stamp}`);
+  await expect(page.getByRole('list', { name: 'Search results' }).getByRole('link', { name: `Quokka handbook ${stamp}`, exact: true })).toBeVisible();
+});
+
+test('label chip opens the pages with that label', async ({ page }) => {
+  const label = `lbl${Date.now()}`;
+  const p = await seedPage(page, 'Has a label', [para('x')]);
+  await page.request.post(`/wiki/rest/api/content/${p.id}/label`, { headers: { Authorization: `Basic ${Buffer.from('admin@kaijukit.local:kk-dev-token').toString('base64')}` }, data: [{ prefix: 'global', name: label }] });
+  await login(page, p.url);
+  await page.getByRole('region', { name: 'Labels' }).getByRole('link', { name: label }).click();
+  await expect(page.getByRole('heading', { level: 1, name: `Label: ${label}` })).toBeVisible();
+  await expect(page.getByRole('list', { name: 'Pages with this label' }).getByRole('link', { name: 'Has a label' })).toBeVisible();
+});
+
+test('a restricted page shows the lock in the header', async ({ page }) => {
+  const p = await seedPage(page, 'Locked page', [para('x')]);
+  const headers = { Authorization: `Basic ${Buffer.from('admin@kaijukit.local:kk-dev-token').toString('base64')}` };
+  const me = (await (await page.request.get('/wiki/rest/api/user/current', { headers })).json()) as { accountId: string };
+  const r = await page.request.post(`/wiki/rest/api/content/${p.id}/restriction`, { headers, data: [{ operation: 'update', restrictions: { user: [{ accountId: me.accountId }] } }] });
+  expect(r.ok(), await r.text()).toBeTruthy();
+  await login(page, p.url);
+  await expect(page.getByRole('button', { name: 'Share, restricted' })).toBeVisible();
+});
+
+test('comments show the original author, and the mention picker finds people by name', async ({ page }) => {
+  const p = await seedPage(page, 'Authors', [para('x')]);
+  await login(page, p.url);
+  await page.getByRole('region', { name: /^Comments/ }).getByRole('button', { name: 'Write a comment...' }).click();
+  await page.getByLabel('Add a comment').fill('Mine');
+  await page.getByLabel('Add a comment').press('ControlOrMeta+Enter');
+  await expect(page.locator('.kk-comment__head strong').first()).toHaveText('Admin');
+  await page.goto(`/wiki/spaces/${p.key}/pages/edit-v2/${p.id}`);
+  await page.getByRole('textbox', { name: 'Page content' }).click();
+  await page.keyboard.type(' @adm');
+  await expect(page.getByRole('option', { name: 'Admin' })).toBeVisible();
 });

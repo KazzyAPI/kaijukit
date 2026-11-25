@@ -1,5 +1,8 @@
 //! Pure domain types: ids, statuses, content types, API errors. No IO.
 
+pub mod cql;
+pub mod perm;
+
 use std::{fmt, str::FromStr};
 
 use serde_json::{json, Value};
@@ -80,6 +83,7 @@ text_enum!(ContentType {
 pub enum ApiError {
     BadRequest(String),
     Unauthorized,
+    Forbidden(String),
     NotFound(String),
     Conflict(String),
     PayloadTooLarge,
@@ -91,6 +95,7 @@ impl ApiError {
         match self {
             Self::BadRequest(_) => 400,
             Self::Unauthorized => 401,
+            Self::Forbidden(_) => 403,
             Self::NotFound(_) => 404,
             Self::Conflict(_) => 409,
             Self::PayloadTooLarge => 413,
@@ -102,6 +107,7 @@ impl ApiError {
         match self {
             Self::BadRequest(_) => "INVALID_REQUEST_PARAMETER",
             Self::Unauthorized => "UNAUTHORIZED",
+            Self::Forbidden(_) => "FORBIDDEN",
             Self::NotFound(_) => "NOT_FOUND",
             Self::Conflict(_) => "CONFLICT",
             Self::PayloadTooLarge => "REQUEST_ENTITY_TOO_LARGE",
@@ -113,6 +119,7 @@ impl ApiError {
         match self {
             Self::BadRequest(_) => "Bad Request",
             Self::Unauthorized => "Unauthorized",
+            Self::Forbidden(_) => "Forbidden",
             Self::NotFound(_) => "Not Found",
             Self::Conflict(_) => "Conflict",
             Self::PayloadTooLarge => "Payload Too Large",
@@ -122,7 +129,9 @@ impl ApiError {
 
     pub fn detail(&self) -> Option<&str> {
         match self {
-            Self::BadRequest(d) | Self::NotFound(d) | Self::Conflict(d) => Some(d),
+            Self::BadRequest(d) | Self::Forbidden(d) | Self::NotFound(d) | Self::Conflict(d) => {
+                Some(d)
+            }
             _ => None,
         }
     }

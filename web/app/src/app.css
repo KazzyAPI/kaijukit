@@ -96,6 +96,7 @@ kbd { padding: 1px 6px; border: 1px solid var(--kk-border-strong); border-radius
 .kk-avatars .kk-avatar:first-child { margin-left: 0; }
 .kk-share { display: inline-flex; }
 .kk-share__main { border-top-right-radius: 0; border-bottom-right-radius: 0; }
+.kk-share__main[data-restriction="VIEW_RESTRICTED"] svg, .kk-share__main[data-restriction="EDIT_RESTRICTED"] svg { color: var(--kk-warning); }
 .kk-share__copy { margin-left: -1px; border-top-left-radius: 0; border-bottom-left-radius: 0; }
 .kk-pagehead[data-collapsed='true'] { padding-left: var(--kk-space-2); }
 @media (max-width: 767px) {
@@ -129,6 +130,8 @@ kbd { padding: 1px 6px; border: 1px solid var(--kk-border-strong); border-radius
 .kk-labels { flex-wrap: wrap; }
 .kk-chips { display: flex; flex-wrap: wrap; gap: var(--kk-space-2); margin: 0; padding: 0; list-style: none; }
 .kk-chip { display: inline-flex; align-items: center; gap: var(--kk-space-1); padding: 2px 4px 2px var(--kk-space-2); border-radius: var(--kk-radius-sm); background: var(--kk-surface-hover); color: var(--kk-text); font-size: 13px; }
+.kk-chip__link { color: inherit; text-decoration: none; }
+.kk-chip__link:hover { text-decoration: underline; }
 .kk-chip__x { display: inline-grid; place-items: center; width: 20px; height: 20px; padding: 0; border: 0; border-radius: var(--kk-radius-sm); background: none; color: inherit; cursor: pointer; }
 .kk-chip__x:hover { background: var(--kk-surface-pressed); }
 .kk-labels__add { display: flex; flex-wrap: wrap; align-items: center; gap: var(--kk-space-2); }
@@ -206,6 +209,7 @@ mark.kk-annotation { color: inherit; }
 .kk-searchbar__field .kk-input { width: 100%; }
 .kk-results { margin: 0; padding: 0; list-style: none; }
 .kk-result { display: flex; gap: var(--kk-space-3); padding: var(--kk-space-3) 0; border-bottom: 1px solid var(--kk-border); }
+.kk-result > svg { flex: none; }
 .kk-result__text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .kk-result__title { font-weight: 600; overflow-wrap: anywhere; }
 .kk-result__excerpt { margin: var(--kk-space-1) 0 0; color: var(--kk-text); overflow-wrap: anywhere; }

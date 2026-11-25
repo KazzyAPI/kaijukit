@@ -132,7 +132,7 @@ function PageView({ id }: { id: string }) {
                 <Button appearance="primary" onClick={() => navigate(`/wiki/spaces/${space.key}/pages/edit-v2/${p.id}`)}>
                   <Icon name="edit" /> {p.status === 'draft' ? 'Resume editing' : 'Edit'}
                 </Button>
-                <ShareControl title={p.title} url={url} />
+                <ShareControl pageId={p.id} title={p.title} url={url} />
                 <Menu label="Page actions" align="end" renderTrigger={(t) => <IconButton label="More actions" icon={<Icon name="more" />} {...t} />}>
                   <MenuItem onSelect={() => navigate(`/wiki/spaces/${space.key}/pages/create?parentPageId=${p.id}`)}>Add child page</MenuItem>
                   <MenuItem onSelect={copy}>Copy link</MenuItem>

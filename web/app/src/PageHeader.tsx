@@ -1,6 +1,8 @@
 import { Avatar, Breadcrumbs, Button, Dialog, Icon, IconButton, TextField, Tooltip, useToast, type Crumb } from '@kaijukit/ui';
+import { useQuery } from '@tanstack/react-query';
 import { useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
+import { restrictionState } from './contentApi';
 import { ContentIcon } from './ContentIcon';
 import { exactTime, shortDate } from './format';
 import { getJson, store } from './storage';
@@ -52,15 +54,23 @@ export function Collaborators({ ids }: { ids: (string | undefined)[] }) {
   );
 }
 
-// Page restrictions are not built: every page is open to people who can see the space, so the lock is always the open state.
-export function ShareControl({ title, url }: { title: string; url: string }) {
+const RESTRICTION_TEXT = {
+  OPEN: 'Anyone who can see this space can open this page.',
+  VIEW_RESTRICTED: 'Viewing is restricted: only specific people and groups can open this page.',
+  EDIT_RESTRICTED: 'Anyone who can see this space can view this page, but only specific people and groups can edit it.',
+};
+
+// The lock shows the page's restriction state; changing restrictions and inviting people aren't built yet.
+export function ShareControl({ pageId, title, url }: { pageId: string; title: string; url: string }) {
   const [open, setOpen] = useState(false);
   const copy = useCopyLink(url);
+  const state = useQuery({ queryKey: ['restriction-state', pageId], queryFn: () => restrictionState(pageId), retry: false }).data ?? 'OPEN';
+  const locked = state !== 'OPEN';
   return (
     <>
       <span className="kk-share">
-        <Button className="kk-share__main" onClick={() => setOpen(true)} aria-label="Share">
-          <Icon name="unlock" />
+        <Button className="kk-share__main" data-restriction={state} onClick={() => setOpen(true)} aria-label={locked ? 'Share, restricted' : 'Share'}>
+          <Icon name={locked ? 'lock' : 'unlock'} />
           <span className="kk-share__text">Share</span>
         </Button>
         <IconButton label="Copy link" icon={<Icon name="link" />} appearance="default" className="kk-share__copy" onClick={copy} />
@@ -71,7 +81,7 @@ export function ShareControl({ title, url }: { title: string; url: string }) {
           <Icon name="copy" /> Copy link
         </Button>
         <p className="kk-muted" style={{ margin: 0 }}>
-          <Icon name="unlock" size={14} /> Anyone who can see this space can open this page. Inviting people and restricting pages aren't built yet.
+          <Icon name={locked ? 'lock' : 'unlock'} size={14} /> {RESTRICTION_TEXT[state]} Inviting people and editing restrictions aren't built yet.
         </p>
       </Dialog>
     </>

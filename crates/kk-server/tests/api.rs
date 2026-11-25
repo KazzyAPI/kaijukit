@@ -18,11 +18,46 @@ use tower::ServiceExt;
 const API: &str = "/wiki/api/v2";
 static N: AtomicU32 = AtomicU32::new(0);
 
-async fn start() -> Router {
+async fn start() -> TestApp {
     start_db().await.0
 }
 
-async fn start_db() -> (Router, PgPool) {
+/// The router plus the guard that drops the test database when the test ends.
+struct TestApp {
+    router: Router,
+    url: String,
+    name: String,
+}
+
+impl std::ops::Deref for TestApp {
+    type Target = Router;
+    fn deref(&self) -> &Router {
+        &self.router
+    }
+}
+
+impl Drop for TestApp {
+    fn drop(&mut self) {
+        let (url, name) = (self.url.clone(), self.name.clone());
+        // a fresh thread and runtime: Drop may run inside the test's own runtime
+        let _ = std::thread::spawn(move || {
+            let rt = tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()
+                .unwrap();
+            rt.block_on(async {
+                if let Ok(mut c) = PgConnection::connect(&url).await {
+                    let _ = sqlx::query(&format!("DROP DATABASE IF EXISTS {name} WITH (FORCE)"))
+                        .execute(&mut c)
+                        .await;
+                }
+            });
+        })
+        .join();
+    }
+}
+
+async fn start_db() -> (TestApp, PgPool) {
     let url = std::env::var("KK_TEST_DATABASE_URL")
         .expect("set KK_TEST_DATABASE_URL (see docs/arch/backend-dev.md)");
     let name = format!(
@@ -50,7 +85,12 @@ async fn start_db() -> (Router, PgPool) {
         ),
         max_upload: 1024,
     });
-    (router, db)
+    let guard = TestApp {
+        router,
+        url,
+        name,
+    };
+    (guard, db)
 }
 
 struct Res {

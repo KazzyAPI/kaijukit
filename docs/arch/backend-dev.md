@@ -33,7 +33,7 @@ cargo_in_docker() {
 cargo_in_docker 'cargo fmt --check && cargo clippy --all-targets -- -D warnings && cargo test --workspace'
 ```
 
-`kk-core` and `kk-adf` tests need no database. Test databases (`kk_test_*`) accumulate in the compose Postgres until `down -v`.
+`kk-core` and `kk-adf` tests need no database. Each test drops its `kk_test_*` database when it ends (a killed run can leave one behind; drop it by hand).
 
 ## Layout
 

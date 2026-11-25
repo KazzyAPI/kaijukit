@@ -66,6 +66,7 @@ struct Row {
     resolved_at: Option<DateTime<Utc>>,
     v_number: i32,
     v_author: i64,
+    author: i64,
     v_message: String,
     v_minor: bool,
     v_created: DateTime<Utc>,
@@ -76,7 +77,7 @@ const SELECT: &str = "SELECT c.id, c.status, c.title, s.key AS space_key, k.cont
     ct.type AS container_type, ct.title AS container_title, k.parent_id, k.marker_ref, \
     k.original_selection AS selection, k.resolution, k.resolved_by, k.resolved_at, \
     v.number AS v_number, v.author_id AS v_author, v.message AS v_message, \
-    v.minor_edit AS v_minor, v.created_at AS v_created, v.body \
+    c.author_id AS author, v.minor_edit AS v_minor, v.created_at AS v_created, v.body \
     FROM content c JOIN comments k ON k.content_id = c.id JOIN spaces s ON s.id = c.space_id \
     JOIN content ct ON ct.id = k.container_id \
     JOIN content_versions v ON v.content_id = c.id AND v.number = COALESCE($1, c.version_number)";
@@ -105,6 +106,8 @@ fn render(r: &Row, repr: Option<&str>, inline: bool) -> Result<Value, ApiError> 
         "id": r.id.to_string(),
         "status": r.status,
         "title": r.title,
+        // extension: the version author changes on edit, this is who wrote the comment
+        "authorId": r.author.to_string(),
         key: crate::http::public_id(&r.container_type, r.container_id),
         "version": version_json(r.v_number, r.v_author, &r.v_message, r.v_minor, r.v_created),
         "body": body,

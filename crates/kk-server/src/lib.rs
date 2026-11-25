@@ -4,15 +4,18 @@ mod authz;
 mod blob;
 mod body;
 mod comments;
+mod descendants;
 mod error;
 mod groups;
 mod http;
+pub mod jobs;
 mod labels;
 mod likes;
 mod multipart;
 mod pages;
 mod props;
 mod restrictions;
+mod search;
 mod space_perms;
 mod spaces;
 mod target;
@@ -21,6 +24,7 @@ mod tree;
 mod users;
 mod v1;
 mod versions;
+mod watches;
 
 use axum::{
     extract::{DefaultBodyLimit, Request, State},
@@ -53,7 +57,7 @@ pub struct AppState {
 }
 
 impl AppState {
-    fn site(&self) -> String {
+    pub(crate) fn site(&self) -> String {
         format!("{}/wiki", self.base_url)
     }
 }
@@ -72,6 +76,7 @@ pub fn app(state: AppState) -> Router {
         .route("/spaces", get(spaces::list).post(spaces::create))
         .route("/spaces/{id}", get(spaces::get))
         .route("/spaces/{id}/pages", get(pages::in_space))
+        .route("/labels/{id}/pages", get(pages::of_label))
         .route("/pages", get(pages::list).post(pages::create))
         .route(
             "/pages/{id}",
@@ -309,6 +314,24 @@ pub fn app(state: AppState) -> Router {
         .route("/content/{id}/permission/check", post(restrictions::check))
         .route("/space/{key}/permission", post(space_perms::add))
         .route("/space/{key}/permission/{id}", delete(space_perms::remove))
+        .route("/user/current", get(users::current))
+        .route(
+            "/user/watch/content/{contentId}",
+            get(watches::content_get)
+                .post(watches::content_add)
+                .delete(watches::content_remove),
+        )
+        .route(
+            "/user/watch/space/{spaceKey}",
+            get(watches::space_get)
+                .post(watches::space_add)
+                .delete(watches::space_remove),
+        )
+        .route("/content/{id}/descendant", get(descendants::all))
+        .route("/content/{id}/descendant/{type}", get(descendants::typed))
+        .route("/search", get(search::search))
+        .route("/content/search", get(search::content))
+        .route("/search/user", get(search::user))
         .route("/group", get(groups::list).post(groups::create))
         .route("/group/by-id", get(groups::get).delete(groups::delete))
         .route(

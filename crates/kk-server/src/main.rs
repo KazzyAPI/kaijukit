@@ -33,6 +33,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     )
     .await?;
 
+    kk_server::jobs::spawn(db.clone());
     let state = AppState {
         db,
         base_url: var("KK_BASE_URL", "http://localhost:8080")

@@ -31,7 +31,7 @@ Status: `not started` | `partial` | `done`. `done` requires a conformance case. 
 | POST | `/wiki/rest/api/content/archive` | `archivePages` | Archive pages | not started | - |
 | POST | `/wiki/rest/api/content/blueprint/instance/{draftId}` | `publishLegacyDraft` | Publish legacy draft | not started | - |
 | PUT | `/wiki/rest/api/content/blueprint/instance/{draftId}` | `publishSharedDraft` | Publish shared draft | not started | - |
-| GET | `/wiki/rest/api/content/search` | `searchContentByCQL` | Search content by CQL | not started | - |
+| GET | `/wiki/rest/api/content/search` | `searchContentByCQL` | Search content by CQL | partial (schema) | v1-content-search |
 
 ## Content - attachments
 
@@ -48,8 +48,8 @@ Status: `not started` | `partial` | `done`. `done` requires a conformance case. 
 | Method | Path | operationId | Summary | Status | Case |
 |---|---|---|---|---|---|
 | POST | `/wiki/rest/api/content/{id}/copy` | `copyPage` | Copy single page | not started | - |
-| GET | `/wiki/rest/api/content/{id}/descendant` | `getContentDescendants` | Get content descendants | not started | - |
-| GET | `/wiki/rest/api/content/{id}/descendant/{type}` | `getDescendantsOfType` | Get content descendants by type | not started | - |
+| GET | `/wiki/rest/api/content/{id}/descendant` | `getContentDescendants` | Get content descendants | partial (schema) | v1-content-descendants |
+| GET | `/wiki/rest/api/content/{id}/descendant/{type}` | `getDescendantsOfType` | Get content descendants by type | partial (schema) | v1-content-descendants-of-type |
 | POST | `/wiki/rest/api/content/{id}/pagehierarchy/copy` | `copyPageHierarchy` | Copy page hierarchy | not started | - |
 | PUT | `/wiki/rest/api/content/{pageId}/move/{position}/{targetId}` | `movePage` | Move a page to a new location relative to a target page | not started | - |
 
@@ -74,32 +74,32 @@ Status: `not started` | `partial` | `done`. `done` requires a conformance case. 
 
 | Method | Path | operationId | Summary | Status | Case |
 |---|---|---|---|---|---|
-| DELETE | `/wiki/rest/api/content/{id}/label` | `removeLabelFromContentUsingQueryParameter` | Remove label from content using query parameter | not started | - |
-| POST | `/wiki/rest/api/content/{id}/label` | `addLabelsToContent` | Add labels to content | not started | - |
-| DELETE | `/wiki/rest/api/content/{id}/label/{label}` | `removeLabelFromContent` | Remove label from content | not started | - |
+| DELETE | `/wiki/rest/api/content/{id}/label` | `removeLabelFromContentUsingQueryParameter` | Remove label from content using query parameter | partial (schema) | v1-content-label-remove-query |
+| POST | `/wiki/rest/api/content/{id}/label` | `addLabelsToContent` | Add labels to content | partial (schema) | v1-content-label-add |
+| DELETE | `/wiki/rest/api/content/{id}/label/{label}` | `removeLabelFromContent` | Remove label from content | partial (schema) | v1-content-label-remove |
 
 ## Content permissions
 
 | Method | Path | operationId | Summary | Status | Case |
 |---|---|---|---|---|---|
-| POST | `/wiki/rest/api/content/{id}/permission/check` | `checkContentPermission` | Check content permissions | not started | - |
+| POST | `/wiki/rest/api/content/{id}/permission/check` | `checkContentPermission` | Check content permissions | partial (schema) | v1-content-permission-check |
 
 ## Content restrictions
 
 | Method | Path | operationId | Summary | Status | Case |
 |---|---|---|---|---|---|
-| DELETE | `/wiki/rest/api/content/{id}/restriction` | `deleteRestrictions` | Delete restrictions | not started | - |
-| GET | `/wiki/rest/api/content/{id}/restriction` | `getRestrictions` | Get restrictions | not started | - |
-| POST | `/wiki/rest/api/content/{id}/restriction` | `addRestrictions` | Add restrictions | not started | - |
-| PUT | `/wiki/rest/api/content/{id}/restriction` | `updateRestrictions` | Update restrictions | not started | - |
-| GET | `/wiki/rest/api/content/{id}/restriction/byOperation` | `getRestrictionsByOperation` | Get restrictions by operation | not started | - |
-| GET | `/wiki/rest/api/content/{id}/restriction/byOperation/{operationKey}` | `getRestrictionsForOperation` | Get restrictions for operation | not started | - |
-| DELETE | `/wiki/rest/api/content/{id}/restriction/byOperation/{operationKey}/byGroupId/{groupId}` | `removeGroupFromContentRestriction` | Remove group from content restriction | not started | - |
-| GET | `/wiki/rest/api/content/{id}/restriction/byOperation/{operationKey}/byGroupId/{groupId}` | `getIndividualGroupRestrictionStatusByGroupId` | Get content restriction status for group | not started | - |
-| PUT | `/wiki/rest/api/content/{id}/restriction/byOperation/{operationKey}/byGroupId/{groupId}` | `addGroupToContentRestrictionByGroupId` | Add group to content restriction | not started | - |
-| DELETE | `/wiki/rest/api/content/{id}/restriction/byOperation/{operationKey}/user` | `removeUserFromContentRestriction` | Remove user from content restriction | not started | - |
-| GET | `/wiki/rest/api/content/{id}/restriction/byOperation/{operationKey}/user` | `getContentRestrictionStatusForUser` | Get content restriction status for user | not started | - |
-| PUT | `/wiki/rest/api/content/{id}/restriction/byOperation/{operationKey}/user` | `addUserToContentRestriction` | Add user to content restriction | not started | - |
+| DELETE | `/wiki/rest/api/content/{id}/restriction` | `deleteRestrictions` | Delete restrictions | partial (schema) | v1-restrictions-delete |
+| GET | `/wiki/rest/api/content/{id}/restriction` | `getRestrictions` | Get restrictions | partial (schema) | v1-restrictions-get |
+| POST | `/wiki/rest/api/content/{id}/restriction` | `addRestrictions` | Add restrictions | partial (schema) | v1-restrictions-add |
+| PUT | `/wiki/rest/api/content/{id}/restriction` | `updateRestrictions` | Update restrictions | partial (schema) | v1-restrictions-update |
+| GET | `/wiki/rest/api/content/{id}/restriction/byOperation` | `getRestrictionsByOperation` | Get restrictions by operation | partial (schema) | v1-restrictions-by-operation |
+| GET | `/wiki/rest/api/content/{id}/restriction/byOperation/{operationKey}` | `getRestrictionsForOperation` | Get restrictions for operation | partial (schema) | v1-restrictions-for-operation |
+| DELETE | `/wiki/rest/api/content/{id}/restriction/byOperation/{operationKey}/byGroupId/{groupId}` | `removeGroupFromContentRestriction` | Remove group from content restriction | partial (schema) | v1-restriction-group-remove |
+| GET | `/wiki/rest/api/content/{id}/restriction/byOperation/{operationKey}/byGroupId/{groupId}` | `getIndividualGroupRestrictionStatusByGroupId` | Get content restriction status for group | partial (schema) | v1-restriction-group-get |
+| PUT | `/wiki/rest/api/content/{id}/restriction/byOperation/{operationKey}/byGroupId/{groupId}` | `addGroupToContentRestrictionByGroupId` | Add group to content restriction | partial (schema) | v1-restriction-group-add |
+| DELETE | `/wiki/rest/api/content/{id}/restriction/byOperation/{operationKey}/user` | `removeUserFromContentRestriction` | Remove user from content restriction | partial (schema) | v1-restriction-user-remove |
+| GET | `/wiki/rest/api/content/{id}/restriction/byOperation/{operationKey}/user` | `getContentRestrictionStatusForUser` | Get content restriction status for user | partial (schema) | v1-restriction-user-get |
+| PUT | `/wiki/rest/api/content/{id}/restriction/byOperation/{operationKey}/user` | `addUserToContentRestriction` | Add user to content restriction | partial (schema) | v1-restriction-user-add |
 
 ## Content states
 
@@ -128,15 +128,15 @@ Status: `not started` | `partial` | `done`. `done` requires a conformance case. 
 | GET | `/wiki/rest/api/content/{id}/notification/child-created` | `getWatchesForPage` | Get watches for page | not started | - |
 | GET | `/wiki/rest/api/content/{id}/notification/created` | `getWatchesForSpace` | Get watches for space | not started | - |
 | GET | `/wiki/rest/api/space/{spaceKey}/watch` | `getWatchersForSpace` | Get space watchers | not started | - |
-| DELETE | `/wiki/rest/api/user/watch/content/{contentId}` | `removeContentWatcher` | Remove content watcher | not started | - |
-| GET | `/wiki/rest/api/user/watch/content/{contentId}` | `getContentWatchStatus` | Get content watch status | not started | - |
-| POST | `/wiki/rest/api/user/watch/content/{contentId}` | `addContentWatcher` | Add content watcher | not started | - |
+| DELETE | `/wiki/rest/api/user/watch/content/{contentId}` | `removeContentWatcher` | Remove content watcher | partial (schema) | v1-watch-content-remove |
+| GET | `/wiki/rest/api/user/watch/content/{contentId}` | `getContentWatchStatus` | Get content watch status | partial (schema) | v1-watch-content-get |
+| POST | `/wiki/rest/api/user/watch/content/{contentId}` | `addContentWatcher` | Add content watcher | partial (schema) | v1-watch-content-add |
 | DELETE | `/wiki/rest/api/user/watch/label/{labelName}` | `removeLabelWatcher` | Remove label watcher | not started | - |
 | GET | `/wiki/rest/api/user/watch/label/{labelName}` | `isWatchingLabel` | Get label watch status | not started | - |
 | POST | `/wiki/rest/api/user/watch/label/{labelName}` | `addLabelWatcher` | Add label watcher | not started | - |
-| DELETE | `/wiki/rest/api/user/watch/space/{spaceKey}` | `removeSpaceWatch` | Remove space watch | not started | - |
-| GET | `/wiki/rest/api/user/watch/space/{spaceKey}` | `isWatchingSpace` | Get space watch status | not started | - |
-| POST | `/wiki/rest/api/user/watch/space/{spaceKey}` | `addSpaceWatcher` | Add space watcher | not started | - |
+| DELETE | `/wiki/rest/api/user/watch/space/{spaceKey}` | `removeSpaceWatch` | Remove space watch | partial (schema) | v1-watch-space-remove |
+| GET | `/wiki/rest/api/user/watch/space/{spaceKey}` | `isWatchingSpace` | Get space watch status | partial (schema) | v1-watch-space-get |
+| POST | `/wiki/rest/api/user/watch/space/{spaceKey}` | `addSpaceWatcher` | Add space watcher | partial (schema) | v1-watch-space-add |
 
 ## Dynamic modules
 
@@ -151,22 +151,22 @@ Status: `not started` | `partial` | `done`. `done` requires a conformance case. 
 | Method | Path | operationId | Summary | Status | Case |
 |---|---|---|---|---|---|
 | DELETE | `/wiki/rest/api/content/{id}/pageTree` | `deletePageTree` | Delete page tree | not started | - |
-| DELETE | `/wiki/rest/api/space/{spaceKey}/label` | `deleteLabelFromSpace` | Remove label from a space | not started | - |
+| DELETE | `/wiki/rest/api/space/{spaceKey}/label` | `deleteLabelFromSpace` | Remove label from a space | partial (schema) | v1-space-label-remove |
 | GET | `/wiki/rest/api/space/{spaceKey}/label` | `getLabelsForSpace` | Get Space Labels | not started | - |
-| POST | `/wiki/rest/api/space/{spaceKey}/label` | `addLabelsToSpace` | Add labels to a space | not started | - |
+| POST | `/wiki/rest/api/space/{spaceKey}/label` | `addLabelsToSpace` | Add labels to a space | partial (schema) | v1-space-label-add |
 
 ## Group
 
 | Method | Path | operationId | Summary | Status | Case |
 |---|---|---|---|---|---|
-| GET | `/wiki/rest/api/group` | `getGroups` | Get groups | not started | - |
-| POST | `/wiki/rest/api/group` | `createGroup` | Create new user group | not started | - |
-| DELETE | `/wiki/rest/api/group/by-id` | `removeGroupById` | Delete user group | not started | - |
-| GET | `/wiki/rest/api/group/by-id` | `getGroupByGroupId` | Get group | not started | - |
+| GET | `/wiki/rest/api/group` | `getGroups` | Get groups | partial (schema) | v1-groups-list |
+| POST | `/wiki/rest/api/group` | `createGroup` | Create new user group | partial (schema) | v1-group-create |
+| DELETE | `/wiki/rest/api/group/by-id` | `removeGroupById` | Delete user group | partial (schema) | v1-group-delete |
+| GET | `/wiki/rest/api/group/by-id` | `getGroupByGroupId` | Get group | partial (schema) | v1-group-get |
 | GET | `/wiki/rest/api/group/picker` | `searchGroups` | Search groups by partial query | not started | - |
-| DELETE | `/wiki/rest/api/group/userByGroupId` | `removeMemberFromGroupByGroupId` | Remove member from group using group id | not started | - |
-| POST | `/wiki/rest/api/group/userByGroupId` | `addUserToGroupByGroupId` | Add member to group by groupId | not started | - |
-| GET | `/wiki/rest/api/group/{groupId}/membersByGroupId` | `getGroupMembersByGroupId` | Get group members | not started | - |
+| DELETE | `/wiki/rest/api/group/userByGroupId` | `removeMemberFromGroupByGroupId` | Remove member from group using group id | partial (schema) | v1-group-member-remove |
+| POST | `/wiki/rest/api/group/userByGroupId` | `addUserToGroupByGroupId` | Add member to group by groupId | partial (schema) | v1-group-member-add |
+| GET | `/wiki/rest/api/group/{groupId}/membersByGroupId` | `getGroupMembersByGroupId` | Get group members | partial (schema) | v1-group-members |
 
 ## Label info
 
@@ -178,7 +178,7 @@ Status: `not started` | `partial` | `done`. `done` requires a conformance case. 
 
 | Method | Path | operationId | Summary | Status | Case |
 |---|---|---|---|---|---|
-| GET | `/wiki/rest/api/longtask` | `getTasks` | Get long-running tasks | not started | - |
+| GET | `/wiki/rest/api/longtask` | `getTasks` | Get long-running tasks | partial (schema) | v2-tasks-list |
 | GET | `/wiki/rest/api/longtask/{id}` | `getTask` | Get long-running task | not started | - |
 
 ## Relation
@@ -195,8 +195,8 @@ Status: `not started` | `partial` | `done`. `done` requires a conformance case. 
 
 | Method | Path | operationId | Summary | Status | Case |
 |---|---|---|---|---|---|
-| GET | `/wiki/rest/api/search` | `searchByCQL` | Search content | not started | - |
-| GET | `/wiki/rest/api/search/user` | `searchUser` | Search users | not started | - |
+| GET | `/wiki/rest/api/search` | `searchByCQL` | Search content | partial (schema) | v1-search, v1-search-cql-invalid, v1-search-space |
+| GET | `/wiki/rest/api/search/user` | `searchUser` | Search users | partial (schema) | v1-search-user |
 
 ## Settings
 
@@ -212,7 +212,7 @@ Status: `not started` | `partial` | `done`. `done` requires a conformance case. 
 
 | Method | Path | operationId | Summary | Status | Case |
 |---|---|---|---|---|---|
-| POST | `/wiki/rest/api/space` | `createSpace` | Create space | not started | - |
+| POST | `/wiki/rest/api/space` | `createSpace` | Create space | partial (schema) | v2-space-create |
 | POST | `/wiki/rest/api/space/_private` | `createPrivateSpace` | Create private space | not started | - |
 | DELETE | `/wiki/rest/api/space/{spaceKey}` | `deleteSpace` | Delete space | not started | - |
 | PUT | `/wiki/rest/api/space/{spaceKey}` | `updateSpace` | Update space | not started | - |
@@ -221,9 +221,9 @@ Status: `not started` | `partial` | `done`. `done` requires a conformance case. 
 
 | Method | Path | operationId | Summary | Status | Case |
 |---|---|---|---|---|---|
-| POST | `/wiki/rest/api/space/{spaceKey}/permission` | `addPermissionToSpace` | Add new permission to space | not started | - |
+| POST | `/wiki/rest/api/space/{spaceKey}/permission` | `addPermissionToSpace` | Add new permission to space | partial (schema) | v1-space-permission-add |
 | POST | `/wiki/rest/api/space/{spaceKey}/permission/custom-content` | `addCustomContentPermissions` | Add new custom content permission to space | not started | - |
-| DELETE | `/wiki/rest/api/space/{spaceKey}/permission/{id}` | `removePermission` | Remove a space permission | not started | - |
+| DELETE | `/wiki/rest/api/space/{spaceKey}/permission/{id}` | `removePermission` | Remove a space permission | partial (schema) | v1-space-permission-remove |
 
 ## Space settings
 
@@ -271,7 +271,7 @@ Status: `not started` | `partial` | `done`. `done` requires a conformance case. 
 | GET | `/wiki/rest/api/user` | `getUser` | Get user | not started | - |
 | GET | `/wiki/rest/api/user/anonymous` | `getAnonymousUser` | Get anonymous user | not started | - |
 | GET | `/wiki/rest/api/user/bulk` | `getBulkUserLookup` | Get multiple users using ids | not started | - |
-| GET | `/wiki/rest/api/user/current` | `getCurrentUser` | Get current user | not started | - |
+| GET | `/wiki/rest/api/user/current` | `getCurrentUser` | Get current user | partial (schema) | v1-user-current |
 | GET | `/wiki/rest/api/user/email` | `getPrivacyUnsafeUserEmail` | Get user email address | not started | - |
 | GET | `/wiki/rest/api/user/email/bulk` | `getPrivacyUnsafeUserEmailBulk` | Get user email addresses in batch | not started | - |
 | GET | `/wiki/rest/api/user/memberof` | `getGroupMembershipsForUser` | Get group memberships for user | not started | - |

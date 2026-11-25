@@ -32,4 +32,7 @@ describe("matchOp", () => {
     expect(matchOp(ops, "GET", "/wiki/api/v2/pages/7", "/wiki/api/v2")?.operationId).toBe("getPageById");
     expect(matchOp(ops, "POST", "/wiki/api/v2/pages/7", "/wiki/api/v2")).toBeUndefined();
   });
+  it("ignores the query string", () => {
+    expect(matchOp(ops, "GET", "/wiki/api/v2/pages/7?limit=1", "/wiki/api/v2")?.operationId).toBe("getPageById");
+  });
 });

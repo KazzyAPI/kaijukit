@@ -1,9 +1,11 @@
-use axum::{extract::State, Json};
+use std::sync::Arc;
+
+use axum::{extract::State, Extension, Json};
 use kk_core::ApiError;
 use serde::Deserialize;
 use serde_json::{json, Value};
 
-use crate::{error::R, http::JsonBody, AppState};
+use crate::{authz::Access, error::R, http::JsonBody, AppState};
 
 const MAX_LOOKUP: usize = 100;
 
@@ -73,4 +75,12 @@ pub async fn check_access(
     Ok(Json(
         json!({"emailsWithoutAccess": without, "invalidEmails": invalid}),
     ))
+}
+
+/// v1 `getCurrentUser`.
+pub async fn current(
+    State(s): State<AppState>,
+    Extension(a): Extension<Arc<Access>>,
+) -> R<Json<Value>> {
+    Ok(Json(crate::v1::users(&s.db, &[a.p.id]).await?.remove(0)))
 }

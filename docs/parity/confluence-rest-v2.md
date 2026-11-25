@@ -300,7 +300,7 @@ Status: `not started` | `partial` | `done`. `done` requires a conformance case. 
 
 | Method | Path | operationId | Summary | Status | Case |
 |---|---|---|---|---|---|
-| GET | `/labels/{id}/pages` | `getLabelPages` | Get pages for label | not started | - |
+| GET | `/labels/{id}/pages` | `getLabelPages` | Get pages for label | partial (schema) | v2-label-pages |
 | GET | `/pages` | `getPages` | Get pages | partial (schema) | v2-pages-list |
 | POST | `/pages` | `createPage` | Create page | partial (schema) | v2-page-create, v2-page-create-rich |
 | DELETE | `/pages/{id}` | `deletePage` | Delete page | partial (schema) | v2-page-delete |

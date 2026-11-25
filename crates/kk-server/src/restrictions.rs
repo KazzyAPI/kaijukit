@@ -552,7 +552,7 @@ pub async fn check(
         ("user", "anonymous") => {
             return Ok(Json(json!({
                 "hasPermission": false,
-                "errors": [message("Anonymous users are not allowed to use Confluence")],
+                "errors": [message("Anonymous users are not allowed to use this site")],
             })))
         }
         ("user" | "group", raw) => {

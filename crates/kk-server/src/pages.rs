@@ -186,7 +186,14 @@ pub async fn get(
     Ok(single(&s, &row, repr)?)
 }
 
-async fn list_pages(s: &AppState, a: &Access, path: &str, q: Q, space: Option<i64>) -> R<Response> {
+async fn list_pages(
+    s: &AppState,
+    a: &Access,
+    path: &str,
+    q: Q,
+    space: Option<i64>,
+    label: Option<i64>,
+) -> R<Response> {
     let (limit, offset) = (q.limit()?, q.offset()?);
     let repr = body::format(&q, body::PRIMARY)?;
     let order = q.order_by(
@@ -212,6 +219,7 @@ async fn list_pages(s: &AppState, a: &Access, path: &str, q: Q, space: Option<i6
          AND ($2::bigint[] IS NULL OR c.space_id = ANY($2)) AND c.status = ANY($3) \
          AND ($4::text IS NULL OR v.title = $4) AND (NOT $5 OR c.parent_id IS NULL) \
          AND ($8::bigint[] IS NULL OR c.space_id = ANY($8)) AND NOT (c.id = ANY($9)) \
+         AND ($10::bigint IS NULL OR EXISTS (SELECT 1 FROM content_labels cl WHERE cl.content_id = c.id AND cl.label_id = $10)) \
          ORDER BY {order} LIMIT $6 OFFSET $7",
         select("c.version_number")
     );
@@ -225,6 +233,7 @@ async fn list_pages(s: &AppState, a: &Access, path: &str, q: Q, space: Option<i6
         .bind(offset)
         .bind(a.readable_spaces())
         .bind(a.hidden(&s.db).await?)
+        .bind(label)
         .fetch_all(&s.db)
         .await?;
     let rows = rows
@@ -239,7 +248,7 @@ pub async fn list(
     Extension(a): Extension<Arc<Access>>,
     RawQuery(raw): RawQuery,
 ) -> R<Response> {
-    list_pages(&s, &a, "/wiki/api/v2/pages", Q::parse(raw), None).await
+    list_pages(&s, &a, "/wiki/api/v2/pages", Q::parse(raw), None, None).await
 }
 
 pub async fn in_space(
@@ -259,6 +268,30 @@ pub async fn in_space(
         &a,
         &format!("/wiki/api/v2/spaces/{id}/pages"),
         Q::parse(raw),
+        Some(id),
+        None,
+    )
+    .await
+}
+
+pub async fn of_label(
+    State(s): State<AppState>,
+    Extension(a): Extension<Arc<Access>>,
+    Path(id): Path<String>,
+    RawQuery(raw): RawQuery,
+) -> R<Response> {
+    let id = parse_id(&id)?;
+    sqlx::query_scalar::<_, i64>("SELECT id FROM labels WHERE id = $1")
+        .bind(id)
+        .fetch_optional(&s.db)
+        .await?
+        .ok_or_else(|| ApiError::NotFound("label not found".into()))?;
+    list_pages(
+        &s,
+        &a,
+        &format!("/wiki/api/v2/labels/{id}/pages"),
+        Q::parse(raw),
+        None,
         Some(id),
     )
     .await
@@ -386,6 +419,9 @@ pub async fn create(
     };
     let adf = serde_json::to_value(&doc).map_err(|e| ApiError::Internal(e.to_string()))?;
     let id = insert_page(&mut tx, space, parent, status, title.trim(), &adf, user.0).await?;
+    if status == "current" {
+        crate::jobs::notify_content(&mut tx, id, user.0, "created").await?;
+    }
     let row = load(&mut tx, id, None).await?.ok_or_else(not_found)?;
     tx.commit().await?;
     Ok(single(&s, &row, repr)?)
@@ -465,6 +501,11 @@ async fn put_version(
         .execute(&mut *tx)
         .await
         .map_err(|e| db_err(e, dup))?;
+    if v.status == "current" {
+        crate::jobs::notify_content(tx, id, v.user, "updated")
+            .await
+            .map_err(|e| db_err(e, ""))?;
+    }
     sqlx::query("DELETE FROM content_drafts WHERE content_id = $1")
         .bind(id)
         .execute(&mut *tx)

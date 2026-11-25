@@ -2615,3 +2615,372 @@ async fn groups_crud_and_membership() {
         StatusCode::NO_CONTENT
     );
 }
+
+#[tokio::test]
+async fn search_cql_filters_text_labels_and_visibility() {
+    let (app, db) = start_db().await;
+    let (alice, alice_id) = user(&db, "alice").await;
+    let sp = space(&app, "SRCH").await;
+    let a = page(&app, &sp["id"], "Zebra crossing", None).await;
+    let b = page(&app, &sp["id"], "Quokka notes", Some(&a["id"])).await;
+    let r = put_page(
+        &app,
+        b["id"].as_str().unwrap(),
+        "Quokka notes",
+        2,
+        "<p>Quokkas are small marsupials</p>",
+    )
+    .await;
+    assert_eq!(r.status, StatusCode::OK, "{}", r.json);
+    let bid = b["id"].as_str().unwrap();
+    let l = v1(
+        &app,
+        Method::POST,
+        &format!("/content/{bid}/label"),
+        Some(json!([{"prefix": "global", "name": "fauna"}])),
+    )
+    .await;
+    assert!(l.status.is_success(), "{}", l.json);
+    let q = |cql: &str| {
+        let enc: String = cql
+            .bytes()
+            .map(|b| match b.is_ascii_alphanumeric() {
+                true => (b as char).to_string(),
+                false => format!("%{b:02X}"),
+            })
+            .collect();
+        format!("/search?cql={enc}")
+    };
+    let found = |r: &Res| -> Vec<String> {
+        r.json["results"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|x| x["content"]["id"].as_str().unwrap().to_string())
+            .collect()
+    };
+    let r = v1(
+        &app,
+        Method::GET,
+        &q("type=page AND text~\"marsupial\""),
+        None,
+    )
+    .await;
+    assert_eq!(r.status, StatusCode::OK, "{}", r.json);
+    assert_eq!(found(&r), [bid]);
+    assert!(r.json["results"][0]["excerpt"]
+        .as_str()
+        .unwrap()
+        .contains("marsupials"));
+    assert_eq!(
+        found(&v1(&app, Method::GET, &q("label=fauna"), None).await),
+        [bid]
+    );
+    assert_eq!(
+        found(&v1(&app, Method::GET, &q("title~\"zebra\""), None).await),
+        [a["id"].as_str().unwrap()]
+    );
+    assert_eq!(
+        found(
+            &v1(
+                &app,
+                Method::GET,
+                &q(&format!("ancestor={}", a["id"].as_str().unwrap())),
+                None
+            )
+            .await
+        ),
+        [bid]
+    );
+    let not_b = v1(
+        &app,
+        Method::GET,
+        &q("space=srch AND NOT label=fauna AND type=page ORDER BY title DESC"),
+        None,
+    )
+    .await;
+    assert!(!found(&not_b).is_empty() && !found(&not_b).contains(&bid.to_string()));
+    let c = v1(
+        &app,
+        Method::GET,
+        &q("type=page AND created > now(\"-1d\") ORDER BY created DESC"),
+        None,
+    )
+    .await;
+    assert_eq!(c.status, StatusCode::OK, "{}", c.json);
+    let c = v1(
+        &app,
+        Method::GET,
+        &q("title~\"quokka\"").replace("/search", "/content/search"),
+        None,
+    )
+    .await;
+    assert_eq!(c.json["results"][0]["id"], bid);
+    // errors
+    assert_eq!(
+        v1(&app, Method::GET, &q("type=page AND"), None)
+            .await
+            .status,
+        StatusCode::BAD_REQUEST
+    );
+    assert_eq!(
+        v1(&app, Method::GET, &q("favourite=currentUser()"), None)
+            .await
+            .status,
+        StatusCode::BAD_REQUEST
+    );
+    assert_eq!(
+        v1(&app, Method::GET, "/search", None).await.status,
+        StatusCode::BAD_REQUEST
+    );
+    // restricted pages are absent for others and their total
+    let g = v1(
+        &app,
+        Method::POST,
+        "/group",
+        Some(json!({"name": "Closed"})),
+    )
+    .await;
+    let r = v1(
+        &app,
+        Method::POST,
+        &format!("/content/{bid}/restriction"),
+        Some(json!([{"operation": "read", "restrictions": {"group": [{"id": g.json["id"]}]}}])),
+    )
+    .await;
+    assert_eq!(r.status, StatusCode::OK, "{}", r.json);
+    let seen = as_user_v1(&app, &alice, Method::GET, &q("text~\"marsupial\""), None).await;
+    assert_eq!(seen.status, StatusCode::OK);
+    assert!(found(&seen).is_empty());
+    assert_eq!(
+        found(&v1(&app, Method::GET, &q("text~\"marsupial\""), None).await),
+        [bid]
+    );
+    // user search
+    let u = v1(
+        &app,
+        Method::GET,
+        &format!("/search/user?cql=user.accountid%3D{alice_id}"),
+        None,
+    )
+    .await;
+    assert_eq!(u.json["results"][0]["user"]["accountId"], alice_id);
+}
+
+#[tokio::test]
+async fn current_user_label_pages_and_comment_author() {
+    let (app, db) = start_db().await;
+    let (alice, alice_id) = user(&db, "alice").await;
+    let me = as_user_v1(&app, &alice, Method::GET, "/user/current", None).await;
+    assert_eq!(me.json["accountId"], alice_id);
+    let sp = space(&app, "LBL").await;
+    let p = page(&app, &sp["id"], "Tagged", None).await;
+    let pid = p["id"].as_str().unwrap();
+    let l = v1(
+        &app,
+        Method::POST,
+        &format!("/content/{pid}/label"),
+        Some(json!([{"prefix": "global", "name": "tag"}])),
+    )
+    .await;
+    let lid = l.json["results"][0]["id"].as_str().unwrap().to_string();
+    let r = get(&app, &format!("/labels/{lid}/pages")).await;
+    assert_eq!(r.status, StatusCode::OK, "{}", r.json);
+    assert_eq!(ids(&r), [pid]);
+    assert_eq!(
+        get(&app, "/labels/424242/pages").await.status,
+        StatusCode::NOT_FOUND
+    );
+    let c = as_user(
+        &app,
+        &alice,
+        Method::POST,
+        "/footer-comments",
+        Some(json!({"pageId": pid,
+        "body": {"representation": "storage", "value": "<p>x</p>"}})),
+    )
+    .await;
+    assert_eq!(c.json["authorId"], alice_id);
+}
+
+#[tokio::test]
+async fn watches_notify_through_the_job_queue() {
+    let (app, db) = start_db().await;
+    let (alice, alice_id) = user(&db, "alice").await;
+    let sp = space(&app, "WTCH").await;
+    let p = page(&app, &sp["id"], "Watched", None).await;
+    let pid = p["id"].as_str().unwrap();
+    kk_server::jobs::run_due(&db).await.unwrap(); // the create job
+    let w = format!("/user/watch/content/{pid}");
+    let on = |r: &Res| r.json["watching"].as_bool().unwrap();
+    assert!(!on(&as_user_v1(&app, &alice, Method::GET, &w, None).await));
+    assert_eq!(
+        as_user_v1(&app, &alice, Method::POST, &w, None)
+            .await
+            .status,
+        StatusCode::NO_CONTENT
+    );
+    assert!(on(&as_user_v1(&app, &alice, Method::GET, &w, None).await));
+    // watching a space works the same way
+    let sw = "/user/watch/space/WTCH";
+    assert_eq!(
+        as_user_v1(&app, &alice, Method::POST, sw, None)
+            .await
+            .status,
+        StatusCode::NO_CONTENT
+    );
+    assert!(on(&as_user_v1(&app, &alice, Method::GET, sw, None).await));
+    assert_eq!(
+        as_user_v1(&app, &alice, Method::DELETE, sw, None)
+            .await
+            .status,
+        StatusCode::NO_CONTENT
+    );
+    assert_eq!(
+        as_user_v1(&app, &alice, Method::GET, "/user/watch/space/NOPE", None)
+            .await
+            .status,
+        StatusCode::NOT_FOUND
+    );
+
+    // an edit by the admin queues one job and the runner turns it into a notification
+    let r = put_page(&app, pid, "Watched", 2, "<p>changed</p>").await;
+    assert_eq!(r.status, StatusCode::OK);
+    let n = kk_server::jobs::run_due(&db).await.unwrap();
+    assert!(n >= 1);
+    let got: Vec<(String,)> =
+        sqlx::query_as("SELECT kind FROM notifications WHERE user_id = $1::bigint")
+            .bind(&alice_id)
+            .fetch_all(&db)
+            .await
+            .unwrap();
+    assert_eq!(got, [("content.updated".to_string(),)]);
+    let admin_n: i64 =
+        sqlx::query_scalar("SELECT count(*) FROM notifications WHERE user_id <> $1::bigint")
+            .bind(&alice_id)
+            .fetch_one(&db)
+            .await
+            .unwrap();
+    assert_eq!(admin_n, 0, "the actor is not notified");
+
+    // a read restriction added later keeps the watcher from being told
+    let g = v1(
+        &app,
+        Method::POST,
+        "/group",
+        Some(json!({"name": "Closed"})),
+    )
+    .await;
+    v1(
+        &app,
+        Method::POST,
+        &format!("/content/{pid}/restriction"),
+        Some(json!([{"operation": "read", "restrictions": {"group": [{"id": g.json["id"]}]}}])),
+    )
+    .await;
+    put_page(&app, pid, "Watched", 3, "<p>again</p>").await;
+    kk_server::jobs::run_due(&db).await.unwrap();
+    let total: i64 = sqlx::query_scalar("SELECT count(*) FROM notifications")
+        .fetch_one(&db)
+        .await
+        .unwrap();
+    assert_eq!(total, 1);
+
+    // unknown jobs retry with backoff, then fail
+    sqlx::query("INSERT INTO jobs (kind, payload) VALUES ('nope', '{}')")
+        .execute(&db)
+        .await
+        .unwrap();
+    for _ in 0..5 {
+        kk_server::jobs::run_due(&db).await.unwrap();
+        sqlx::query("UPDATE jobs SET run_at = now() WHERE state = 'queued'")
+            .execute(&db)
+            .await
+            .unwrap();
+    }
+    let (state, attempts): (String, i32) =
+        sqlx::query_as("SELECT state, attempts FROM jobs WHERE kind = 'nope'")
+            .fetch_one(&db)
+            .await
+            .unwrap();
+    assert_eq!((state.as_str(), attempts), ("failed", 5));
+}
+
+#[tokio::test]
+async fn v1_descendants_by_type_and_depth() {
+    let app = start().await;
+    let sp = space(&app, "DESC").await;
+    let a = page(&app, &sp["id"], "A", None).await;
+    let b = page(&app, &sp["id"], "B", Some(&a["id"])).await;
+    let c = page(&app, &sp["id"], "C", Some(&b["id"])).await;
+    let (aid, bid, cid) = (
+        a["id"].as_str().unwrap(),
+        b["id"].as_str().unwrap(),
+        c["id"].as_str().unwrap(),
+    );
+    let ids_of = |r: &Res| -> Vec<String> {
+        r.json["results"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|x| x["id"].as_str().unwrap().to_string())
+            .collect()
+    };
+    let all = v1(
+        &app,
+        Method::GET,
+        &format!("/content/{aid}/descendant/page"),
+        None,
+    )
+    .await;
+    assert_eq!(ids_of(&all), [bid, cid]);
+    let root = v1(
+        &app,
+        Method::GET,
+        &format!("/content/{aid}/descendant/page?depth=root"),
+        None,
+    )
+    .await;
+    assert_eq!(ids_of(&root), [bid]);
+    let cm = call(
+        &app,
+        Method::POST,
+        "/footer-comments",
+        Some(json!({"pageId": cid,
+        "body": {"representation": "storage", "value": "<p>c</p>"}})),
+    )
+    .await;
+    let comments = v1(
+        &app,
+        Method::GET,
+        &format!("/content/{aid}/descendant/comment"),
+        None,
+    )
+    .await;
+    assert_eq!(ids_of(&comments), [cm.json["id"].as_str().unwrap()]);
+    assert_eq!(
+        v1(
+            &app,
+            Method::GET,
+            &format!("/content/{aid}/descendant/folder"),
+            None
+        )
+        .await
+        .status,
+        StatusCode::BAD_REQUEST
+    );
+    assert_eq!(
+        v1(&app, Method::GET, "/content/999999/descendant/page", None)
+            .await
+            .status,
+        StatusCode::NOT_FOUND
+    );
+    let summary = v1(
+        &app,
+        Method::GET,
+        &format!("/content/{aid}/descendant"),
+        None,
+    )
+    .await;
+    assert_eq!(summary.json["page"]["size"], 2);
+}

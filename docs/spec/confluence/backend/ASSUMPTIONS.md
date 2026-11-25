@@ -113,3 +113,9 @@ All `[V]`: no reference capture exists for any of this; the public spec gives sh
 - CQL week starts on Monday; all relative dates are UTC.
 - Notifications: a page create or publish enqueues a `notify.content` job in the same transaction; the worker inserts one `notifications` row per watcher (page watch, ancestor page watch for child-created, or space watch) who can view the content and is not the author. There is no public REST surface for reading notifications. Jobs are claimed with `FOR UPDATE SKIP LOCKED`, retried with a growing delay up to 5 attempts, then marked `failed`.
 - Not built: v1 content CRUD, `/content/{id}/child`, `/content/{id}/history`, `GET /space`: they are absent from the pinned v1 spec so they cannot have a schema case (see report). Space roles, custom-content permissions, label watches, email delivery.
+
+### Extensions and jobs (M3)
+- v2 comment responses carry a top-level `authorId` (the original author). The pinned spec only has `version.authorId`, which changes on edit. This is a kaijukit extension and not `done`-able against the reference. `[V]`
+- `getCurrentUser` returns the same shape as `/users-bulk` entries plus `type: known`. `getLabelPages` honours the same visibility filters as `getPages`.
+- Jobs: table `jobs` (queued, done, failed), polled every 2 seconds by the server process; backoff is 5 s times 2^attempts. Notifications are stored in `notifications` and have no read API yet.
+- v1 `getContentDescendants` returns `page`, `comment` and `attachment` arrays of 25. `depth` counts page levels; comments and attachments of the pages inside the depth are included.

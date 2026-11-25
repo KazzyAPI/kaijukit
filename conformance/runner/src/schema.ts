@@ -72,7 +72,8 @@ export function listOps(spec: Json): Op[] {
 }
 
 export function matchOp(ops: Op[], method: string, path: string, base: string): Op | undefined {
-  const rel = path.startsWith(base) ? path.slice(base.length) : path;
+  const bare = path.split("?")[0];
+  const rel = bare.startsWith(base) ? bare.slice(base.length) : bare;
   return ops.find((o) => o.method === method &&
     new RegExp("^" + o.template.replace(/[.*+?^$()|[\]\\]/g, "\\$&").replace(/\{[^}]+\}/g, "[^/]+") + "$").test(rel));
 }

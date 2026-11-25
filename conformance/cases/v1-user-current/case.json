@@ -1,0 +1,14 @@
+{
+  "id": "v1-user-current",
+  "ops": [
+    "getCurrentUser"
+  ],
+  "setup": [],
+  "request": {
+    "method": "GET",
+    "path": "/wiki/rest/api/user/current"
+  },
+  "expect": {
+    "status": 200
+  }
+}

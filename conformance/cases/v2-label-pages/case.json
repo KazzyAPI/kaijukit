@@ -1,7 +1,7 @@
 {
-  "id": "v1-space-watches",
+  "id": "v2-label-pages",
   "ops": [
-    "getWatchesForSpace"
+    "getLabelPages"
   ],
   "setup": [
     {
@@ -23,19 +23,25 @@
         "title": "page1 {{run}}",
         "body": {
           "representation": "storage",
-          "value": "<p>alpha beta alpha</p>"
+          "value": "<p>x</p>"
         }
       }
     },
     {
+      "as": "lbl",
       "method": "POST",
-      "path": "/wiki/rest/api/user/watch/space/{{space.key}}",
-      "as": "w"
+      "path": "/wiki/rest/api/content/{{page1.id}}/label",
+      "body": [
+        {
+          "prefix": "global",
+          "name": "l{{run}}"
+        }
+      ]
     }
   ],
   "request": {
     "method": "GET",
-    "path": "/wiki/rest/api/content/{{page1.id}}/notification/created"
+    "path": "/wiki/api/v2/labels/{{lbl.results.0.id}}/pages"
   },
   "expect": {
     "status": 200

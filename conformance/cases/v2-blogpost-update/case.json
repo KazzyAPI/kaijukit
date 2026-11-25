@@ -1,0 +1,50 @@
+{
+  "id": "v2-blogpost-update",
+  "ops": [
+    "updateBlogPost"
+  ],
+  "setup": [
+    {
+      "as": "space",
+      "method": "POST",
+      "path": "/wiki/api/v2/spaces",
+      "body": {
+        "name": "Conf {{run}}",
+        "key": "K{{run}}"
+      }
+    },
+    {
+      "as": "blog",
+      "method": "POST",
+      "path": "/wiki/api/v2/blogposts",
+      "body": {
+        "spaceId": "{{space.id}}",
+        "status": "current",
+        "title": "Blog {{run}}",
+        "body": {
+          "representation": "storage",
+          "value": "<p>hello</p>"
+        }
+      }
+    }
+  ],
+  "request": {
+    "method": "PUT",
+    "path": "/wiki/api/v2/blogposts/{{blog.id}}",
+    "body": {
+      "id": "{{blog.id}}",
+      "status": "current",
+      "title": "Blog {{run}} v2",
+      "body": {
+        "representation": "storage",
+        "value": "<p>two</p>"
+      },
+      "version": {
+        "number": 2
+      }
+    }
+  },
+  "expect": {
+    "status": 200
+  }
+}

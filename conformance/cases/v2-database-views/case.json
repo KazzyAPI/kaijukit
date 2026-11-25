@@ -1,0 +1,33 @@
+{
+  "id": "v2-database-views",
+  "ops": [
+    "getDatabaseViews"
+  ],
+  "setup": [
+    {
+      "as": "space",
+      "method": "POST",
+      "path": "/wiki/api/v2/spaces",
+      "body": {
+        "name": "Conf {{run}}",
+        "key": "K{{run}}"
+      }
+    },
+    {
+      "as": "x",
+      "method": "POST",
+      "path": "/wiki/api/v2/databases",
+      "body": {
+        "spaceId": "{{space.id}}",
+        "title": "D {{run}}"
+      }
+    }
+  ],
+  "request": {
+    "method": "GET",
+    "path": "/wiki/api/v2/databases/{{x.id}}/views"
+  },
+  "expect": {
+    "status": 200
+  }
+}

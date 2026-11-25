@@ -27,28 +27,31 @@ pub fn not_found() -> ApiError {
 
 #[derive(sqlx::FromRow)]
 pub struct PageRow {
-    id: i64,
-    space_id: i64,
-    space_key: String,
-    status: String,
-    title: String,
-    parent_id: Option<i64>,
-    parent_type: Option<String>,
-    position: i32,
-    author_id: i64,
-    created_at: DateTime<Utc>,
-    v_number: i32,
-    v_author: i64,
-    v_message: String,
-    v_minor: bool,
-    v_created: DateTime<Utc>,
+    pub id: i64,
+    pub ty: String,
+    pub custom_type: Option<String>,
+    pub embed_url: Option<String>,
+    pub space_id: i64,
+    pub space_key: String,
+    pub status: String,
+    pub title: String,
+    pub parent_id: Option<i64>,
+    pub parent_type: Option<String>,
+    pub position: i32,
+    pub author_id: i64,
+    pub created_at: DateTime<Utc>,
+    pub v_number: i32,
+    pub v_author: i64,
+    pub v_message: String,
+    pub v_minor: bool,
+    pub v_created: DateTime<Utc>,
     pub body: Value,
 }
 
 /// Page row joined with the version selected by `ver` (an SQL expression).
-fn select(ver: &str) -> String {
+pub(crate) fn select(ver: &str) -> String {
     format!(
-        "SELECT c.id, c.space_id, s.key AS space_key, c.status, v.title, c.parent_id, \
+        "SELECT c.id, c.type AS ty, c.custom_type, c.embed_url, c.space_id, s.key AS space_key, c.status, v.title, c.parent_id, \
          p.type AS parent_type, c.position, c.author_id, c.created_at, v.number AS v_number, \
          v.author_id AS v_author, v.message AS v_message, v.minor_edit AS v_minor, \
          v.created_at AS v_created, v.body \
@@ -63,13 +66,23 @@ async fn load(
     id: i64,
     ver: Option<i32>,
 ) -> Result<Option<PageRow>, sqlx::Error> {
+    load_ty(conn, "page", id, ver).await
+}
+
+pub(crate) async fn load_ty(
+    conn: &mut PgConnection,
+    ty: &str,
+    id: i64,
+    ver: Option<i32>,
+) -> Result<Option<PageRow>, sqlx::Error> {
     let sql = format!(
-        "{} WHERE c.id = $1 AND c.type = 'page'",
+        "{} WHERE c.id = $1 AND c.type = $3",
         select("COALESCE($2, c.version_number)")
     );
     sqlx::query_as(&sql)
         .bind(id)
         .bind(ver)
+        .bind(ty)
         .fetch_optional(conn)
         .await
 }
@@ -131,7 +144,10 @@ fn statuses(q: &Q, default: &[&str]) -> Result<Vec<String>, ApiError> {
 }
 
 /// Replaces a published row's title/body/author with the page's draft, if one exists.
-async fn overlay_draft(conn: &mut PgConnection, r: &mut PageRow) -> Result<(), sqlx::Error> {
+pub(crate) async fn overlay_draft(
+    conn: &mut PgConnection,
+    r: &mut PageRow,
+) -> Result<(), sqlx::Error> {
     let d: Option<(String, Value, i64, DateTime<Utc>)> = sqlx::query_as(
         "SELECT title, body, author_id, updated_at FROM content_drafts WHERE content_id = $1",
     )
@@ -146,7 +162,7 @@ async fn overlay_draft(conn: &mut PgConnection, r: &mut PageRow) -> Result<(), s
     Ok(())
 }
 
-async fn save_draft(
+pub(crate) async fn save_draft(
     tx: &mut PgConnection,
     id: i64,
     title: &str,
@@ -168,6 +184,7 @@ async fn save_draft(
 
 pub async fn get(
     State(s): State<AppState>,
+    Extension(a): Extension<Arc<Access>>,
     Path(id): Path<String>,
     RawQuery(raw): RawQuery,
 ) -> R<Json<Value>> {
@@ -183,7 +200,9 @@ pub async fn get(
     if q.flag("get-draft")? && version.is_none() {
         overlay_draft(&mut conn, &mut row).await?;
     }
-    Ok(single(&s, &row, repr)?)
+    let mut out = single(&s, &row, repr)?;
+    crate::expand::apply(&s, &a, &mut out.0, row.id, "pages", &q, crate::expand::PAGE).await?;
+    Ok(out)
 }
 
 async fn list_pages(
@@ -348,7 +367,7 @@ pub struct CreateReq {
     body: Option<Value>,
 }
 
-fn draft_or_current(s: &str) -> Result<&str, ApiError> {
+pub(crate) fn draft_or_current(s: &str) -> Result<&str, ApiError> {
     match s {
         "current" | "draft" => Ok(s),
         _ => Err(ApiError::BadRequest(
@@ -438,16 +457,25 @@ pub struct UpdateReq {
 
 #[derive(Deserialize)]
 pub struct VersionReq {
-    number: Option<i32>,
-    message: Option<String>,
+    pub number: Option<i32>,
+    pub message: Option<String>,
 }
 
 pub(crate) async fn lock(tx: &mut PgConnection, id: i64) -> Result<(String, i32), ApiError> {
+    lock_ty(tx, "page", id).await
+}
+
+pub(crate) async fn lock_ty(
+    tx: &mut PgConnection,
+    ty: &str,
+    id: i64,
+) -> Result<(String, i32), ApiError> {
     sqlx::query_as::<_, (String, i32)>(
-        "SELECT status, version_number FROM content WHERE id = $1 AND type = 'page' \
+        "SELECT status, version_number FROM content WHERE id = $1 AND type = $2 \
          AND status NOT IN ('deleted', 'historical') FOR UPDATE",
     )
     .bind(id)
+    .bind(ty)
     .fetch_optional(tx)
     .await
     .map_err(|e| db_err(e, ""))?
@@ -567,7 +595,7 @@ pub async fn write_back(
 }
 
 /// Shared by full and title-only updates: checks the status transition.
-fn transition(was: &str, to: &str) -> Result<(), ApiError> {
+pub(crate) fn transition(was: &str, to: &str) -> Result<(), ApiError> {
     match (was, to) {
         ("trashed", "draft") => Err(not_found()),
         _ => Ok(()),
@@ -686,11 +714,21 @@ pub async fn delete(
     Path(id): Path<String>,
     RawQuery(raw): RawQuery,
 ) -> R<StatusCode> {
+    delete_ty(&s, "page", &id, raw).await
+}
+
+/// Trashes, purges or drops the draft of a content row of type `ty` (and its live descendants).
+pub(crate) async fn delete_ty(
+    s: &AppState,
+    ty: &str,
+    id: &str,
+    raw: Option<String>,
+) -> R<StatusCode> {
     let q = Q::parse(raw);
     let (purge, draft) = (q.flag("purge")?, q.flag("draft")?);
-    let id = parse_id(&id)?;
+    let id = parse_id(id)?;
     let mut tx = s.db.begin().await?;
-    let (status, _) = lock(&mut tx, id).await?;
+    let (status, _) = lock_ty(&mut tx, ty, id).await?;
     if draft {
         let sql = if status == "draft" {
             "DELETE FROM content WHERE id = $1"

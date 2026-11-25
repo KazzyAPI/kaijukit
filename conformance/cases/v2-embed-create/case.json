@@ -1,0 +1,29 @@
+{
+  "id": "v2-embed-create",
+  "ops": [
+    "createSmartLink"
+  ],
+  "setup": [
+    {
+      "as": "space",
+      "method": "POST",
+      "path": "/wiki/api/v2/spaces",
+      "body": {
+        "name": "Conf {{run}}",
+        "key": "K{{run}}"
+      }
+    }
+  ],
+  "request": {
+    "method": "POST",
+    "path": "/wiki/api/v2/embeds",
+    "body": {
+      "spaceId": "{{space.id}}",
+      "title": "E {{run}}",
+      "embedUrl": "https://example.com/x"
+    }
+  },
+  "expect": {
+    "status": 200
+  }
+}

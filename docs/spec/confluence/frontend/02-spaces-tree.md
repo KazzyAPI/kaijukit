@@ -8,6 +8,8 @@ Three regions below the top bar: **space sidebar** (resizable 240-420px `[V]`, c
 
 > **Status (web app, 2026-11-25):** the space block lives in the left nav panel: space avatar, name and menu; Shortcuts (empty, not built); Content with create and menu actions; search by title; page tree with content-type icons, chevrons or bullets, active-row bar, per-row create-child and menu (edit, copy link); a Create row; Blogs, Calendars and Space apps as empty states. Folder, whiteboard and database icons render from the `type` the API returns, but those types cannot be created yet. Not built: reorder, drag and drop, space settings, tree virtualization, archived pages link.
 
+> **Status, moving pages (web app, 2026-11-25):** pages move with `PUT /rest/api/content/{id}/move/{before|after|append}/{target}`. The Move dialog (tree row menu and page actions menu) searches for the destination (CQL) and places the page inside it, before it or after it; this is also the keyboard route. Tree rows can be dragged with the pointer: the upper quarter of a row drops before, the lower quarter after, the middle inside (dashed outline). Errors from the server (the home page or a descendant as a target) show as a toast. Not built: reordering by keyboard inside the tree, blog posts and folders in the nav (no endpoints on main when this was written).
+
 ## Page tree
 
 - Nodes: any content type in the hierarchy with icon by type; expand/collapse chevron (lazy loads children via v2 children endpoint, paged with "load more"); current page highlighted and path auto-expanded; restricted pages show lock icon `[V]`; drafts hidden.

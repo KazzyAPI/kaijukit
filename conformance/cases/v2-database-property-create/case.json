@@ -1,0 +1,39 @@
+{
+  "id": "v2-database-property-create",
+  "ops": [
+    "createDatabaseProperty"
+  ],
+  "setup": [
+    {
+      "as": "space",
+      "method": "POST",
+      "path": "/wiki/api/v2/spaces",
+      "body": {
+        "name": "Conf {{run}}",
+        "key": "K{{run}}"
+      }
+    },
+    {
+      "as": "x",
+      "method": "POST",
+      "path": "/wiki/api/v2/databases",
+      "body": {
+        "spaceId": "{{space.id}}",
+        "title": "D {{run}}"
+      }
+    }
+  ],
+  "request": {
+    "method": "POST",
+    "path": "/wiki/api/v2/databases/{{x.id}}/properties",
+    "body": {
+      "key": "k",
+      "value": {
+        "a": 1
+      }
+    }
+  },
+  "expect": {
+    "status": 200
+  }
+}

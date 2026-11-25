@@ -1,0 +1,51 @@
+{
+  "id": "v2-custom-content-update",
+  "ops": [
+    "updateCustomContent"
+  ],
+  "setup": [
+    {
+      "as": "space",
+      "method": "POST",
+      "path": "/wiki/api/v2/spaces",
+      "body": {
+        "name": "Conf {{run}}",
+        "key": "K{{run}}"
+      }
+    },
+    {
+      "as": "cc",
+      "method": "POST",
+      "path": "/wiki/api/v2/custom-content",
+      "body": {
+        "type": "ac:conf:thing",
+        "spaceId": "{{space.id}}",
+        "title": "CC {{run}}",
+        "body": {
+          "representation": "raw",
+          "value": "{\"a\":1}"
+        }
+      }
+    }
+  ],
+  "request": {
+    "method": "PUT",
+    "path": "/wiki/api/v2/custom-content/{{cc.id}}",
+    "body": {
+      "id": "{{cc.id}}",
+      "type": "ac:conf:thing",
+      "status": "current",
+      "title": "CC {{run}} v2",
+      "body": {
+        "representation": "raw",
+        "value": "{\"a\":2}"
+      },
+      "version": {
+        "number": 2
+      }
+    }
+  },
+  "expect": {
+    "status": 200
+  }
+}

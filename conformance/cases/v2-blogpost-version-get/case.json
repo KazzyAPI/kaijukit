@@ -1,0 +1,38 @@
+{
+  "id": "v2-blogpost-version-get",
+  "ops": [
+    "getBlogPostVersionDetails"
+  ],
+  "setup": [
+    {
+      "as": "space",
+      "method": "POST",
+      "path": "/wiki/api/v2/spaces",
+      "body": {
+        "name": "Conf {{run}}",
+        "key": "K{{run}}"
+      }
+    },
+    {
+      "as": "blog",
+      "method": "POST",
+      "path": "/wiki/api/v2/blogposts",
+      "body": {
+        "spaceId": "{{space.id}}",
+        "status": "current",
+        "title": "Blog {{run}}",
+        "body": {
+          "representation": "storage",
+          "value": "<p>hello</p>"
+        }
+      }
+    }
+  ],
+  "request": {
+    "method": "GET",
+    "path": "/wiki/api/v2/blogposts/{{blog.id}}/versions/1"
+  },
+  "expect": {
+    "status": 200
+  }
+}

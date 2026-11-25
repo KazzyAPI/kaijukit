@@ -1,0 +1,54 @@
+{
+  "id": "v2-label-blogposts",
+  "ops": [
+    "getLabelBlogPosts"
+  ],
+  "setup": [
+    {
+      "as": "space",
+      "method": "POST",
+      "path": "/wiki/api/v2/spaces",
+      "body": {
+        "name": "Conf {{run}}",
+        "key": "K{{run}}"
+      }
+    },
+    {
+      "as": "blog",
+      "method": "POST",
+      "path": "/wiki/api/v2/blogposts",
+      "body": {
+        "spaceId": "{{space.id}}",
+        "status": "current",
+        "title": "Blog {{run}}",
+        "body": {
+          "representation": "storage",
+          "value": "<p>hello</p>"
+        }
+      }
+    },
+    {
+      "as": "lbl",
+      "method": "POST",
+      "path": "/wiki/rest/api/content/{{blog.id}}/label",
+      "body": [
+        {
+          "prefix": "global",
+          "name": "alpha"
+        }
+      ]
+    },
+    {
+      "as": "labels",
+      "method": "GET",
+      "path": "/wiki/api/v2/blogposts/{{blog.id}}/labels"
+    }
+  ],
+  "request": {
+    "method": "GET",
+    "path": "/wiki/api/v2/labels/{{labels.results.0.id}}/blogposts"
+  },
+  "expect": {
+    "status": 200
+  }
+}

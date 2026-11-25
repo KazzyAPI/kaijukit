@@ -1,0 +1,28 @@
+{
+  "id": "v2-whiteboard-create",
+  "ops": [
+    "createWhiteboard"
+  ],
+  "setup": [
+    {
+      "as": "space",
+      "method": "POST",
+      "path": "/wiki/api/v2/spaces",
+      "body": {
+        "name": "Conf {{run}}",
+        "key": "K{{run}}"
+      }
+    }
+  ],
+  "request": {
+    "method": "POST",
+    "path": "/wiki/api/v2/whiteboards",
+    "body": {
+      "spaceId": "{{space.id}}",
+      "title": "W {{run}}"
+    }
+  },
+  "expect": {
+    "status": 200
+  }
+}

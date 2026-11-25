@@ -1,0 +1,44 @@
+{
+  "id": "v2-custom-content-property-create",
+  "ops": [
+    "createCustomContentProperty"
+  ],
+  "setup": [
+    {
+      "as": "space",
+      "method": "POST",
+      "path": "/wiki/api/v2/spaces",
+      "body": {
+        "name": "Conf {{run}}",
+        "key": "K{{run}}"
+      }
+    },
+    {
+      "as": "cc",
+      "method": "POST",
+      "path": "/wiki/api/v2/custom-content",
+      "body": {
+        "type": "ac:conf:thing",
+        "spaceId": "{{space.id}}",
+        "title": "CC {{run}}",
+        "body": {
+          "representation": "raw",
+          "value": "{\"a\":1}"
+        }
+      }
+    }
+  ],
+  "request": {
+    "method": "POST",
+    "path": "/wiki/api/v2/custom-content/{{cc.id}}/properties",
+    "body": {
+      "key": "k",
+      "value": {
+        "a": 1
+      }
+    }
+  },
+  "expect": {
+    "status": 200
+  }
+}

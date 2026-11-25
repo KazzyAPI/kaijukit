@@ -100,6 +100,8 @@ fn render(r: &Row, repr: Option<&str>, inline: bool) -> Result<Value, ApiError> 
     };
     let key = match r.container_type.as_str() {
         "attachment" => "attachmentId",
+        "blogpost" => "blogPostId",
+        "custom" => "customContentId",
         _ => "pageId",
     };
     let mut v = json!({
@@ -268,15 +270,16 @@ pub async fn list_all<const INLINE: bool>(
     .await
 }
 
-pub async fn list_page<const INLINE: bool>(
+pub async fn list_page<const INLINE: bool, const K: u8>(
     State(s): State<AppState>,
     Extension(a): Extension<Arc<Access>>,
     Path(id): Path<String>,
     RawQuery(raw): RawQuery,
 ) -> R<Response> {
     let id = parse_id(&id)?;
-    target::live(&s.db, id, "page").await?;
-    let path = format!("/wiki/api/v2/pages/{id}/{}-comments", kind(INLINE));
+    let k = crate::kinds::of(K);
+    target::live(&s.db, id, k.ty).await?;
+    let path = format!("/wiki/api/v2/{}/{id}/{}-comments", k.seg, kind(INLINE));
     let filter = "k.container_id = $2 AND k.parent_id IS NULL";
     list(
         &s,
@@ -429,19 +432,20 @@ pub async fn create<const INLINE: bool>(
     Extension(access): Extension<Arc<Access>>,
     JsonBody(req): JsonBody<CreateReq>,
 ) -> R<(StatusCode, Json<Value>)> {
-    if req.blog_post_id.is_some() || req.custom_content_id.is_some() {
-        return Err(
-            ApiError::BadRequest("only page and attachment comments are supported".into()).into(),
-        );
-    }
-    let targets = [&req.page_id, &req.attachment_id, &req.parent_comment_id];
+    let targets = [
+        &req.page_id,
+        &req.attachment_id,
+        &req.parent_comment_id,
+        &req.blog_post_id,
+        &req.custom_content_id,
+    ];
     if targets.iter().filter(|t| t.is_some()).count() != 1
-        || (INLINE && req.attachment_id.is_some())
+        || (INLINE && (req.attachment_id.is_some() || req.custom_content_id.is_some()))
     {
         let what = if INLINE {
-            "pageId or parentCommentId"
+            "pageId, blogPostId or parentCommentId"
         } else {
-            "exactly one of pageId, attachmentId or parentCommentId"
+            "exactly one of pageId, blogPostId, attachmentId, customContentId or parentCommentId"
         };
         return Err(ApiError::BadRequest(format!("provide {what}")).into());
     }
@@ -456,6 +460,16 @@ pub async fn create<const INLINE: bool>(
         match (&req.page_id, &req.attachment_id, &req.parent_comment_id) {
             (Some(p), _, _) => (parse_id(p)?, "page".to_string(), None),
             (_, Some(a), _) => (parse_attachment_id(a)?, "attachment".to_string(), None),
+            _ if req.blog_post_id.is_some() => (
+                parse_id(req.blog_post_id.as_deref().unwrap_or_default())?,
+                "blogpost".to_string(),
+                None,
+            ),
+            _ if req.custom_content_id.is_some() => (
+                parse_id(req.custom_content_id.as_deref().unwrap_or_default())?,
+                "custom".to_string(),
+                None,
+            ),
             (_, _, Some(c)) => {
                 let c = parse_id(c)?;
                 let parent = load(&mut tx, c, INLINE, None).await?;

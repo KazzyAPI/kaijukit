@@ -1,0 +1,33 @@
+{
+  "id": "v2-custom-content-create",
+  "ops": [
+    "createCustomContent"
+  ],
+  "setup": [
+    {
+      "as": "space",
+      "method": "POST",
+      "path": "/wiki/api/v2/spaces",
+      "body": {
+        "name": "Conf {{run}}",
+        "key": "K{{run}}"
+      }
+    }
+  ],
+  "request": {
+    "method": "POST",
+    "path": "/wiki/api/v2/custom-content",
+    "body": {
+      "type": "ac:conf:thing",
+      "spaceId": "{{space.id}}",
+      "title": "CC2 {{run}}",
+      "body": {
+        "representation": "raw",
+        "value": "{\"a\":1}"
+      }
+    }
+  },
+  "expect": {
+    "status": 201
+  }
+}

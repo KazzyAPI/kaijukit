@@ -1,0 +1,47 @@
+{
+  "id": "v2-custom-content-attachments",
+  "ops": [
+    "getCustomContentAttachments"
+  ],
+  "setup": [
+    {
+      "as": "space",
+      "method": "POST",
+      "path": "/wiki/api/v2/spaces",
+      "body": {
+        "name": "Conf {{run}}",
+        "key": "K{{run}}"
+      }
+    },
+    {
+      "as": "cc",
+      "method": "POST",
+      "path": "/wiki/api/v2/custom-content",
+      "body": {
+        "type": "ac:conf:thing",
+        "spaceId": "{{space.id}}",
+        "title": "CC {{run}}",
+        "body": {
+          "representation": "raw",
+          "value": "{\"a\":1}"
+        }
+      }
+    },
+    {
+      "as": "att",
+      "method": "POST",
+      "path": "/wiki/rest/api/content/{{cc.id}}/child/attachment",
+      "multipart": {
+        "filename": "c.txt",
+        "content": "one"
+      }
+    }
+  ],
+  "request": {
+    "method": "GET",
+    "path": "/wiki/api/v2/custom-content/{{cc.id}}/attachments"
+  },
+  "expect": {
+    "status": 200
+  }
+}

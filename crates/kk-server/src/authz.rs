@@ -366,6 +366,7 @@ async fn check(
         "comment" if op == "update" => g.has("create", "comment"),
         "comment" => perm::comment_can(op, &access.p, &g, &chain, t.author_id == access.p.id),
         "attachment" => perm::attachment_can(op, &access.p, &g, &chain),
+        "blogpost" => perm::content_can("blogpost", op, &access.p, &g, &chain),
         _ => perm::page_can(op, &access.p, &g, &chain),
     };
     if ok {

@@ -1,0 +1,50 @@
+{
+  "id": "v2-blogpost-footer-comments",
+  "ops": [
+    "getBlogPostFooterComments"
+  ],
+  "setup": [
+    {
+      "as": "space",
+      "method": "POST",
+      "path": "/wiki/api/v2/spaces",
+      "body": {
+        "name": "Conf {{run}}",
+        "key": "K{{run}}"
+      }
+    },
+    {
+      "as": "blog",
+      "method": "POST",
+      "path": "/wiki/api/v2/blogposts",
+      "body": {
+        "spaceId": "{{space.id}}",
+        "status": "current",
+        "title": "Blog {{run}}",
+        "body": {
+          "representation": "storage",
+          "value": "<p>hello</p>"
+        }
+      }
+    },
+    {
+      "as": "fc",
+      "method": "POST",
+      "path": "/wiki/api/v2/footer-comments",
+      "body": {
+        "blogPostId": "{{blog.id}}",
+        "body": {
+          "representation": "storage",
+          "value": "<p>c</p>"
+        }
+      }
+    }
+  ],
+  "request": {
+    "method": "GET",
+    "path": "/wiki/api/v2/blogposts/{{blog.id}}/footer-comments"
+  },
+  "expect": {
+    "status": 200
+  }
+}

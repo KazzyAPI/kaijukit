@@ -82,10 +82,8 @@ pub async fn of_content<const TY: u8>(
     Path(id): Path<String>,
     RawQuery(raw): RawQuery,
 ) -> R<Response> {
-    let (ty, seg) = match TY {
-        0 => ("page", "pages"),
-        _ => ("attachment", "attachments"),
-    };
+    let k = crate::kinds::of(TY);
+    let (ty, seg) = (k.ty, k.seg);
     let id = target::owner(&s.db, &id, ty).await?;
     let path = format!(
         "/wiki/api/v2/{seg}/{}/labels",

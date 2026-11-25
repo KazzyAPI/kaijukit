@@ -87,13 +87,26 @@ Changes: quick search and `/wiki/search` use `GET /wiki/rest/api/search` with CQ
 
 Not verified end to end: the 404 for an unreadable page (the stack has one user, so no second account to test with).
 
+## Restrictions, space settings, groups, watches, move (M4), 2026-11-25
+
+Method: `web/e2e/tests/access.spec.ts` on the real stack (`COMPOSE_PROJECT_NAME=kk-web4`, port 8686, Vite proxy on 5174). Four behaviour tests and four review configurations (light and dark, 1280 and 390 wide) with axe and a horizontal-overflow check; screenshots `ac-{light,dark}-{wide,narrow}-{restrictions,settings-details,settings-permissions,groups,group-delete,move-dialog}.png` and `ac-light-wide-drag-hint.png` were read by eye. A second, non-admin account (Bob) is inserted into the stack's Postgres by the spec because no endpoint creates users; with it the 404-vs-403 behaviour was verified end to end: a restricted page opens as the "We can't find that page" screen for Bob, becomes readable once he is added to the viewers, and his attempt to change the restrictions answers 403 and shows "You don't have permission to do that" with the server's reason.
+
+| # | Where | Bug found by looking or running | Fix |
+|---|---|---|---|
+| 1 | Permissions grid | The row header cell used `display: flex`, which stopped it behaving as a table cell: rows with a wrapped group name got a different height and lost their bottom border, and the sticky column misaligned with the checkboxes. | Flex layout moved to a div inside the cell. |
+| 2 | Move dialog | Search results from several spaces looked identical (same title, space name run on after it). | The row reads "Title in Space name". |
+| 3 | e2e | `check()` on controlled radios and checkboxes fails with "did not change its state" because the state changes only after the request returns. | Specs click and then assert the state. |
+| 4 | e2e | The drag assertion passed on the toast left over from the dialog move before the drag had finished. | The spec polls the API for the resulting order. |
+
+Notes: the Share dialog still opens with the page link selected (first field is auto-focused, existing behaviour). The grid scrolls sideways at 390 wide with a sticky first column and is keyboard focusable. Space Details is read-only because no endpoint updates a space. Drag and drop is pointer only; the Move dialog is the keyboard route. Page restriction changes add the editor first because the server rejects a change that locks the caller out.
+
+Not built: blog posts and folders in the left nav (the backend has no routes for them on main), a notification read API (the bell stays a local stub), inherited-restriction display, space roles.
+
 ## Known, not fixed
 
-- Page tree drag and drop is not built. There is no move endpoint (`PUT /pages/{id}` cannot change the parent), so a UI for it would only pretend to work.
 - Tree has no "load more" past 250 children and no virtualization.
 - Chevrons appear only for pages with children (the tree probes children of every visible row), which costs one request per visible row.
 - Search has no filters, sorting, highlighting or CQL mode yet; excerpts come from the server as plain text (text nodes are joined with spaces, so punctuation can show a gap).
-- The restrictions dialog (changing who can view or edit) is not built; the lock is read-only.
 - The table of contents is a static placeholder while editing; it lists headings when the page is viewed.
 - Inline comments are built on published bodies (the server anchors them), so `Editor.annotate` / `removeAnnotation` are unused by the comment UI.
 - Layout sections have no per-column width controls (2 and 3 equal columns only).

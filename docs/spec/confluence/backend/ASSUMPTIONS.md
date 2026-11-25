@@ -128,3 +128,15 @@ All `[V]`: the spec gives shapes only.
 - `DELETE /content/{id}/version/{n}`: removes a historical version (page, blog post, comment or attachment, `att` ids accepted); the current version is 400, a missing one 404. Numbers are not reused or renumbered. A blob no remaining attachment version references is deleted. The reference rolls the change into the next version; we keep the later versions' bodies as stored.
 - `POST /content/{id}/version` with `operationKey: restore`: appends a new version copying `params.versionNumber` (title only when `restoreTitle` is true; attachments always restore the old file name). Response is the new `Version` with `by`, `when`, `message`, `number`, `minorEdit` (no embedded `content`).
 - v1 `updateAttachmentData` returns the single updated attachment (the spec says `Content`, not a list); v1 attachment download answers 302 as the spec lists.
+
+## M4: blog posts, folders, whiteboards, databases, smart links, custom content (v2)
+
+All are rows of the generic `content` table, so permissions, restrictions, trash, labels, properties, attachments, comments, versions and search reuse the page code.
+
+- Blog posts: same write model as pages (versions, drafts, trash, purge). `[V]` blog `_links.webui` date path shape (`/spaces/KEY/blog/YYYY/MM/DD/id/title`), taken from the pinned spec examples, not from a live site.
+- Blog operations report `targetType: blogpost`; create and delete on a blog post check the space's `blogpost` permission, not `page`.
+- Folders, whiteboards, databases and smart links: create, get and delete only (the spec has no update). Create without `parentId` is root level; `parentId` may be any page or folder-like row in the same space. `[V]` that Confluence nests only some types under others; we allow any tree type under any other.
+- Database entries, fields and views are empty lists; there is no entry store, so an entry id is always 404 with `ENTRY_NOT_FOUND`. `[V]` `DATABASE_NOT_FOUND` for a missing database is returned as the generic `NOT_FOUND` by the permission guard.
+- Smart links need an `http` or `https` `embedUrl`; no fetching or unfurling happens.
+- Custom content: `type` plus exactly one of `spaceId`, `pageId`, `blogPostId`, `customContentId`. A string body is stored verbatim and returned as `raw`; storage and ADF bodies convert as for pages. `[V]` that Confluence validates the type against an installed app; we accept any non-empty string. Create answers 201 as the spec says.
+- `include-labels|properties|operations|likes|versions` on page and blog reads, and `include-properties|operations` elsewhere, add `{results, meta.hasMore, _links.self}` blocks capped at 50 items. `[V]` the cap and block item shapes; the spec only names the keys. `include-favorited-by-current-user-status` always reports false until favorites exist.

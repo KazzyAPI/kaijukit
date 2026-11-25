@@ -69,7 +69,7 @@ pub async fn list_for(
                 entity: {
                     "id": crate::http::public_id(ty, id),
                     "title": title,
-                    "body": repr.map(|f| body::render(adf, f)).transpose()?.unwrap_or_else(|| json!({})),
+                    "body": repr.map(|f| crate::content::render_body(adf, f)).transpose()?.unwrap_or_else(|| json!({})),
                 },
             }))
         })
@@ -116,4 +116,28 @@ pub async fn detail(s: &AppState, id: i64, number: &str, ty: &str) -> R<Json<Val
         v["nextVersion"] = json!(number + 1);
     }
     Ok(Json(v))
+}
+
+/// Version list of a content type selected by `K` (blog posts and custom content).
+pub async fn list_k<const K: u8>(
+    State(s): State<AppState>,
+    Path(id): Path<String>,
+    RawQuery(raw): RawQuery,
+) -> R<Response> {
+    let k = crate::kinds::of(K);
+    let id = parse_id(&id)?;
+    let path = format!("/wiki/api/v2/{}/{id}/versions", k.seg);
+    let entity = if K == crate::kinds::BLOG {
+        "blogpost"
+    } else {
+        "custom"
+    };
+    list_for(&s, Q::parse(raw), id, (k.ty, entity), &path).await
+}
+
+pub async fn get_k<const K: u8>(
+    State(s): State<AppState>,
+    Path((id, number)): Path<(String, String)>,
+) -> R<Json<Value>> {
+    detail(&s, parse_id(&id)?, &number, crate::kinds::of(K).ty).await
 }

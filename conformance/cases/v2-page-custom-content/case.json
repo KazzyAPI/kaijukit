@@ -1,0 +1,55 @@
+{
+  "id": "v2-page-custom-content",
+  "ops": [
+    "getCustomContentByTypeInPage"
+  ],
+  "setup": [
+    {
+      "as": "space",
+      "method": "POST",
+      "path": "/wiki/api/v2/spaces",
+      "body": {
+        "name": "Conf {{run}}",
+        "key": "K{{run}}"
+      }
+    },
+    {
+      "as": "page1",
+      "method": "POST",
+      "path": "/wiki/api/v2/pages",
+      "body": {
+        "spaceId": "{{space.id}}",
+        "status": "current",
+        "title": "page1 {{run}}",
+        "body": {
+          "representation": "storage",
+          "value": "<p>hello</p>"
+        }
+      }
+    },
+    {
+      "as": "cc",
+      "method": "POST",
+      "path": "/wiki/api/v2/custom-content",
+      "body": {
+        "type": "ac:conf:thing",
+        "pageId": "{{page1.id}}",
+        "title": "CC {{run}}",
+        "body": {
+          "representation": "raw",
+          "value": "x"
+        }
+      }
+    }
+  ],
+  "request": {
+    "method": "GET",
+    "path": "/wiki/api/v2/pages/{{page1.id}}/custom-content",
+    "query": {
+      "type": "ac:conf:thing"
+    }
+  },
+  "expect": {
+    "status": 200
+  }
+}

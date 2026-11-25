@@ -1,0 +1,33 @@
+{
+  "id": "v2-folder-descendants",
+  "ops": [
+    "getFolderDescendants"
+  ],
+  "setup": [
+    {
+      "as": "space",
+      "method": "POST",
+      "path": "/wiki/api/v2/spaces",
+      "body": {
+        "name": "Conf {{run}}",
+        "key": "K{{run}}"
+      }
+    },
+    {
+      "as": "x",
+      "method": "POST",
+      "path": "/wiki/api/v2/folders",
+      "body": {
+        "spaceId": "{{space.id}}",
+        "title": "F {{run}}"
+      }
+    }
+  ],
+  "request": {
+    "method": "GET",
+    "path": "/wiki/api/v2/folders/{{x.id}}/descendants"
+  },
+  "expect": {
+    "status": 200
+  }
+}

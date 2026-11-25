@@ -1,0 +1,40 @@
+{
+  "id": "v2-embed-property-create",
+  "ops": [
+    "createSmartLinkProperty"
+  ],
+  "setup": [
+    {
+      "as": "space",
+      "method": "POST",
+      "path": "/wiki/api/v2/spaces",
+      "body": {
+        "name": "Conf {{run}}",
+        "key": "K{{run}}"
+      }
+    },
+    {
+      "as": "x",
+      "method": "POST",
+      "path": "/wiki/api/v2/embeds",
+      "body": {
+        "spaceId": "{{space.id}}",
+        "title": "E {{run}}",
+        "embedUrl": "https://example.com/x"
+      }
+    }
+  ],
+  "request": {
+    "method": "POST",
+    "path": "/wiki/api/v2/embeds/{{x.id}}/properties",
+    "body": {
+      "key": "k",
+      "value": {
+        "a": 1
+      }
+    }
+  },
+  "expect": {
+    "status": 200
+  }
+}

@@ -1,0 +1,34 @@
+{
+  "id": "v2-embed-delete",
+  "ops": [
+    "deleteSmartLink"
+  ],
+  "setup": [
+    {
+      "as": "space",
+      "method": "POST",
+      "path": "/wiki/api/v2/spaces",
+      "body": {
+        "name": "Conf {{run}}",
+        "key": "K{{run}}"
+      }
+    },
+    {
+      "as": "x",
+      "method": "POST",
+      "path": "/wiki/api/v2/embeds",
+      "body": {
+        "spaceId": "{{space.id}}",
+        "title": "E {{run}}",
+        "embedUrl": "https://example.com/x"
+      }
+    }
+  ],
+  "request": {
+    "method": "DELETE",
+    "path": "/wiki/api/v2/embeds/{{x.id}}"
+  },
+  "expect": {
+    "status": 204
+  }
+}

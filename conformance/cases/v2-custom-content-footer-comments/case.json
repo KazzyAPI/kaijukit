@@ -1,0 +1,50 @@
+{
+  "id": "v2-custom-content-footer-comments",
+  "ops": [
+    "getCustomContentComments"
+  ],
+  "setup": [
+    {
+      "as": "space",
+      "method": "POST",
+      "path": "/wiki/api/v2/spaces",
+      "body": {
+        "name": "Conf {{run}}",
+        "key": "K{{run}}"
+      }
+    },
+    {
+      "as": "cc",
+      "method": "POST",
+      "path": "/wiki/api/v2/custom-content",
+      "body": {
+        "type": "ac:conf:thing",
+        "spaceId": "{{space.id}}",
+        "title": "CC {{run}}",
+        "body": {
+          "representation": "raw",
+          "value": "{\"a\":1}"
+        }
+      }
+    },
+    {
+      "as": "fc",
+      "method": "POST",
+      "path": "/wiki/api/v2/footer-comments",
+      "body": {
+        "customContentId": "{{cc.id}}",
+        "body": {
+          "representation": "storage",
+          "value": "<p>c</p>"
+        }
+      }
+    }
+  ],
+  "request": {
+    "method": "GET",
+    "path": "/wiki/api/v2/custom-content/{{cc.id}}/footer-comments"
+  },
+  "expect": {
+    "status": 200
+  }
+}

@@ -4,6 +4,8 @@ Last reviewed: 2026-11-24 · backend: [04](../backend/04-permissions.md), [10](.
 
 Layout: admin area under `/wiki/admin/...` with a left nav of groups and a content pane. Everything here is permission-gated (site admin / system admin) and writes through the settings/permissions/users endpoints; forms validate inline, show unsaved-changes guards, and success flags.
 
+> **Status, space settings and groups (web app, 2026-11-25):** `/wiki/spaces/:key/settings` has Details (read-only: the server has no space update endpoint; watch or stop watching the space) and Permissions (grid of users and groups against the 14 space permissions, `GET /space-permissions`, `GET /spaces/{id}/permissions`, `POST /space/{key}/permission`, `DELETE /space/{key}/permission/{id}`; add a user or group through a picker; non-admins get a 403 message). `/wiki/admin/groups` lists groups, creates and deletes them (confirm), and adds or removes members (`/group`, `/group/userByGroupId`, `/group/{id}/membersByGroupId`); the built-in `kk-users` group is shown read-only. Not built: the rest of the admin area (users list, global permissions, spaces table, site settings), space roles, look and feel, content tools, a way to create users (no endpoint).
+
 | Group | Screens |
 |---|---|
 | Users & groups | Users list (search, filter by status/last active/group, deactivate, reactivate, delete), user detail (groups, last active, tokens), Groups list/detail (members add/remove), invite users (email, role), bulk import CSV `[V]`, directory/SSO settings (OIDC, SAML IdP metadata, attribute mapping, JIT provisioning, SCIM token), external collaborators `[V]` |

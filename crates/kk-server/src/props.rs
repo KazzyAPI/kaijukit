@@ -1,4 +1,4 @@
-//! Content properties (pages, attachments, comments), space properties and app properties.
+//! Content properties (every content type), space properties and app properties.
 
 use axum::{
     extract::{Path, RawQuery, State},
@@ -47,6 +47,22 @@ pub const COMMENT: Kind = Kind {
     seg: "comments",
     space: false,
 };
+macro_rules! content_kind {
+    ($name:ident, $ty:literal, $seg:literal) => {
+        pub const $name: Kind = Kind {
+            table: "content_properties",
+            ty: $ty,
+            seg: $seg,
+            space: false,
+        };
+    };
+}
+content_kind!(BLOG, "blogpost", "blogposts");
+content_kind!(FOLDER, "folder", "folders");
+content_kind!(WHITEBOARD, "whiteboard", "whiteboards");
+content_kind!(DATABASE, "database", "databases");
+content_kind!(EMBED, "embed", "embeds");
+content_kind!(CUSTOM, "custom", "custom-content");
 pub const SPACE: Kind = Kind {
     table: "space_properties",
     ty: "space",
@@ -149,7 +165,9 @@ pub async fn list<const K: u8>(
 }
 
 fn kind(k: u8) -> Kind {
-    [PAGE, ATTACHMENT, COMMENT, SPACE][k as usize]
+    [
+        PAGE, ATTACHMENT, COMMENT, SPACE, BLOG, FOLDER, WHITEBOARD, DATABASE, EMBED, CUSTOM,
+    ][k as usize]
 }
 
 pub async fn get<const K: u8>(

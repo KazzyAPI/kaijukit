@@ -1,0 +1,39 @@
+{
+  "id": "v2-folder-property-create",
+  "ops": [
+    "createFolderProperty"
+  ],
+  "setup": [
+    {
+      "as": "space",
+      "method": "POST",
+      "path": "/wiki/api/v2/spaces",
+      "body": {
+        "name": "Conf {{run}}",
+        "key": "K{{run}}"
+      }
+    },
+    {
+      "as": "x",
+      "method": "POST",
+      "path": "/wiki/api/v2/folders",
+      "body": {
+        "spaceId": "{{space.id}}",
+        "title": "F {{run}}"
+      }
+    }
+  ],
+  "request": {
+    "method": "POST",
+    "path": "/wiki/api/v2/folders/{{x.id}}/properties",
+    "body": {
+      "key": "k",
+      "value": {
+        "a": 1
+      }
+    }
+  },
+  "expect": {
+    "status": 200
+  }
+}

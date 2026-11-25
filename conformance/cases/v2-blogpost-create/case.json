@@ -1,0 +1,33 @@
+{
+  "id": "v2-blogpost-create",
+  "ops": [
+    "createBlogPost"
+  ],
+  "setup": [
+    {
+      "as": "space",
+      "method": "POST",
+      "path": "/wiki/api/v2/spaces",
+      "body": {
+        "name": "Conf {{run}}",
+        "key": "K{{run}}"
+      }
+    }
+  ],
+  "request": {
+    "method": "POST",
+    "path": "/wiki/api/v2/blogposts",
+    "body": {
+      "spaceId": "{{space.id}}",
+      "status": "current",
+      "title": "Created {{run}}",
+      "body": {
+        "representation": "storage",
+        "value": "<p>hi</p>"
+      }
+    }
+  },
+  "expect": {
+    "status": 200
+  }
+}

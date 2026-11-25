@@ -1,0 +1,47 @@
+{
+  "id": "v2-blogpost-attachments",
+  "ops": [
+    "getBlogpostAttachments"
+  ],
+  "setup": [
+    {
+      "as": "space",
+      "method": "POST",
+      "path": "/wiki/api/v2/spaces",
+      "body": {
+        "name": "Conf {{run}}",
+        "key": "K{{run}}"
+      }
+    },
+    {
+      "as": "blog",
+      "method": "POST",
+      "path": "/wiki/api/v2/blogposts",
+      "body": {
+        "spaceId": "{{space.id}}",
+        "status": "current",
+        "title": "Blog {{run}}",
+        "body": {
+          "representation": "storage",
+          "value": "<p>hello</p>"
+        }
+      }
+    },
+    {
+      "as": "att",
+      "method": "POST",
+      "path": "/wiki/rest/api/content/{{blog.id}}/child/attachment",
+      "multipart": {
+        "filename": "b.txt",
+        "content": "one"
+      }
+    }
+  ],
+  "request": {
+    "method": "GET",
+    "path": "/wiki/api/v2/blogposts/{{blog.id}}/attachments"
+  },
+  "expect": {
+    "status": 200
+  }
+}

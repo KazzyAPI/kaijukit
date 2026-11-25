@@ -1,0 +1,55 @@
+{
+  "id": "v2-custom-content-children",
+  "ops": [
+    "getChildCustomContent"
+  ],
+  "setup": [
+    {
+      "as": "space",
+      "method": "POST",
+      "path": "/wiki/api/v2/spaces",
+      "body": {
+        "name": "Conf {{run}}",
+        "key": "K{{run}}"
+      }
+    },
+    {
+      "as": "cc",
+      "method": "POST",
+      "path": "/wiki/api/v2/custom-content",
+      "body": {
+        "type": "ac:conf:thing",
+        "spaceId": "{{space.id}}",
+        "title": "CC {{run}}",
+        "body": {
+          "representation": "raw",
+          "value": "{\"a\":1}"
+        }
+      }
+    },
+    {
+      "as": "child",
+      "method": "POST",
+      "path": "/wiki/api/v2/custom-content",
+      "body": {
+        "type": "ac:conf:thing",
+        "customContentId": "{{cc.id}}",
+        "title": "CH {{run}}",
+        "body": {
+          "representation": "raw",
+          "value": "x"
+        }
+      }
+    }
+  ],
+  "request": {
+    "method": "GET",
+    "path": "/wiki/api/v2/custom-content/{{cc.id}}/children",
+    "query": {
+      "type": "ac:conf:thing"
+    }
+  },
+  "expect": {
+    "status": 200
+  }
+}

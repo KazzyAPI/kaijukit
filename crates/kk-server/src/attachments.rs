@@ -37,6 +37,7 @@ struct Row {
     created_at: DateTime<Utc>,
     container_id: i64,
     file_id: String,
+    container_type: String,
     space_key: String,
     number: i32,
     author_id: i64,
@@ -48,7 +49,7 @@ struct Row {
 }
 
 const SELECT: &str = "SELECT c.id, c.status, c.title, c.created_at, a.container_id, a.file_id, \
-    s.key AS space_key, v.number, v.author_id, v.minor_edit, v.created_at AS v_created, \
+    p.type AS container_type, s.key AS space_key, v.number, v.author_id, v.minor_edit, v.created_at AS v_created, \
     av.media_type, av.file_size, av.comment \
     FROM content c JOIN attachments a ON a.content_id = c.id \
     JOIN content p ON p.id = a.container_id AND p.status IN ('current', 'draft', 'archived') \
@@ -80,11 +81,19 @@ fn webui_link(r: &Row) -> String {
     )
 }
 
+fn container_key(ty: &str) -> &'static str {
+    match ty {
+        "blogpost" => "blogPostId",
+        "custom" => "customContentId",
+        _ => "pageId",
+    }
+}
+
 fn render(r: &Row) -> Value {
     let (webui, download) = (webui_link(r), download_link(r));
     json!({
         "id": format!("att{}", r.id), "status": r.status, "title": r.title,
-        "createdAt": ts(r.created_at), "pageId": r.container_id.to_string(),
+        "createdAt": ts(r.created_at), container_key(&r.container_type): r.container_id.to_string(),
         "mediaType": r.media_type, "comment": r.comment, "fileId": r.file_id,
         "fileSize": r.file_size, "webuiLink": webui, "downloadLink": download,
         "version": {"number": r.number, "message": r.comment, "minorEdit": r.minor_edit,
@@ -158,19 +167,20 @@ pub async fn list_all(
     list(&s, &a, Q::parse(raw), None, "/wiki/api/v2/attachments").await
 }
 
-pub async fn list_page(
+pub async fn list_page<const K: u8>(
     State(s): State<AppState>,
     Extension(a): Extension<Arc<Access>>,
     Path(id): Path<String>,
     RawQuery(raw): RawQuery,
 ) -> R<Response> {
-    let id = target::owner(&s.db, &id, "page").await?;
+    let k = crate::kinds::of(K);
+    let id = target::owner(&s.db, &id, k.ty).await?;
     list(
         &s,
         &a,
         Q::parse(raw),
         Some(id),
-        &format!("/wiki/api/v2/pages/{id}/attachments"),
+        &format!("/wiki/api/v2/{}/{id}/attachments", k.seg),
     )
     .await
 }
@@ -349,13 +359,13 @@ async fn store(s: &AppState, user: i64, container: i64, up: Upload, only: Option
 
     let mut tx = s.db.begin().await?;
     let (space, _): (i64, String) = sqlx::query_as(
-        "SELECT space_id, title FROM content WHERE id = $1 AND type = 'page' \
+        "SELECT space_id, title FROM content WHERE id = $1 AND type IN ('page', 'blogpost', 'custom') \
          AND status IN ('current', 'draft', 'archived') FOR UPDATE",
     )
     .bind(container)
     .fetch_optional(&mut *tx)
     .await?
-    .ok_or_else(|| ApiError::NotFound("page not found".into()))?;
+    .ok_or_else(|| ApiError::NotFound("page, blog post or custom content not found".into()))?;
     let existing: Option<(i64, i32)> = sqlx::query_as(
         "SELECT c.id, c.version_number FROM content c JOIN attachments a ON a.content_id = c.id \
          WHERE a.container_id = $1 AND c.status = 'current' AND ($3::bigint IS NULL AND lower(c.title) = lower($2) \
@@ -432,7 +442,7 @@ fn v1_json(r: &Row) -> Value {
                     "when": ts(r.v_created)},
         "extensions": {"mediaType": r.media_type, "fileSize": r.file_size,
                        "comment": r.comment, "fileId": r.file_id},
-        "container": {"id": r.container_id.to_string(), "type": "page"},
+        "container": {"id": r.container_id.to_string(), "type": r.container_type},
         "_links": {"download": download_link(r),
                    "webui": webui_link(r), "self": format!("/rest/api/content/att{}", r.id)},
     })

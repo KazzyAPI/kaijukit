@@ -1,0 +1,33 @@
+{
+  "id": "v2-database-delete",
+  "ops": [
+    "deleteDatabase"
+  ],
+  "setup": [
+    {
+      "as": "space",
+      "method": "POST",
+      "path": "/wiki/api/v2/spaces",
+      "body": {
+        "name": "Conf {{run}}",
+        "key": "K{{run}}"
+      }
+    },
+    {
+      "as": "x",
+      "method": "POST",
+      "path": "/wiki/api/v2/databases",
+      "body": {
+        "spaceId": "{{space.id}}",
+        "title": "D {{run}}"
+      }
+    }
+  ],
+  "request": {
+    "method": "DELETE",
+    "path": "/wiki/api/v2/databases/{{x.id}}"
+  },
+  "expect": {
+    "status": 204
+  }
+}

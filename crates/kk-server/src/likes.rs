@@ -17,12 +17,13 @@ use crate::{
     target, AppState,
 };
 
-/// Liked content: pages and comments. `TY`: 0 page, 1 footer comment, 2 inline comment.
+/// Liked content: pages, comments and blog posts. `TY`: 0 page, 1 footer comment, 2 inline comment, 3 blog post.
 async fn liked<const TY: u8>(s: &AppState, raw: &str) -> Result<i64, ApiError> {
     let id = crate::http::parse_id(raw)?;
     let (kind, ty) = match TY {
         0 => (None, "page"),
         1 => (Some("footer"), "comment"),
+        3 => (None, "blogpost"),
         _ => (Some("inline"), "comment"),
     };
     target::live(&s.db, id, ty).await?;
@@ -72,7 +73,7 @@ pub async fn users<const TY: u8>(
         .iter()
         .map(|u| json!({"accountId": u.to_string()}))
         .collect();
-    let seg = ["pages", "footer-comments", "inline-comments"][TY as usize];
+    let seg = ["pages", "footer-comments", "inline-comments", "blogposts"][TY as usize];
     let path = format!("/wiki/api/v2/{seg}/{id}/likes/users");
     Ok(paged(&q, &path, &s.site(), rows, limit, offset))
 }
@@ -86,7 +87,7 @@ pub async fn set(
 ) -> R<StatusCode> {
     let id = crate::http::parse_id(&id)?;
     let ty: Option<String> = sqlx::query_scalar(
-        "SELECT type FROM content WHERE id = $1 AND status = 'current' AND type IN ('page', 'comment')",
+        "SELECT type FROM content WHERE id = $1 AND status = 'current' AND type IN ('page', 'comment', 'blogpost')",
     )
     .bind(id)
     .fetch_optional(&s.db)
@@ -114,15 +115,41 @@ fn operations(ops: Vec<(&str, &str)>) -> Json<Value> {
 }
 
 /// Operations the caller holds on a content row, from their permissions and restrictions.
-async fn content_ops(s: &AppState, a: &Access, id: i64) -> R<Json<Value>> {
+pub(crate) async fn ops_list(
+    s: &AppState,
+    a: &Access,
+    id: i64,
+) -> Result<Vec<(&'static str, &'static str)>, ApiError> {
     let (t, chain) = a.visible(&s.db, id).await?;
     let g = a.grants(t.space_id);
     let own = t.author_id == a.p.id;
-    Ok(operations(match t.ty.as_str() {
+    Ok(match t.ty.as_str() {
         "comment" => perm::comment_ops(&a.p, &g, &chain, own),
         "attachment" => perm::attachment_ops(&a.p, &g, &chain),
-        _ => perm::page_ops(&a.p, &g, &chain),
-    }))
+        // the page operations name their own target; other types report themselves
+        "blogpost" => perm::content_ops("blogpost", &a.p, &g, &chain),
+        ty => {
+            let label = crate::kinds::target_label(ty);
+            perm::page_ops(&a.p, &g, &chain)
+                .into_iter()
+                .map(|(o, t)| (o, if t == "page" { label } else { t }))
+                .collect()
+        }
+    })
+}
+
+async fn content_ops(s: &AppState, a: &Access, id: i64) -> R<Json<Value>> {
+    Ok(operations(ops_list(s, a, id).await?))
+}
+
+/// Operations on any content type that is checked like a page.
+pub async fn ops<const K: u8>(
+    State(s): State<AppState>,
+    Extension(a): Extension<Arc<Access>>,
+    Path(id): Path<String>,
+) -> R<Json<Value>> {
+    let id = target::owner(&s.db, &id, crate::kinds::of(K).ty).await?;
+    content_ops(&s, &a, id).await
 }
 
 pub async fn page_ops(

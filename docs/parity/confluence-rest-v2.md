@@ -18,11 +18,11 @@ Status: `not started` | `partial` | `done`. `done` requires a conformance case. 
 
 | Method | Path | operationId | Summary | Status | Case |
 |---|---|---|---|---|---|
-| GET | `/databases/{id}/ancestors` | `getDatabaseAncestors` | Get all ancestors of database | not started | - |
-| GET | `/embeds/{id}/ancestors` | `getSmartLinkAncestors` | Get all ancestors of Smart Link in content tree | not started | - |
-| GET | `/folders/{id}/ancestors` | `getFolderAncestors` | Get all ancestors of folder | not started | - |
+| GET | `/databases/{id}/ancestors` | `getDatabaseAncestors` | Get all ancestors of database | partial (schema) | v2-database-ancestors |
+| GET | `/embeds/{id}/ancestors` | `getSmartLinkAncestors` | Get all ancestors of Smart Link in content tree | partial (schema) | v2-embed-ancestors |
+| GET | `/folders/{id}/ancestors` | `getFolderAncestors` | Get all ancestors of folder | partial (schema) | v2-folder-ancestors |
 | GET | `/pages/{id}/ancestors` | `getPageAncestors` | Get all ancestors of page | partial (schema) | v2-page-ancestors |
-| GET | `/whiteboards/{id}/ancestors` | `getWhiteboardAncestors` | Get all ancestors of whiteboard | not started | - |
+| GET | `/whiteboards/{id}/ancestors` | `getWhiteboardAncestors` | Get all ancestors of whiteboard | partial (schema) | v2-whiteboard-ancestors |
 
 ## App Properties
 
@@ -41,8 +41,8 @@ Status: `not started` | `partial` | `done`. `done` requires a conformance case. 
 | DELETE | `/attachments/{id}` | `deleteAttachment` | Delete attachment | partial (schema) | v2-attachment-delete |
 | GET | `/attachments/{id}` | `getAttachmentById` | Get attachment by id | partial (schema) | v2-attachment-get |
 | GET | `/attachments/{id}/thumbnail/download` | `getAttachmentThumbnailById` | Download attachment thumbnail by id | not started | - |
-| GET | `/blogposts/{id}/attachments` | `getBlogpostAttachments` | Get attachments for blog post | not started | - |
-| GET | `/custom-content/{id}/attachments` | `getCustomContentAttachments` | Get attachments for custom content | not started | - |
+| GET | `/blogposts/{id}/attachments` | `getBlogpostAttachments` | Get attachments for blog post | partial (schema) | v2-blogpost-attachments |
+| GET | `/custom-content/{id}/attachments` | `getCustomContentAttachments` | Get attachments for custom content | partial (schema) | v2-custom-content-attachments |
 | GET | `/labels/{id}/attachments` | `getLabelAttachments` | Get attachments for label | not started | - |
 | GET | `/pages/{id}/attachments` | `getPageAttachments` | Get attachments for page | partial (schema) | v2-page-attachments |
 
@@ -50,25 +50,25 @@ Status: `not started` | `partial` | `done`. `done` requires a conformance case. 
 
 | Method | Path | operationId | Summary | Status | Case |
 |---|---|---|---|---|---|
-| GET | `/blogposts` | `getBlogPosts` | Get blog posts | not started | - |
-| POST | `/blogposts` | `createBlogPost` | Create blog post | not started | - |
-| DELETE | `/blogposts/{id}` | `deleteBlogPost` | Delete blog post | not started | - |
-| GET | `/blogposts/{id}` | `getBlogPostById` | Get blog post by id | not started | - |
-| PUT | `/blogposts/{id}` | `updateBlogPost` | Update blog post | not started | - |
-| GET | `/labels/{id}/blogposts` | `getLabelBlogPosts` | Get blog posts for label | not started | - |
-| GET | `/spaces/{id}/blogposts` | `getBlogPostsInSpace` | Get blog posts in space | not started | - |
+| GET | `/blogposts` | `getBlogPosts` | Get blog posts | partial (schema) | v2-blogposts-list |
+| POST | `/blogposts` | `createBlogPost` | Create blog post | partial (schema) | v2-blogpost-create |
+| DELETE | `/blogposts/{id}` | `deleteBlogPost` | Delete blog post | partial (schema) | v2-blogpost-delete |
+| GET | `/blogposts/{id}` | `getBlogPostById` | Get blog post by id | partial (schema) | v2-blogpost-get |
+| PUT | `/blogposts/{id}` | `updateBlogPost` | Update blog post | partial (schema) | v2-blogpost-update |
+| GET | `/labels/{id}/blogposts` | `getLabelBlogPosts` | Get blog posts for label | partial (schema) | v2-label-blogposts |
+| GET | `/spaces/{id}/blogposts` | `getBlogPostsInSpace` | Get blog posts in space | partial (schema) | v2-space-blogposts |
 
 ## Children
 
 | Method | Path | operationId | Summary | Status | Case |
 |---|---|---|---|---|---|
-| GET | `/custom-content/{id}/children` | `getChildCustomContent` | Get child custom content | not started | - |
-| GET | `/databases/{id}/direct-children` | `getDatabaseDirectChildren` | Get direct children of a database | not started | - |
-| GET | `/embeds/{id}/direct-children` | `getSmartLinkDirectChildren` | Get direct children of a Smart Link | not started | - |
-| GET | `/folders/{id}/direct-children` | `getFolderDirectChildren` | Get direct children of a folder | not started | - |
+| GET | `/custom-content/{id}/children` | `getChildCustomContent` | Get child custom content | partial (schema) | v2-custom-content-children |
+| GET | `/databases/{id}/direct-children` | `getDatabaseDirectChildren` | Get direct children of a database | partial (schema) | v2-database-direct-children |
+| GET | `/embeds/{id}/direct-children` | `getSmartLinkDirectChildren` | Get direct children of a Smart Link | partial (schema) | v2-embed-direct-children |
+| GET | `/folders/{id}/direct-children` | `getFolderDirectChildren` | Get direct children of a folder | partial (schema) | v2-folder-direct-children |
 | GET | `/pages/{id}/children` | `getChildPages` | Get child pages | partial (schema) | v2-page-children |
 | GET | `/pages/{id}/direct-children` | `getPageDirectChildren` | Get direct children of a page | partial (schema) | v2-page-direct-children |
-| GET | `/whiteboards/{id}/direct-children` | `getWhiteboardDirectChildren` | Get direct children of a whiteboard | not started | - |
+| GET | `/whiteboards/{id}/direct-children` | `getWhiteboardDirectChildren` | Get direct children of a whiteboard | partial (schema) | v2-whiteboard-direct-children |
 
 ## Classification Level
 
@@ -96,9 +96,9 @@ Status: `not started` | `partial` | `done`. `done` requires a conformance case. 
 | Method | Path | operationId | Summary | Status | Case |
 |---|---|---|---|---|---|
 | GET | `/attachments/{id}/footer-comments` | `getAttachmentComments` | Get attachment comments | partial (schema) | v2-attachment-comments |
-| GET | `/blogposts/{id}/footer-comments` | `getBlogPostFooterComments` | Get footer comments for blog post | not started | - |
-| GET | `/blogposts/{id}/inline-comments` | `getBlogPostInlineComments` | Get inline comments for blog post | not started | - |
-| GET | `/custom-content/{id}/footer-comments` | `getCustomContentComments` | Get custom content comments | not started | - |
+| GET | `/blogposts/{id}/footer-comments` | `getBlogPostFooterComments` | Get footer comments for blog post | partial (schema) | v2-blogpost-footer-comments |
+| GET | `/blogposts/{id}/inline-comments` | `getBlogPostInlineComments` | Get inline comments for blog post | partial (schema) | v2-blogpost-inline-comments |
+| GET | `/custom-content/{id}/footer-comments` | `getCustomContentComments` | Get custom content comments | partial (schema) | v2-custom-content-footer-comments |
 | GET | `/footer-comments` | `getFooterComments` | Get footer comments | partial (schema) | v2-footer-comments-list |
 | POST | `/footer-comments` | `createFooterComment` | Create footer comment | partial (schema) | v2-footer-comment-create |
 | DELETE | `/footer-comments/{comment-id}` | `deleteFooterComment` | Delete footer comment | partial (schema) | v2-footer-comment-delete |
@@ -164,59 +164,59 @@ Status: `not started` | `partial` | `done`. `done` requires a conformance case. 
 | DELETE | `/attachments/{attachment-id}/properties/{property-id}` | `deleteAttachmentPropertyById` | Delete content property for attachment by id | partial (schema) | v2-attachment-property-delete |
 | GET | `/attachments/{attachment-id}/properties/{property-id}` | `getAttachmentContentPropertiesById` | Get content property for attachment by id | partial (schema) | v2-attachment-property-get |
 | PUT | `/attachments/{attachment-id}/properties/{property-id}` | `updateAttachmentPropertyById` | Update content property for attachment by id | partial (schema) | v2-attachment-property-update |
-| GET | `/blogposts/{blogpost-id}/properties` | `getBlogpostContentProperties` | Get content properties for blog post | not started | - |
-| POST | `/blogposts/{blogpost-id}/properties` | `createBlogpostProperty` | Create content property for blog post | not started | - |
-| DELETE | `/blogposts/{blogpost-id}/properties/{property-id}` | `deleteBlogpostPropertyById` | Delete content property for blogpost by id | not started | - |
-| GET | `/blogposts/{blogpost-id}/properties/{property-id}` | `getBlogpostContentPropertiesById` | Get content property for blog post by id | not started | - |
-| PUT | `/blogposts/{blogpost-id}/properties/{property-id}` | `updateBlogpostPropertyById` | Update content property for blog post by id | not started | - |
+| GET | `/blogposts/{blogpost-id}/properties` | `getBlogpostContentProperties` | Get content properties for blog post | partial (schema) | v2-blogpost-properties-list |
+| POST | `/blogposts/{blogpost-id}/properties` | `createBlogpostProperty` | Create content property for blog post | partial (schema) | v2-blogpost-property-create |
+| DELETE | `/blogposts/{blogpost-id}/properties/{property-id}` | `deleteBlogpostPropertyById` | Delete content property for blogpost by id | partial (schema) | v2-blogpost-property-delete |
+| GET | `/blogposts/{blogpost-id}/properties/{property-id}` | `getBlogpostContentPropertiesById` | Get content property for blog post by id | partial (schema) | v2-blogpost-property-get |
+| PUT | `/blogposts/{blogpost-id}/properties/{property-id}` | `updateBlogpostPropertyById` | Update content property for blog post by id | partial (schema) | v2-blogpost-property-update |
 | GET | `/comments/{comment-id}/properties` | `getCommentContentProperties` | Get content properties for comment | partial (schema) | v2-comment-properties-list |
 | POST | `/comments/{comment-id}/properties` | `createCommentProperty` | Create content property for comment | partial (schema) | v2-comment-property-create |
 | DELETE | `/comments/{comment-id}/properties/{property-id}` | `deleteCommentPropertyById` | Delete content property for comment by id | partial (schema) | v2-comment-property-delete |
 | GET | `/comments/{comment-id}/properties/{property-id}` | `getCommentContentPropertiesById` | Get content property for comment by id | partial (schema) | v2-comment-property-get |
 | PUT | `/comments/{comment-id}/properties/{property-id}` | `updateCommentPropertyById` | Update content property for comment by id | partial (schema) | v2-comment-property-update |
-| GET | `/custom-content/{custom-content-id}/properties` | `getCustomContentContentProperties` | Get content properties for custom content | not started | - |
-| POST | `/custom-content/{custom-content-id}/properties` | `createCustomContentProperty` | Create content property for custom content | not started | - |
-| DELETE | `/custom-content/{custom-content-id}/properties/{property-id}` | `deleteCustomContentPropertyById` | Delete content property for custom content by id | not started | - |
-| GET | `/custom-content/{custom-content-id}/properties/{property-id}` | `getCustomContentContentPropertiesById` | Get content property for custom content by id | not started | - |
-| PUT | `/custom-content/{custom-content-id}/properties/{property-id}` | `updateCustomContentPropertyById` | Update content property for custom content by id | not started | - |
-| DELETE | `/databases/{database-id}/properties/{property-id}` | `deleteDatabasePropertyById` | Delete content property for database by id | not started | - |
-| GET | `/databases/{database-id}/properties/{property-id}` | `getDatabaseContentPropertiesById` | Get content property for database by id | not started | - |
-| PUT | `/databases/{database-id}/properties/{property-id}` | `updateDatabasePropertyById` | Update content property for database by id | not started | - |
-| GET | `/databases/{id}/properties` | `getDatabaseContentProperties` | Get content properties for database | not started | - |
-| POST | `/databases/{id}/properties` | `createDatabaseProperty` | Create content property for database | not started | - |
-| DELETE | `/embeds/{embed-id}/properties/{property-id}` | `deleteSmartLinkPropertyById` | Delete content property for Smart Link in the content tree by id | not started | - |
-| GET | `/embeds/{embed-id}/properties/{property-id}` | `getSmartLinkContentPropertiesById` | Get content property for Smart Link in the content tree by id | not started | - |
-| PUT | `/embeds/{embed-id}/properties/{property-id}` | `updateSmartLinkPropertyById` | Update content property for Smart Link in the content tree by id | not started | - |
-| GET | `/embeds/{id}/properties` | `getSmartLinkContentProperties` | Get content properties for Smart Link in the content tree | not started | - |
-| POST | `/embeds/{id}/properties` | `createSmartLinkProperty` | Create content property for Smart Link in the content tree | not started | - |
-| DELETE | `/folders/{folder-id}/properties/{property-id}` | `deleteFolderPropertyById` | Delete content property for folder by id | not started | - |
-| GET | `/folders/{folder-id}/properties/{property-id}` | `getFolderContentPropertiesById` | Get content property for folder by id | not started | - |
-| PUT | `/folders/{folder-id}/properties/{property-id}` | `updateFolderPropertyById` | Update content property for folder by id | not started | - |
-| GET | `/folders/{id}/properties` | `getFolderContentProperties` | Get content properties for folder | not started | - |
-| POST | `/folders/{id}/properties` | `createFolderProperty` | Create content property for folder | not started | - |
+| GET | `/custom-content/{custom-content-id}/properties` | `getCustomContentContentProperties` | Get content properties for custom content | partial (schema) | v2-custom-content-properties-list |
+| POST | `/custom-content/{custom-content-id}/properties` | `createCustomContentProperty` | Create content property for custom content | partial (schema) | v2-custom-content-property-create |
+| DELETE | `/custom-content/{custom-content-id}/properties/{property-id}` | `deleteCustomContentPropertyById` | Delete content property for custom content by id | partial (schema) | v2-custom-content-property-delete |
+| GET | `/custom-content/{custom-content-id}/properties/{property-id}` | `getCustomContentContentPropertiesById` | Get content property for custom content by id | partial (schema) | v2-custom-content-property-get |
+| PUT | `/custom-content/{custom-content-id}/properties/{property-id}` | `updateCustomContentPropertyById` | Update content property for custom content by id | partial (schema) | v2-custom-content-property-update |
+| DELETE | `/databases/{database-id}/properties/{property-id}` | `deleteDatabasePropertyById` | Delete content property for database by id | partial (schema) | v2-database-property-delete |
+| GET | `/databases/{database-id}/properties/{property-id}` | `getDatabaseContentPropertiesById` | Get content property for database by id | partial (schema) | v2-database-property-get |
+| PUT | `/databases/{database-id}/properties/{property-id}` | `updateDatabasePropertyById` | Update content property for database by id | partial (schema) | v2-database-property-update |
+| GET | `/databases/{id}/properties` | `getDatabaseContentProperties` | Get content properties for database | partial (schema) | v2-database-properties-list |
+| POST | `/databases/{id}/properties` | `createDatabaseProperty` | Create content property for database | partial (schema) | v2-database-property-create |
+| DELETE | `/embeds/{embed-id}/properties/{property-id}` | `deleteSmartLinkPropertyById` | Delete content property for Smart Link in the content tree by id | partial (schema) | v2-embed-property-delete |
+| GET | `/embeds/{embed-id}/properties/{property-id}` | `getSmartLinkContentPropertiesById` | Get content property for Smart Link in the content tree by id | partial (schema) | v2-embed-property-get |
+| PUT | `/embeds/{embed-id}/properties/{property-id}` | `updateSmartLinkPropertyById` | Update content property for Smart Link in the content tree by id | partial (schema) | v2-embed-property-update |
+| GET | `/embeds/{id}/properties` | `getSmartLinkContentProperties` | Get content properties for Smart Link in the content tree | partial (schema) | v2-embed-properties-list |
+| POST | `/embeds/{id}/properties` | `createSmartLinkProperty` | Create content property for Smart Link in the content tree | partial (schema) | v2-embed-property-create |
+| DELETE | `/folders/{folder-id}/properties/{property-id}` | `deleteFolderPropertyById` | Delete content property for folder by id | partial (schema) | v2-folder-property-delete |
+| GET | `/folders/{folder-id}/properties/{property-id}` | `getFolderContentPropertiesById` | Get content property for folder by id | partial (schema) | v2-folder-property-get |
+| PUT | `/folders/{folder-id}/properties/{property-id}` | `updateFolderPropertyById` | Update content property for folder by id | partial (schema) | v2-folder-property-update |
+| GET | `/folders/{id}/properties` | `getFolderContentProperties` | Get content properties for folder | partial (schema) | v2-folder-properties-list |
+| POST | `/folders/{id}/properties` | `createFolderProperty` | Create content property for folder | partial (schema) | v2-folder-property-create |
 | GET | `/pages/{page-id}/properties` | `getPageContentProperties` | Get content properties for page | partial (schema) | v2-page-properties-list |
 | POST | `/pages/{page-id}/properties` | `createPageProperty` | Create content property for page | partial (schema) | v2-page-property-create |
 | DELETE | `/pages/{page-id}/properties/{property-id}` | `deletePagePropertyById` | Delete content property for page by id | partial (schema) | v2-page-property-delete |
 | GET | `/pages/{page-id}/properties/{property-id}` | `getPageContentPropertiesById` | Get content property for page by id | partial (schema) | v2-page-property-get |
 | PUT | `/pages/{page-id}/properties/{property-id}` | `updatePagePropertyById` | Update content property for page by id | partial (schema) | v2-page-property-update |
-| GET | `/whiteboards/{id}/properties` | `getWhiteboardContentProperties` | Get content properties for whiteboard | not started | - |
-| POST | `/whiteboards/{id}/properties` | `createWhiteboardProperty` | Create content property for whiteboard | not started | - |
-| DELETE | `/whiteboards/{whiteboard-id}/properties/{property-id}` | `deleteWhiteboardPropertyById` | Delete content property for whiteboard by id | not started | - |
-| GET | `/whiteboards/{whiteboard-id}/properties/{property-id}` | `getWhiteboardContentPropertiesById` | Get content property for whiteboard by id | not started | - |
-| PUT | `/whiteboards/{whiteboard-id}/properties/{property-id}` | `updateWhiteboardPropertyById` | Update content property for whiteboard by id | not started | - |
+| GET | `/whiteboards/{id}/properties` | `getWhiteboardContentProperties` | Get content properties for whiteboard | partial (schema) | v2-whiteboard-properties-list |
+| POST | `/whiteboards/{id}/properties` | `createWhiteboardProperty` | Create content property for whiteboard | partial (schema) | v2-whiteboard-property-create |
+| DELETE | `/whiteboards/{whiteboard-id}/properties/{property-id}` | `deleteWhiteboardPropertyById` | Delete content property for whiteboard by id | partial (schema) | v2-whiteboard-property-delete |
+| GET | `/whiteboards/{whiteboard-id}/properties/{property-id}` | `getWhiteboardContentPropertiesById` | Get content property for whiteboard by id | partial (schema) | v2-whiteboard-property-get |
+| PUT | `/whiteboards/{whiteboard-id}/properties/{property-id}` | `updateWhiteboardPropertyById` | Update content property for whiteboard by id | partial (schema) | v2-whiteboard-property-update |
 
 ## Custom Content
 
 | Method | Path | operationId | Summary | Status | Case |
 |---|---|---|---|---|---|
-| GET | `/blogposts/{id}/custom-content` | `getCustomContentByTypeInBlogPost` | Get custom content by type in blog post | not started | - |
-| GET | `/custom-content` | `getCustomContentByType` | Get custom content by type | not started | - |
-| POST | `/custom-content` | `createCustomContent` | Create custom content | not started | - |
-| DELETE | `/custom-content/{id}` | `deleteCustomContent` | Delete custom content | not started | - |
-| GET | `/custom-content/{id}` | `getCustomContentById` | Get custom content by id | not started | - |
-| PUT | `/custom-content/{id}` | `updateCustomContent` | Update custom content | not started | - |
-| GET | `/pages/{id}/custom-content` | `getCustomContentByTypeInPage` | Get custom content by type in page | not started | - |
-| GET | `/spaces/{id}/custom-content` | `getCustomContentByTypeInSpace` | Get custom content by type in space | not started | - |
+| GET | `/blogposts/{id}/custom-content` | `getCustomContentByTypeInBlogPost` | Get custom content by type in blog post | partial (schema) | v2-blogpost-custom-content |
+| GET | `/custom-content` | `getCustomContentByType` | Get custom content by type | partial (schema) | v2-custom-content-list |
+| POST | `/custom-content` | `createCustomContent` | Create custom content | partial (schema) | v2-custom-content-create |
+| DELETE | `/custom-content/{id}` | `deleteCustomContent` | Delete custom content | partial (schema) | v2-custom-content-delete |
+| GET | `/custom-content/{id}` | `getCustomContentById` | Get custom content by id | partial (schema) | v2-custom-content-get |
+| PUT | `/custom-content/{id}` | `updateCustomContent` | Update custom content | partial (schema) | v2-custom-content-update |
+| GET | `/pages/{id}/custom-content` | `getCustomContentByTypeInPage` | Get custom content by type in page | partial (schema) | v2-page-custom-content |
+| GET | `/spaces/{id}/custom-content` | `getCustomContentByTypeInSpace` | Get custom content by type in space | partial (schema) | v2-space-custom-content |
 
 ## Data Policies
 
@@ -229,39 +229,39 @@ Status: `not started` | `partial` | `done`. `done` requires a conformance case. 
 
 | Method | Path | operationId | Summary | Status | Case |
 |---|---|---|---|---|---|
-| POST | `/databases` | `createDatabase` | Create database | not started | - |
-| DELETE | `/databases/{id}` | `deleteDatabase` | Delete database | not started | - |
-| GET | `/databases/{id}` | `getDatabaseById` | Get database by id | not started | - |
-| GET | `/databases/{id}/entries` | `getDatabaseEntries` | Get entries for database | not started | - |
-| GET | `/databases/{id}/entries/{entryId}` | `getDatabaseEntryById` | Get entry by id | not started | - |
-| GET | `/databases/{id}/fields` | `getDatabaseFields` | Get fields for database | not started | - |
-| GET | `/databases/{id}/views` | `getDatabaseViews` | Get views for database | not started | - |
+| POST | `/databases` | `createDatabase` | Create database | partial (schema) | v2-database-create |
+| DELETE | `/databases/{id}` | `deleteDatabase` | Delete database | partial (schema) | v2-database-delete |
+| GET | `/databases/{id}` | `getDatabaseById` | Get database by id | partial (schema) | v2-database-get |
+| GET | `/databases/{id}/entries` | `getDatabaseEntries` | Get entries for database | partial (schema) | v2-database-entries |
+| GET | `/databases/{id}/entries/{entryId}` | `getDatabaseEntryById` | Get entry by id | partial (schema) | v2-database-entry-get |
+| GET | `/databases/{id}/fields` | `getDatabaseFields` | Get fields for database | partial (schema) | v2-database-fields |
+| GET | `/databases/{id}/views` | `getDatabaseViews` | Get views for database | partial (schema) | v2-database-views |
 
 ## Descendants
 
 | Method | Path | operationId | Summary | Status | Case |
 |---|---|---|---|---|---|
-| GET | `/databases/{id}/descendants` | `getDatabaseDescendants` | Get descendants of a database | not started | - |
-| GET | `/embeds/{id}/descendants` | `getSmartLinkDescendants` | Get descendants of a smart link | not started | - |
-| GET | `/folders/{id}/descendants` | `getFolderDescendants` | Get descendants of folder | not started | - |
+| GET | `/databases/{id}/descendants` | `getDatabaseDescendants` | Get descendants of a database | partial (schema) | v2-database-descendants |
+| GET | `/embeds/{id}/descendants` | `getSmartLinkDescendants` | Get descendants of a smart link | partial (schema) | v2-embed-descendants |
+| GET | `/folders/{id}/descendants` | `getFolderDescendants` | Get descendants of folder | partial (schema) | v2-folder-descendants |
 | GET | `/pages/{id}/descendants` | `getPageDescendants` | Get descendants of page | partial (schema) | v2-page-descendants |
-| GET | `/whiteboards/{id}/descendants` | `getWhiteboardDescendants` | Get descendants of a whiteboard | not started | - |
+| GET | `/whiteboards/{id}/descendants` | `getWhiteboardDescendants` | Get descendants of a whiteboard | partial (schema) | v2-whiteboard-descendants |
 
 ## Folder
 
 | Method | Path | operationId | Summary | Status | Case |
 |---|---|---|---|---|---|
-| POST | `/folders` | `createFolder` | Create folder | not started | - |
-| DELETE | `/folders/{id}` | `deleteFolder` | Delete folder | not started | - |
-| GET | `/folders/{id}` | `getFolderById` | Get folder by id | not started | - |
+| POST | `/folders` | `createFolder` | Create folder | partial (schema) | v2-folder-create |
+| DELETE | `/folders/{id}` | `deleteFolder` | Delete folder | partial (schema) | v2-folder-delete |
+| GET | `/folders/{id}` | `getFolderById` | Get folder by id | partial (schema) | v2-folder-get |
 
 ## Label
 
 | Method | Path | operationId | Summary | Status | Case |
 |---|---|---|---|---|---|
 | GET | `/attachments/{id}/labels` | `getAttachmentLabels` | Get labels for attachment | partial (schema) | v2-attachment-labels |
-| GET | `/blogposts/{id}/labels` | `getBlogPostLabels` | Get labels for blog post | not started | - |
-| GET | `/custom-content/{id}/labels` | `getCustomContentLabels` | Get labels for custom content | not started | - |
+| GET | `/blogposts/{id}/labels` | `getBlogPostLabels` | Get labels for blog post | partial (schema) | v2-blogpost-labels |
+| GET | `/custom-content/{id}/labels` | `getCustomContentLabels` | Get labels for custom content | partial (schema) | v2-custom-content-labels |
 | GET | `/labels` | `getLabels` | Get labels | partial (schema) | v2-labels-list |
 | GET | `/pages/{id}/labels` | `getPageLabels` | Get labels for page | partial (schema) | v2-page-labels |
 | GET | `/spaces/{id}/content/labels` | `getSpaceContentLabels` | Get labels for space content | partial (schema) | v2-space-content-labels |
@@ -271,8 +271,8 @@ Status: `not started` | `partial` | `done`. `done` requires a conformance case. 
 
 | Method | Path | operationId | Summary | Status | Case |
 |---|---|---|---|---|---|
-| GET | `/blogposts/{id}/likes/count` | `getBlogPostLikeCount` | Get like count for blog post | not started | - |
-| GET | `/blogposts/{id}/likes/users` | `getBlogPostLikeUsers` | Get account IDs of likes for blog post | not started | - |
+| GET | `/blogposts/{id}/likes/count` | `getBlogPostLikeCount` | Get like count for blog post | partial (schema) | v2-blogpost-like-count |
+| GET | `/blogposts/{id}/likes/users` | `getBlogPostLikeUsers` | Get account IDs of likes for blog post | partial (schema) | v2-blogpost-like-users |
 | GET | `/footer-comments/{id}/likes/count` | `getFooterLikeCount` | Get like count for footer comment | partial (schema) | v2-footer-like-count |
 | GET | `/footer-comments/{id}/likes/users` | `getFooterLikeUsers` | Get account IDs of likes for footer comment | partial (schema) | v2-footer-like-users |
 | GET | `/inline-comments/{id}/likes/count` | `getInlineLikeCount` | Get like count for inline comment | partial (schema) | v2-inline-like-count |
@@ -285,16 +285,16 @@ Status: `not started` | `partial` | `done`. `done` requires a conformance case. 
 | Method | Path | operationId | Summary | Status | Case |
 |---|---|---|---|---|---|
 | GET | `/attachments/{id}/operations` | `getAttachmentOperations` | Get permitted operations for attachment | partial (schema) | v2-attachment-operations |
-| GET | `/blogposts/{id}/operations` | `getBlogPostOperations` | Get permitted operations for blog post | not started | - |
-| GET | `/custom-content/{id}/operations` | `getCustomContentOperations` | Get permitted operations for custom content | not started | - |
-| GET | `/databases/{id}/operations` | `getDatabaseOperations` | Get permitted operations for a database | not started | - |
-| GET | `/embeds/{id}/operations` | `getSmartLinkOperations` | Get permitted operations for a Smart Link in the content tree | not started | - |
-| GET | `/folders/{id}/operations` | `getFolderOperations` | Get permitted operations for a folder | not started | - |
+| GET | `/blogposts/{id}/operations` | `getBlogPostOperations` | Get permitted operations for blog post | partial (schema) | v2-blogpost-operations |
+| GET | `/custom-content/{id}/operations` | `getCustomContentOperations` | Get permitted operations for custom content | partial (schema) | v2-custom-content-operations |
+| GET | `/databases/{id}/operations` | `getDatabaseOperations` | Get permitted operations for a database | partial (schema) | v2-database-operations |
+| GET | `/embeds/{id}/operations` | `getSmartLinkOperations` | Get permitted operations for a Smart Link in the content tree | partial (schema) | v2-embed-operations |
+| GET | `/folders/{id}/operations` | `getFolderOperations` | Get permitted operations for a folder | partial (schema) | v2-folder-operations |
 | GET | `/footer-comments/{id}/operations` | `getFooterCommentOperations` | Get permitted operations for footer comment | partial (schema) | v2-footer-comment-operations |
 | GET | `/inline-comments/{id}/operations` | `getInlineCommentOperations` | Get permitted operations for inline comment | partial (schema) | v2-inline-comment-operations |
 | GET | `/pages/{id}/operations` | `getPageOperations` | Get permitted operations for page | partial (schema) | v2-page-operations |
 | GET | `/spaces/{id}/operations` | `getSpaceOperations` | Get permitted operations for space | partial (schema) | v2-space-operations |
-| GET | `/whiteboards/{id}/operations` | `getWhiteboardOperations` | Get permitted operations for a whiteboard | not started | - |
+| GET | `/whiteboards/{id}/operations` | `getWhiteboardOperations` | Get permitted operations for a whiteboard | partial (schema) | v2-whiteboard-operations |
 
 ## Page
 
@@ -320,9 +320,9 @@ Status: `not started` | `partial` | `done`. `done` requires a conformance case. 
 
 | Method | Path | operationId | Summary | Status | Case |
 |---|---|---|---|---|---|
-| POST | `/embeds` | `createSmartLink` | Create Smart Link in the content tree | not started | - |
-| DELETE | `/embeds/{id}` | `deleteSmartLink` | Delete Smart Link in the content tree | not started | - |
-| GET | `/embeds/{id}` | `getSmartLinkById` | Get Smart Link in the content tree by id | not started | - |
+| POST | `/embeds` | `createSmartLink` | Create Smart Link in the content tree | partial (schema) | v2-embed-create |
+| DELETE | `/embeds/{id}` | `deleteSmartLink` | Delete Smart Link in the content tree | partial (schema) | v2-embed-delete |
+| GET | `/embeds/{id}` | `getSmartLinkById` | Get Smart Link in the content tree by id | partial (schema) | v2-embed-get |
 
 ## Space
 
@@ -394,10 +394,10 @@ Status: `not started` | `partial` | `done`. `done` requires a conformance case. 
 |---|---|---|---|---|---|
 | GET | `/attachments/{attachment-id}/versions/{version-number}` | `getAttachmentVersionDetails` | Get version details for attachment version | partial (schema) | v2-attachment-version-get |
 | GET | `/attachments/{id}/versions` | `getAttachmentVersions` | Get attachment versions | partial (schema) | v2-attachment-versions |
-| GET | `/blogposts/{blogpost-id}/versions/{version-number}` | `getBlogPostVersionDetails` | Get version details for blog post version | not started | - |
-| GET | `/blogposts/{id}/versions` | `getBlogPostVersions` | Get blog post versions | not started | - |
-| GET | `/custom-content/{custom-content-id}/versions` | `getCustomContentVersions` | Get custom content versions | not started | - |
-| GET | `/custom-content/{custom-content-id}/versions/{version-number}` | `getCustomContentVersionDetails` | Get version details for custom content version | not started | - |
+| GET | `/blogposts/{blogpost-id}/versions/{version-number}` | `getBlogPostVersionDetails` | Get version details for blog post version | partial (schema) | v2-blogpost-version-get |
+| GET | `/blogposts/{id}/versions` | `getBlogPostVersions` | Get blog post versions | partial (schema) | v2-blogpost-versions |
+| GET | `/custom-content/{custom-content-id}/versions` | `getCustomContentVersions` | Get custom content versions | partial (schema) | v2-custom-content-versions |
+| GET | `/custom-content/{custom-content-id}/versions/{version-number}` | `getCustomContentVersionDetails` | Get version details for custom content version | partial (schema) | v2-custom-content-version-get |
 | GET | `/footer-comments/{id}/versions` | `getFooterCommentVersions` | Get footer comment versions | partial (schema) | v2-footer-comment-versions |
 | GET | `/footer-comments/{id}/versions/{version-number}` | `getFooterCommentVersionDetails` | Get version details for footer comment version | partial (schema) | v2-footer-comment-version-get |
 | GET | `/inline-comments/{id}/versions` | `getInlineCommentVersions` | Get inline comment versions | partial (schema) | v2-inline-comment-versions |
@@ -409,6 +409,6 @@ Status: `not started` | `partial` | `done`. `done` requires a conformance case. 
 
 | Method | Path | operationId | Summary | Status | Case |
 |---|---|---|---|---|---|
-| POST | `/whiteboards` | `createWhiteboard` | Create whiteboard | not started | - |
-| DELETE | `/whiteboards/{id}` | `deleteWhiteboard` | Delete whiteboard | not started | - |
-| GET | `/whiteboards/{id}` | `getWhiteboardById` | Get whiteboard by id | not started | - |
+| POST | `/whiteboards` | `createWhiteboard` | Create whiteboard | partial (schema) | v2-whiteboard-create |
+| DELETE | `/whiteboards/{id}` | `deleteWhiteboard` | Delete whiteboard | partial (schema) | v2-whiteboard-delete |
+| GET | `/whiteboards/{id}` | `getWhiteboardById` | Get whiteboard by id | partial (schema) | v2-whiteboard-get |

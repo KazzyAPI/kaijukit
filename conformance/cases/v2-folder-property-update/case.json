@@ -1,0 +1,53 @@
+{
+  "id": "v2-folder-property-update",
+  "ops": [
+    "updateFolderPropertyById"
+  ],
+  "setup": [
+    {
+      "as": "space",
+      "method": "POST",
+      "path": "/wiki/api/v2/spaces",
+      "body": {
+        "name": "Conf {{run}}",
+        "key": "K{{run}}"
+      }
+    },
+    {
+      "as": "x",
+      "method": "POST",
+      "path": "/wiki/api/v2/folders",
+      "body": {
+        "spaceId": "{{space.id}}",
+        "title": "F {{run}}"
+      }
+    },
+    {
+      "as": "pr",
+      "method": "POST",
+      "path": "/wiki/api/v2/folders/{{x.id}}/properties",
+      "body": {
+        "key": "k",
+        "value": {
+          "a": 1
+        }
+      }
+    }
+  ],
+  "request": {
+    "method": "PUT",
+    "path": "/wiki/api/v2/folders/{{x.id}}/properties/{{pr.id}}",
+    "body": {
+      "key": "k",
+      "value": {
+        "a": 2
+      },
+      "version": {
+        "number": 2
+      }
+    }
+  },
+  "expect": {
+    "status": 200
+  }
+}

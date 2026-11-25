@@ -1,0 +1,44 @@
+{
+  "id": "v2-whiteboard-property-get",
+  "ops": [
+    "getWhiteboardContentPropertiesById"
+  ],
+  "setup": [
+    {
+      "as": "space",
+      "method": "POST",
+      "path": "/wiki/api/v2/spaces",
+      "body": {
+        "name": "Conf {{run}}",
+        "key": "K{{run}}"
+      }
+    },
+    {
+      "as": "x",
+      "method": "POST",
+      "path": "/wiki/api/v2/whiteboards",
+      "body": {
+        "spaceId": "{{space.id}}",
+        "title": "W {{run}}"
+      }
+    },
+    {
+      "as": "pr",
+      "method": "POST",
+      "path": "/wiki/api/v2/whiteboards/{{x.id}}/properties",
+      "body": {
+        "key": "k",
+        "value": {
+          "a": 1
+        }
+      }
+    }
+  ],
+  "request": {
+    "method": "GET",
+    "path": "/wiki/api/v2/whiteboards/{{x.id}}/properties/{{pr.id}}"
+  },
+  "expect": {
+    "status": 200
+  }
+}

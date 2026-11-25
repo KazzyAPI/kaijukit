@@ -3349,3 +3349,97 @@ async fn move_pages_and_manage_versions() {
         .contains("<p>V</p>"));
     assert_eq!(now.json["version"]["message"], "back");
 }
+
+#[tokio::test]
+async fn blog_posts_folders_and_custom_content() {
+    let app = start().await;
+    let sp = space(&app, "BL").await;
+    let s = &sp["id"];
+    let blog = call(
+        &app,
+        Method::POST,
+        "/blogposts",
+        Some(json!({"spaceId": s, "title": "Post", "body": {"representation": "storage", "value": "<p>x</p>"}})),
+    )
+    .await;
+    assert_eq!(blog.status, StatusCode::OK, "{}", blog.json);
+    let bid = blog.json["id"].as_str().unwrap();
+    // a blog post is not a page and a page is not a blog post
+    assert_eq!(
+        get(&app, &format!("/pages/{bid}")).await.status,
+        StatusCode::NOT_FOUND
+    );
+    let listed = get(
+        &app,
+        &format!("/blogposts?space-id={}", s.as_str().unwrap()),
+    )
+    .await;
+    assert_eq!(ids(&listed), [bid]);
+    assert!(
+        ids(&get(&app, &format!("/pages?space-id={}", s.as_str().unwrap())).await)
+            .iter()
+            .all(|i| *i != bid)
+    );
+    let full = get(
+        &app,
+        &format!("/blogposts/{bid}?include-operations=true&include-versions=true"),
+    )
+    .await;
+    assert_eq!(full.json["versions"]["results"][0]["number"], 1);
+    assert!(full.json["operations"]["results"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .all(|o| o["targetType"] != "page"));
+    let up = call(
+        &app,
+        Method::PUT,
+        &format!("/blogposts/{bid}"),
+        Some(json!({"id": bid, "status": "current", "title": "Post 2", "body": {"representation": "storage", "value": "<p>y</p>"}, "version": {"number": 2}})),
+    )
+    .await;
+    assert_eq!(up.status, StatusCode::OK, "{}", up.json);
+    // folders nest pages and report as ancestors
+    let folder = call(
+        &app,
+        Method::POST,
+        "/folders",
+        Some(json!({"spaceId": s, "title": "F"})),
+    )
+    .await;
+    let fid = folder.json["id"].as_str().unwrap();
+    let child = page(&app, s, "In folder", Some(&folder.json["id"])).await;
+    let kids = get(&app, &format!("/folders/{fid}/direct-children")).await;
+    assert_eq!(ids(&kids), [child["id"].as_str().unwrap()]);
+    // custom content needs a type and exactly one container
+    let bad = call(
+        &app,
+        Method::POST,
+        "/custom-content",
+        Some(json!({"spaceId": s, "title": "c", "body": {"representation": "raw", "value": "1"}})),
+    )
+    .await;
+    assert_eq!(bad.status, StatusCode::BAD_REQUEST);
+    let cc = call(&app, Method::POST, "/custom-content", Some(json!({"type": "ac:t:k", "blogPostId": bid, "title": "c", "body": {"representation": "raw", "value": "{\"a\":1}"}}))).await;
+    assert_eq!(cc.status, StatusCode::CREATED, "{}", cc.json);
+    let in_blog = get(
+        &app,
+        &format!("/blogposts/{bid}/custom-content?type=ac:t:k&body-format=raw"),
+    )
+    .await;
+    assert_eq!(
+        in_blog.json["results"][0]["body"]["raw"]["value"],
+        "{\"a\":1}"
+    );
+    assert_eq!(
+        get(&app, "/custom-content").await.status,
+        StatusCode::BAD_REQUEST
+    );
+    // trash then purge
+    let del = call(&app, Method::DELETE, &format!("/blogposts/{bid}"), None).await;
+    assert_eq!(del.status, StatusCode::NO_CONTENT);
+    assert_eq!(
+        get(&app, &format!("/blogposts/{bid}")).await.status,
+        StatusCode::NOT_FOUND
+    );
+}

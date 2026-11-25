@@ -4,11 +4,14 @@ mod authz;
 mod blob;
 mod body;
 mod comments;
+mod content;
 mod descendants;
 mod error;
+mod expand;
 mod groups;
 mod http;
 pub mod jobs;
+mod kinds;
 mod labels;
 mod likes;
 mod multipart;
@@ -102,9 +105,12 @@ pub fn app(state: AppState) -> Router {
         .route("/pages/{id}/versions", get(versions::list))
         .route("/pages/{id}/versions/{number}", get(versions::get))
         .route("/pages/{id}/children", get(tree::children))
-        .route("/pages/{id}/direct-children", get(tree::direct_children))
-        .route("/pages/{id}/ancestors", get(tree::ancestors))
-        .route("/pages/{id}/descendants", get(tree::descendants))
+        .route(
+            "/pages/{id}/direct-children",
+            get(tree::direct_children::<0>),
+        )
+        .route("/pages/{id}/ancestors", get(tree::ancestors::<0>))
+        .route("/pages/{id}/descendants", get(tree::descendants::<0>))
         .route(
             "/footer-comments",
             get(comments::list_all::<false>).post(comments::create::<false>),
@@ -151,11 +157,11 @@ pub fn app(state: AppState) -> Router {
         )
         .route(
             "/pages/{id}/footer-comments",
-            get(comments::list_page::<false>),
+            get(comments::list_page::<false, 0>),
         )
         .route(
             "/pages/{id}/inline-comments",
-            get(comments::list_page::<true>),
+            get(comments::list_page::<true, 0>),
         )
         .route(
             "/attachments/{id}/footer-comments",
@@ -168,7 +174,7 @@ pub fn app(state: AppState) -> Router {
             "/attachments/{id}",
             get(attachments::get).delete(attachments::delete),
         )
-        .route("/pages/{id}/attachments", get(attachments::list_page))
+        .route("/pages/{id}/attachments", get(attachments::list_page::<0>))
         .route("/attachments/{id}/versions", get(attachments::version_list))
         .route(
             "/attachments/{id}/versions/{number}",
@@ -242,6 +248,189 @@ pub fn app(state: AppState) -> Router {
         .route(
             "/inline-comments/{id}/operations",
             get(likes::comment_ops::<2>),
+        )
+        .route(
+            "/blogposts",
+            get(content::list::<4>).post(content::create::<4>),
+        )
+        .route(
+            "/blogposts/{id}",
+            get(content::get::<4>)
+                .put(content::update::<4>)
+                .delete(content::delete::<4>),
+        )
+        .route("/spaces/{id}/blogposts", get(content::list_in::<4, 0>))
+        .route("/labels/{id}/blogposts", get(content::list_in::<4, 1>))
+        .route("/blogposts/{id}/labels", get(labels::of_content::<4>))
+        .route("/blogposts/{id}/likes/count", get(likes::count::<3>))
+        .route("/blogposts/{id}/likes/users", get(likes::users::<3>))
+        .route("/blogposts/{id}/versions", get(versions::list_k::<4>))
+        .route(
+            "/blogposts/{id}/versions/{number}",
+            get(versions::get_k::<4>),
+        )
+        .route(
+            "/blogposts/{id}/attachments",
+            get(attachments::list_page::<4>),
+        )
+        .route(
+            "/blogposts/{id}/footer-comments",
+            get(comments::list_page::<false, 4>),
+        )
+        .route(
+            "/blogposts/{id}/inline-comments",
+            get(comments::list_page::<true, 4>),
+        )
+        .route(
+            "/blogposts/{id}/custom-content",
+            get(content::list_in::<9, 2>),
+        )
+        .route("/blogposts/{id}/operations", get(likes::ops::<4>))
+        .route(
+            "/blogposts/{id}/properties",
+            get(props::list::<4>).post(props::create::<4>),
+        )
+        .route(
+            "/blogposts/{id}/properties/{pid}",
+            get(props::get::<4>)
+                .put(props::update::<4>)
+                .delete(props::delete::<4>),
+        )
+        .route("/folders/{id}/ancestors", get(tree::ancestors::<5>))
+        .route(
+            "/folders/{id}/direct-children",
+            get(tree::direct_children::<5>),
+        )
+        .route("/folders/{id}/descendants", get(tree::descendants::<5>))
+        .route("/folders/{id}/operations", get(likes::ops::<5>))
+        .route(
+            "/folders/{id}/properties",
+            get(props::list::<5>).post(props::create::<5>),
+        )
+        .route(
+            "/folders/{id}/properties/{pid}",
+            get(props::get::<5>)
+                .put(props::update::<5>)
+                .delete(props::delete::<5>),
+        )
+        .route("/whiteboards/{id}/ancestors", get(tree::ancestors::<6>))
+        .route(
+            "/whiteboards/{id}/direct-children",
+            get(tree::direct_children::<6>),
+        )
+        .route("/whiteboards/{id}/descendants", get(tree::descendants::<6>))
+        .route("/whiteboards/{id}/operations", get(likes::ops::<6>))
+        .route(
+            "/whiteboards/{id}/properties",
+            get(props::list::<6>).post(props::create::<6>),
+        )
+        .route(
+            "/whiteboards/{id}/properties/{pid}",
+            get(props::get::<6>)
+                .put(props::update::<6>)
+                .delete(props::delete::<6>),
+        )
+        .route("/databases/{id}/ancestors", get(tree::ancestors::<7>))
+        .route(
+            "/databases/{id}/direct-children",
+            get(tree::direct_children::<7>),
+        )
+        .route("/databases/{id}/descendants", get(tree::descendants::<7>))
+        .route("/databases/{id}/operations", get(likes::ops::<7>))
+        .route(
+            "/databases/{id}/properties",
+            get(props::list::<7>).post(props::create::<7>),
+        )
+        .route(
+            "/databases/{id}/properties/{pid}",
+            get(props::get::<7>)
+                .put(props::update::<7>)
+                .delete(props::delete::<7>),
+        )
+        .route("/embeds/{id}/ancestors", get(tree::ancestors::<8>))
+        .route(
+            "/embeds/{id}/direct-children",
+            get(tree::direct_children::<8>),
+        )
+        .route("/embeds/{id}/descendants", get(tree::descendants::<8>))
+        .route("/embeds/{id}/operations", get(likes::ops::<8>))
+        .route(
+            "/embeds/{id}/properties",
+            get(props::list::<8>).post(props::create::<8>),
+        )
+        .route(
+            "/embeds/{id}/properties/{pid}",
+            get(props::get::<8>)
+                .put(props::update::<8>)
+                .delete(props::delete::<8>),
+        )
+        .route("/folders", post(content::create::<5>))
+        .route(
+            "/folders/{id}",
+            get(content::get::<5>).delete(content::delete::<5>),
+        )
+        .route("/whiteboards", post(content::create::<6>))
+        .route(
+            "/whiteboards/{id}",
+            get(content::get::<6>).delete(content::delete::<6>),
+        )
+        .route("/databases", post(content::create::<7>))
+        .route(
+            "/databases/{id}",
+            get(content::get::<7>).delete(content::delete::<7>),
+        )
+        .route("/databases/{id}/entries", get(content::database_list::<0>))
+        .route(
+            "/databases/{id}/entries/{entry}",
+            get(content::database_entry),
+        )
+        .route("/databases/{id}/fields", get(content::database_list::<1>))
+        .route("/databases/{id}/views", get(content::database_list::<2>))
+        .route("/embeds", post(content::create::<8>))
+        .route(
+            "/embeds/{id}",
+            get(content::get::<8>).delete(content::delete::<8>),
+        )
+        .route(
+            "/custom-content",
+            get(content::list::<9>).post(content::create::<9>),
+        )
+        .route(
+            "/custom-content/{id}",
+            get(content::get::<9>)
+                .put(content::update::<9>)
+                .delete(content::delete::<9>),
+        )
+        .route(
+            "/custom-content/{id}/children",
+            get(content::list_in::<9, 2>),
+        )
+        .route("/spaces/{id}/custom-content", get(content::list_in::<9, 0>))
+        .route("/pages/{id}/custom-content", get(content::list_in::<9, 2>))
+        .route("/custom-content/{id}/labels", get(labels::of_content::<9>))
+        .route("/custom-content/{id}/versions", get(versions::list_k::<9>))
+        .route(
+            "/custom-content/{id}/versions/{number}",
+            get(versions::get_k::<9>),
+        )
+        .route(
+            "/custom-content/{id}/attachments",
+            get(attachments::list_page::<9>),
+        )
+        .route(
+            "/custom-content/{id}/footer-comments",
+            get(comments::list_page::<false, 9>),
+        )
+        .route("/custom-content/{id}/operations", get(likes::ops::<9>))
+        .route(
+            "/custom-content/{id}/properties",
+            get(props::list::<9>).post(props::create::<9>),
+        )
+        .route(
+            "/custom-content/{id}/properties/{pid}",
+            get(props::get::<9>)
+                .put(props::update::<9>)
+                .delete(props::delete::<9>),
         )
         .route_layer(middleware::from_fn_with_state(state.clone(), authz::guard))
         .route_layer(middleware::from_fn_with_state(

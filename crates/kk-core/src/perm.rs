@@ -143,15 +143,21 @@ pub fn can_update(p: &Principal, g: &Grants, chain: &[Restriction]) -> bool {
 
 /// Whether the principal may do `(op, target)` on a page.
 pub fn page_can(op: &str, p: &Principal, g: &Grants, chain: &[Restriction]) -> bool {
+    content_can("page", op, p, g, chain)
+}
+
+/// Like [`page_can`] for a content type that has its own create and delete permissions
+/// (`page` or `blogpost`).
+pub fn content_can(ty: &str, op: &str, p: &Principal, g: &Grants, chain: &[Restriction]) -> bool {
     if !can_view(p, g, chain) {
         return false;
     }
     let edit = chain.last().is_none_or(|r| r.update_ok(p)) || p.admin;
     match op {
         "read" => true,
-        "update" | "move" => g.has("create", "page") && edit,
-        "copy" => g.has("create", "page"),
-        "delete" => g.has("delete", "page") && edit,
+        "update" | "move" => g.has("create", ty) && edit,
+        "copy" => g.has("create", ty),
+        "delete" => g.has("delete", ty) && edit,
         "archive" => g.has("archive", "page") && edit,
         "restrict_content" => g.has("restrict_content", "space") || can_update(p, g, chain),
         "create_comment" => g.has("create", "comment"),
@@ -165,6 +171,16 @@ pub fn page_ops(
     g: &Grants,
     chain: &[Restriction],
 ) -> Vec<(&'static str, &'static str)> {
+    content_ops("page", p, g, chain)
+}
+
+/// Operations on a `page` or `blogpost`; the page-targeted entries report `ty` as their target.
+pub fn content_ops(
+    ty: &'static str,
+    p: &Principal,
+    g: &Grants,
+    chain: &[Restriction],
+) -> Vec<(&'static str, &'static str)> {
     PAGE_OPS
         .iter()
         .filter(|(op, target)| {
@@ -173,9 +189,9 @@ pub fn page_ops(
             } else {
                 (*op).into()
             };
-            page_can(&key, p, g, chain)
+            content_can(ty, &key, p, g, chain)
         })
-        .copied()
+        .map(|(op, target)| (*op, if *target == "page" { ty } else { *target }))
         .collect()
 }
 

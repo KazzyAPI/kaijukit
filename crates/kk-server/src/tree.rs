@@ -12,17 +12,19 @@ use crate::{
     authz::Access,
     error::R,
     http::{paged, parse_id, Q},
+    kinds,
     pages::not_found,
     AppState,
 };
 
 const LIVE: &str = "('current', 'archived')";
 
-async fn require_page(db: &PgPool, id: i64) -> R<()> {
+async fn require(db: &PgPool, id: i64, ty: &str) -> R<()> {
     sqlx::query_scalar::<_, i64>(
-        "SELECT id FROM content WHERE id = $1 AND type = 'page' AND status NOT IN ('trashed', 'deleted', 'historical')",
+        "SELECT id FROM content WHERE id = $1 AND type = $2 AND status NOT IN ('trashed', 'deleted', 'historical')",
     )
     .bind(id)
+    .bind(ty)
     .fetch_optional(db)
     .await?
     .map(|_| ())
@@ -47,6 +49,7 @@ fn child_json(c: &Child, with_type: bool) -> Value {
 
 async fn kids(
     s: &AppState,
+    k: u8,
     a: &Access,
     id: &str,
     raw: Option<String>,
@@ -57,7 +60,7 @@ async fn kids(
     let (limit, offset) = (q.limit()?, q.offset()?);
     let order = q.order_by(&[("child-position", "c.position")], "c.id")?;
     let id = parse_id(id)?;
-    require_page(&s.db, id).await?;
+    require(&s.db, id, kinds::of(k).ty).await?;
     let sql = format!(
         "SELECT c.id, c.status, c.title, c.space_id, c.type, c.position FROM content c \
          WHERE c.parent_id = $1 AND c.status IN {LIVE} AND (NOT $2 OR c.type = 'page') AND NOT (c.id = ANY($5)) \
@@ -74,7 +77,7 @@ async fn kids(
     let rows = rows.iter().map(|c| child_json(c, !only_pages)).collect();
     Ok(paged(
         &q,
-        &format!("/wiki/api/v2/pages/{id}/{route}"),
+        &format!("/wiki/api/v2/{}/{id}/{route}", kinds::of(k).seg),
         &s.site(),
         rows,
         limit,
@@ -88,19 +91,19 @@ pub async fn children(
     Path(id): Path<String>,
     RawQuery(raw): RawQuery,
 ) -> R<Response> {
-    kids(&s, &a, &id, raw, "children", true).await
+    kids(&s, kinds::PAGE, &a, &id, raw, "children", true).await
 }
 
-pub async fn direct_children(
+pub async fn direct_children<const K: u8>(
     State(s): State<AppState>,
     Extension(a): Extension<Arc<Access>>,
     Path(id): Path<String>,
     RawQuery(raw): RawQuery,
 ) -> R<Response> {
-    kids(&s, &a, &id, raw, "direct-children", false).await
+    kids(&s, K, &a, &id, raw, "direct-children", false).await
 }
 
-pub async fn ancestors(
+pub async fn ancestors<const K: u8>(
     State(s): State<AppState>,
     Path(id): Path<String>,
     RawQuery(raw): RawQuery,
@@ -108,7 +111,7 @@ pub async fn ancestors(
     let q = Q::parse(raw);
     let limit = q.limit()?;
     let id = parse_id(&id)?;
-    require_page(&s.db, id).await?;
+    require(&s.db, id, kinds::of(K).ty).await?;
     let rows: Vec<(i64, String)> = sqlx::query_as(
         "WITH RECURSIVE a AS (SELECT parent_id AS id, 1 AS d FROM content WHERE id = $1 \
          UNION ALL SELECT c.parent_id, a.d + 1 FROM content c JOIN a ON c.id = a.id) \
@@ -127,7 +130,7 @@ pub async fn ancestors(
     ))
 }
 
-pub async fn descendants(
+pub async fn descendants<const K: u8>(
     State(s): State<AppState>,
     Extension(a): Extension<Arc<Access>>,
     Path(id): Path<String>,
@@ -140,7 +143,7 @@ pub async fn descendants(
         return Err(ApiError::BadRequest("depth must be between 1 and 10".into()).into());
     }
     let id = parse_id(&id)?;
-    require_page(&s.db, id).await?;
+    require(&s.db, id, kinds::of(K).ty).await?;
     let sql = format!(
         "WITH RECURSIVE d AS (SELECT id, 1 AS depth FROM content WHERE parent_id = $1 AND status IN {LIVE} AND NOT (id = ANY($5)) \
          UNION ALL SELECT c.id, d.depth + 1 FROM content c JOIN d ON c.parent_id = d.id \
@@ -167,7 +170,7 @@ pub async fn descendants(
         .collect();
     Ok(paged(
         &q,
-        &format!("/wiki/api/v2/pages/{id}/descendants"),
+        &format!("/wiki/api/v2/{}/{id}/descendants", kinds::of(K).seg),
         &s.site(),
         rows,
         limit,

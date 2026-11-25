@@ -15,6 +15,7 @@ export async function send(base: string, auth: string, r: Req): Promise<Res> {
   }
   const res = await fetch(url, {
     method: r.method,
+    redirect: r.noFollow ? "manual" : "follow",
     headers: {
       accept: "application/json",
       ...(auth ? { authorization: "Basic " + Buffer.from(auth).toString("base64") } : {}),

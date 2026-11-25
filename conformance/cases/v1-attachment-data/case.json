@@ -1,0 +1,73 @@
+{
+  "id": "v1-attachment-data",
+  "ops": [
+    "updateAttachmentData"
+  ],
+  "setup": [
+    {
+      "as": "space",
+      "method": "POST",
+      "path": "/wiki/api/v2/spaces",
+      "body": {
+        "name": "Conf {{run}}",
+        "key": "K{{run}}"
+      }
+    },
+    {
+      "as": "page1",
+      "method": "POST",
+      "path": "/wiki/api/v2/pages",
+      "body": {
+        "spaceId": "{{space.id}}",
+        "status": "current",
+        "title": "page1 {{run}}",
+        "body": {
+          "representation": "storage",
+          "value": "<p>hello</p>"
+        }
+      }
+    },
+    {
+      "as": "child",
+      "method": "POST",
+      "path": "/wiki/api/v2/pages",
+      "body": {
+        "spaceId": "{{space.id}}",
+        "status": "current",
+        "title": "child {{run}}",
+        "body": {
+          "representation": "storage",
+          "value": "<p>hello</p>"
+        },
+        "parentId": "{{page1.id}}"
+      }
+    },
+    {
+      "as": "att",
+      "method": "POST",
+      "path": "/wiki/rest/api/content/{{page1.id}}/child/attachment",
+      "multipart": {
+        "filename": "a.txt",
+        "content": "hello",
+        "fields": {
+          "comment": "first",
+          "minorEdit": "false"
+        }
+      }
+    }
+  ],
+  "request": {
+    "method": "POST",
+    "path": "/wiki/rest/api/content/{{page1.id}}/child/attachment/{{att.results.0.id}}/data",
+    "multipart": {
+      "filename": "a.txt",
+      "content": "hello2",
+      "fields": {
+        "comment": "second"
+      }
+    }
+  },
+  "expect": {
+    "status": 200
+  }
+}

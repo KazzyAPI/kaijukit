@@ -1,0 +1,53 @@
+{
+  "id": "v2-space-get",
+  "ops": [
+    "getSpaceById"
+  ],
+  "setup": [
+    {
+      "as": "space",
+      "method": "POST",
+      "path": "/wiki/api/v2/spaces",
+      "body": {
+        "name": "Conf {{run}}",
+        "key": "K{{run}}"
+      }
+    },
+    {
+      "as": "page1",
+      "method": "POST",
+      "path": "/wiki/api/v2/pages",
+      "body": {
+        "spaceId": "{{space.id}}",
+        "status": "current",
+        "title": "page1 {{run}}",
+        "body": {
+          "representation": "storage",
+          "value": "<p>hello</p>"
+        }
+      }
+    },
+    {
+      "as": "child",
+      "method": "POST",
+      "path": "/wiki/api/v2/pages",
+      "body": {
+        "spaceId": "{{space.id}}",
+        "status": "current",
+        "title": "child {{run}}",
+        "body": {
+          "representation": "storage",
+          "value": "<p>hello</p>"
+        },
+        "parentId": "{{page1.id}}"
+      }
+    }
+  ],
+  "request": {
+    "method": "GET",
+    "path": "/wiki/api/v2/spaces/{{space.id}}"
+  },
+  "expect": {
+    "status": 200
+  }
+}

@@ -74,13 +74,26 @@ Driven with Playwright (`web/e2e/tests/page-features.spec.ts` for behaviour, `pa
 
 Limits found while building: no comment-author field (the last editor is shown), footer comments cannot be resolved, restore drops annotations that are not in the old body, and the Vite dev proxy needed `/wiki/download`.
 
+## Search, labels, permissions (M3 backend), 2026-11-25
+
+Method: `page-features-review.spec.ts` (real stack, four configurations, axe plus overflow check) now also covers the lock state with the share dialog, the label results view and quick search on page text. Screenshots read: `pf-{light,dark}-{wide,narrow}-{lock-state,label-view,quick-search-text,search}.png`.
+
+| # | Where | Bug | Fix |
+|---|---|---|---|
+| 1 | Search results page | The page icon shrank to a few pixels in rows with a long excerpt (flex item squeezed). | Icon is `flex: none`. |
+| 2 | e2e `flow.spec.ts` shell test | Strict mode violation: the link "Search for ..." and the result link both matched the title. | Exact name match. |
+
+Changes: quick search and `/wiki/search` use `GET /wiki/rest/api/search` with CQL (`type = page AND (title ~ "x" OR text ~ "x")`: partial title, stemmed text); the current user comes from `GET /user/current` (no more `users-bulk` scan); comment authors use the top-level `authorId` and fall back to `version.authorId`; label chips open `/wiki/labels/:id` (`GET /labels/{id}/pages`); the mention picker uses `GET /search/user` with `user.fullname ~`; the share button shows a lock (and "Share, restricted" for assistive tech) from `GET /pages/{id}/restriction-state`. Pages the user cannot read already come back as 404 and render the not-found page. Mock server gained stand-ins for search, search/user, user/current and restriction-state.
+
+Not verified end to end: the 404 for an unreadable page (the stack has one user, so no second account to test with).
+
 ## Known, not fixed
 
-- Page byline shows `User <short id>` until the server implements `POST /users-bulk`; the UI already uses it when present.
 - Page tree drag and drop is not built. There is no move endpoint (`PUT /pages/{id}` cannot change the parent), so a UI for it would only pretend to work.
 - Tree has no "load more" past 250 children and no virtualization.
 - Chevrons appear only for pages with children (the tree probes children of every visible row), which costs one request per visible row.
-- Mention picker offers only the page author and last editor (there is no user search endpoint yet).
+- Search has no filters, sorting, highlighting or CQL mode yet; excerpts come from the server as plain text (text nodes are joined with spaces, so punctuation can show a gap).
+- The restrictions dialog (changing who can view or edit) is not built; the lock is read-only.
 - The table of contents is a static placeholder while editing; it lists headings when the page is viewed.
 - Inline comments are built on published bodies (the server anchors them), so `Editor.annotate` / `removeAnnotation` are unused by the comment UI.
 - Layout sections have no per-column width controls (2 and 3 equal columns only).

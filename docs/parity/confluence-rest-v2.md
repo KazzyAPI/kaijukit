@@ -21,7 +21,7 @@ Status: `not started` | `partial` | `done`. `done` requires a conformance case. 
 | GET | `/databases/{id}/ancestors` | `getDatabaseAncestors` | Get all ancestors of database | not started | - |
 | GET | `/embeds/{id}/ancestors` | `getSmartLinkAncestors` | Get all ancestors of Smart Link in content tree | not started | - |
 | GET | `/folders/{id}/ancestors` | `getFolderAncestors` | Get all ancestors of folder | not started | - |
-| GET | `/pages/{id}/ancestors` | `getPageAncestors` | Get all ancestors of page | not started | - |
+| GET | `/pages/{id}/ancestors` | `getPageAncestors` | Get all ancestors of page | partial (schema) | v2-page-ancestors |
 | GET | `/whiteboards/{id}/ancestors` | `getWhiteboardAncestors` | Get all ancestors of whiteboard | not started | - |
 
 ## App Properties
@@ -67,7 +67,7 @@ Status: `not started` | `partial` | `done`. `done` requires a conformance case. 
 | GET | `/embeds/{id}/direct-children` | `getSmartLinkDirectChildren` | Get direct children of a Smart Link | not started | - |
 | GET | `/folders/{id}/direct-children` | `getFolderDirectChildren` | Get direct children of a folder | not started | - |
 | GET | `/pages/{id}/children` | `getChildPages` | Get child pages | partial (schema) | v2-page-children |
-| GET | `/pages/{id}/direct-children` | `getPageDirectChildren` | Get direct children of a page | not started | - |
+| GET | `/pages/{id}/direct-children` | `getPageDirectChildren` | Get direct children of a page | partial (schema) | v2-page-direct-children |
 | GET | `/whiteboards/{id}/direct-children` | `getWhiteboardDirectChildren` | Get direct children of a whiteboard | not started | - |
 
 ## Classification Level
@@ -143,10 +143,10 @@ Status: `not started` | `partial` | `done`. `done` requires a conformance case. 
 | GET | `/folders/{id}/restriction-state` | `getFolderRestrictionState` | Get folder restriction state | not started | - |
 | PUT | `/folders/{id}/restriction-state` | `setFolderRestrictionState` | Set folder restriction state | not started | - |
 | DELETE | `/pages/{id}/permissions` | `deletePagePermissions` | Delete page permissions | not started | - |
-| GET | `/pages/{id}/permissions` | `getPagePermissions` | Get page permissions | not started | - |
+| GET | `/pages/{id}/permissions` | `getPagePermissions` | Get page permissions | partial (schema) | v2-page-permissions |
 | POST | `/pages/{id}/permissions` | `addPagePermissions` | Add page permissions | not started | - |
 | PUT | `/pages/{id}/permissions` | `setPagePermissions` | Set page permissions | not started | - |
-| GET | `/pages/{id}/restriction-state` | `getPageRestrictionState` | Get page restriction state | not started | - |
+| GET | `/pages/{id}/restriction-state` | `getPageRestrictionState` | Get page restriction state | partial (schema) | v2-page-restriction-state |
 | PUT | `/pages/{id}/restriction-state` | `setPageRestrictionState` | Set page restriction state | not started | - |
 | DELETE | `/whiteboards/{id}/permissions` | `deleteWhiteboardPermissions` | Delete whiteboard permissions | not started | - |
 | GET | `/whiteboards/{id}/permissions` | `getWhiteboardPermissions` | Get whiteboard permissions | not started | - |
@@ -244,7 +244,7 @@ Status: `not started` | `partial` | `done`. `done` requires a conformance case. 
 | GET | `/databases/{id}/descendants` | `getDatabaseDescendants` | Get descendants of a database | not started | - |
 | GET | `/embeds/{id}/descendants` | `getSmartLinkDescendants` | Get descendants of a smart link | not started | - |
 | GET | `/folders/{id}/descendants` | `getFolderDescendants` | Get descendants of folder | not started | - |
-| GET | `/pages/{id}/descendants` | `getPageDescendants` | Get descendants of page | not started | - |
+| GET | `/pages/{id}/descendants` | `getPageDescendants` | Get descendants of page | partial (schema) | v2-page-descendants |
 | GET | `/whiteboards/{id}/descendants` | `getWhiteboardDescendants` | Get descendants of a whiteboard | not started | - |
 
 ## Folder
@@ -306,8 +306,8 @@ Status: `not started` | `partial` | `done`. `done` requires a conformance case. 
 | DELETE | `/pages/{id}` | `deletePage` | Delete page | partial (schema) | v2-page-delete |
 | GET | `/pages/{id}` | `getPageById` | Get page by id | partial (schema) | v2-page-get |
 | PUT | `/pages/{id}` | `updatePage` | Update page | partial (schema) | v2-page-update, v2-page-update-stale |
-| PUT | `/pages/{id}/title` | `updatePageTitle` | Update page title | not started | - |
-| GET | `/spaces/{id}/pages` | `getPagesInSpace` | Get pages in space | not started | - |
+| PUT | `/pages/{id}/title` | `updatePageTitle` | Update page title | partial (schema) | v2-page-title-update |
+| GET | `/spaces/{id}/pages` | `getPagesInSpace` | Get pages in space | partial (schema) | v2-space-pages |
 
 ## Redactions
 
@@ -330,7 +330,7 @@ Status: `not started` | `partial` | `done`. `done` requires a conformance case. 
 |---|---|---|---|---|---|
 | GET | `/spaces` | `getSpaces` | Get spaces | partial (schema) | v2-spaces-list |
 | POST | `/spaces` | `createSpace` | Create space | partial (schema) | v2-space-create |
-| GET | `/spaces/{id}` | `getSpaceById` | Get space by id | not started | - |
+| GET | `/spaces/{id}` | `getSpaceById` | Get space by id | partial (schema) | v2-space-get |
 
 ## Space Permission Transition
 
@@ -346,8 +346,8 @@ Status: `not started` | `partial` | `done`. `done` requires a conformance case. 
 
 | Method | Path | operationId | Summary | Status | Case |
 |---|---|---|---|---|---|
-| GET | `/space-permissions` | `getAvailableSpacePermissions` | Get available space permissions | not started | - |
-| GET | `/spaces/{id}/permissions` | `getSpacePermissionsAssignments` | Get space permissions assignments | not started | - |
+| GET | `/space-permissions` | `getAvailableSpacePermissions` | Get available space permissions | partial (schema) | v2-space-permissions-available |
+| GET | `/spaces/{id}/permissions` | `getSpacePermissionsAssignments` | Get space permissions assignments | partial (schema) | v2-space-permission-assignments |
 
 ## Space Properties
 
@@ -384,7 +384,7 @@ Status: `not started` | `partial` | `done`. `done` requires a conformance case. 
 
 | Method | Path | operationId | Summary | Status | Case |
 |---|---|---|---|---|---|
-| POST | `/user/access/check-access-by-email` | `checkAccessByEmail` | Check site access for a list of emails | not started | - |
+| POST | `/user/access/check-access-by-email` | `checkAccessByEmail` | Check site access for a list of emails | partial (schema) | v2-check-access-by-email |
 | POST | `/user/access/invite-by-email` | `inviteByEmail` | Invite a list of emails to the site | not started | - |
 | POST | `/users-bulk` | `createBulkUserLookup` | Create bulk user lookup using ids | partial (schema) | v2-users-bulk |
 
@@ -403,7 +403,7 @@ Status: `not started` | `partial` | `done`. `done` requires a conformance case. 
 | GET | `/inline-comments/{id}/versions` | `getInlineCommentVersions` | Get inline comment versions | partial (schema) | v2-inline-comment-versions |
 | GET | `/inline-comments/{id}/versions/{version-number}` | `getInlineCommentVersionDetails` | Get version details for inline comment version | partial (schema) | v2-inline-comment-version-get |
 | GET | `/pages/{id}/versions` | `getPageVersions` | Get page versions | partial (schema) | v2-page-versions |
-| GET | `/pages/{page-id}/versions/{version-number}` | `getPageVersionDetails` | Get version details for page version | not started | - |
+| GET | `/pages/{page-id}/versions/{version-number}` | `getPageVersionDetails` | Get version details for page version | partial (schema) | v2-page-version-get |
 
 ## Whiteboard
 

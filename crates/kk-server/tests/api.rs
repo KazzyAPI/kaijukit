@@ -1822,7 +1822,7 @@ async fn attachments_upload_versions_download_and_delete() {
     .await;
     assert_eq!(st, StatusCode::OK);
     assert_eq!(
-        serde_json::from_slice::<Value>(&body).unwrap()["results"][0]["version"]["number"],
+        serde_json::from_slice::<Value>(&body).unwrap()["version"]["number"],
         3
     );
 
@@ -3058,6 +3058,8 @@ async fn text_search_uses_the_stored_tsvector_and_gin_index() {
     );
 }
 
+type Subjects = Vec<(bool, usize)>;
+
 /// Property-style parity check: for generated trees, restriction sets and callers, the list
 /// filter (SQL descendant closure), the per-id guard (SQL ancestor chain + kk-core rules) and an
 /// independent oracle written from the documented rule must agree.
@@ -3133,8 +3135,7 @@ async fn restriction_filters_agree_with_the_core_rules() {
             }
         }
         // restrictions[node] = (read subjects, update subjects); subject = (is_group, index)
-        let mut restr: Vec<(Vec<(bool, usize)>, Vec<(bool, usize)>)> =
-            vec![Default::default(); nodes.len()];
+        let mut restr: Vec<(Subjects, Subjects)> = vec![Default::default(); nodes.len()];
         for n in 0..nodes.len() {
             if rnd(3) != 0 {
                 continue;

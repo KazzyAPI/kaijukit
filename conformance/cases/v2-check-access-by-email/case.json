@@ -1,0 +1,19 @@
+{
+  "id": "v2-check-access-by-email",
+  "ops": [
+    "checkAccessByEmail"
+  ],
+  "setup": [],
+  "request": {
+    "method": "POST",
+    "path": "/wiki/api/v2/user/access/check-access-by-email",
+    "body": {
+      "emails": [
+        "admin@kaijukit.local"
+      ]
+    }
+  },
+  "expect": {
+    "status": 200
+  }
+}

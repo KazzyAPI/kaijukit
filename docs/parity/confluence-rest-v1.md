@@ -37,11 +37,11 @@ Status: `not started` | `partial` | `done`. `done` requires a conformance case. 
 
 | Method | Path | operationId | Summary | Status | Case |
 |---|---|---|---|---|---|
-| POST | `/wiki/rest/api/content/{id}/child/attachment` | `createAttachment` | Create attachment | not started | - |
-| PUT | `/wiki/rest/api/content/{id}/child/attachment` | `createOrUpdateAttachments` | Create or update attachment | not started | - |
+| POST | `/wiki/rest/api/content/{id}/child/attachment` | `createAttachment` | Create attachment | partial (schema) | v1-attachment-create |
+| PUT | `/wiki/rest/api/content/{id}/child/attachment` | `createOrUpdateAttachments` | Create or update attachment | partial (schema) | v1-attachment-put |
 | PUT | `/wiki/rest/api/content/{id}/child/attachment/{attachmentId}` | `updateAttachmentProperties` | Update attachment properties | not started | - |
-| POST | `/wiki/rest/api/content/{id}/child/attachment/{attachmentId}/data` | `updateAttachmentData` | Update attachment data | not started | - |
-| GET | `/wiki/rest/api/content/{id}/child/attachment/{attachmentId}/download` | `downloadAttatchment` | Get URI to download attachment | not started | - |
+| POST | `/wiki/rest/api/content/{id}/child/attachment/{attachmentId}/data` | `updateAttachmentData` | Update attachment data | partial (schema) | v1-attachment-data |
+| GET | `/wiki/rest/api/content/{id}/child/attachment/{attachmentId}/download` | `downloadAttatchment` | Get URI to download attachment | partial (schema) | v1-attachment-download |
 
 ## Content - children and descendants
 

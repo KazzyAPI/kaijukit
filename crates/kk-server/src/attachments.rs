@@ -7,7 +7,7 @@ use axum::{
     body::Bytes,
     extract::{Path, RawQuery, State},
     http::{header, HeaderMap, StatusCode},
-    response::{IntoResponse, Redirect, Response},
+    response::{IntoResponse, Response},
     Extension, Json,
 };
 use chrono::{DateTime, Utc};
@@ -474,18 +474,23 @@ pub async fn update_data(
         Some(att),
     )
     .await?;
-    v1_created(&s, id).await
+    // the spec returns the single updated content here, not a list
+    Ok(Json(v1_json(&load(&s, id, None).await?)))
 }
 
 pub async fn v1_download(
     State(s): State<AppState>,
     Path((id, att)): Path<(String, String)>,
-) -> R<Redirect> {
+) -> R<impl IntoResponse> {
     let row = load(&s, parse_attachment_id(&att)?, None).await?;
     if row.container_id != parse_id(&id)? {
         return Err(ApiError::NotFound("attachment not found".into()).into());
     }
-    Ok(Redirect::to(&format!("/wiki{}", download_link(&row))))
+    // the spec documents 302 (axum's helpers only offer 303/307/308)
+    Ok((
+        StatusCode::FOUND,
+        [(header::LOCATION, format!("/wiki{}", download_link(&row)))],
+    ))
 }
 
 pub async fn download(

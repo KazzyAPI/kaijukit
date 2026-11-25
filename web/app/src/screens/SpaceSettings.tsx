@@ -1,24 +1,26 @@
 import { Avatar, Button, EmptyState, Icon, Skeleton, Tabs, useToast } from '@kaijukit/ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
-import { Link, useOutletContext } from 'react-router-dom';
+import { Link, useOutletContext, useSearchParams } from 'react-router-dom';
 import { errorTitle, lookupUsers, type Space } from '../api';
 import { shortDate } from '../format';
 import { availablePermissions, grant, listGroups, revoke, spaceGrants, userName, type Grant, type Subject } from '../permApi';
 import { QueryState } from '../QueryState';
 import { SubjectPicker } from '../SubjectPicker';
+import { TemplateManager } from '../Templates';
 import { useWatch } from '../Watch';
 
-type Tab = 'details' | 'permissions';
+type Tab = 'details' | 'permissions' | 'templates';
 
 export function SpaceSettings() {
   const space = useOutletContext<Space>();
-  const [tab, setTab] = useState<Tab>('details');
+  const [params] = useSearchParams();
+  const [tab, setTab] = useState<Tab>(params.get('tab') === 'templates' ? 'templates' : 'details');
   return (
     <div className="kk-container">
       <h1 className="kk-h1">Space settings: {space.name}</h1>
-      <Tabs label="Space settings" value={tab} onChange={(t) => setTab(t as Tab)} tabs={[{ id: 'details', label: 'Details' }, { id: 'permissions', label: 'Permissions' }]}>
-        {tab === 'details' ? <Details space={space} /> : <Permissions space={space} />}
+      <Tabs label="Space settings" value={tab} onChange={(t) => setTab(t as Tab)} tabs={[{ id: 'details', label: 'Details' }, { id: 'permissions', label: 'Permissions' }, { id: 'templates', label: 'Templates' }]}>
+        {tab === 'details' ? <Details space={space} /> : tab === 'permissions' ? <Permissions space={space} /> : <TemplateManager spaceKey={space.key} />}
       </Tabs>
     </div>
   );

@@ -118,8 +118,8 @@ export async function getAncestors(id: string): Promise<{ id: string; title: str
 }
 
 const adfBody = (value: string) => ({ representation: 'atlas_doc_format', value });
-export const createDraft = (spaceId: string, parentId: string | undefined, value: string, of: Kind = 'page') =>
-  request<Page>('POST', `/${SEG[of]}`, { body: { spaceId, parentId, status: 'draft', title: '', body: adfBody(value) } });
+export const createDraft = (spaceId: string, parentId: string | undefined, body: { representation: 'atlas_doc_format' | 'storage'; value: string }, of: Kind = 'page') =>
+  request<Page>('POST', `/${SEG[of]}`, { body: { spaceId, parentId, status: 'draft', title: '', body } });
 export const savePage = (p: { id: string; status: 'draft' | 'current'; title: string; body: string; version: number; message?: string; of?: Kind }) =>
   request<Page>('PUT', `/${SEG[p.of ?? 'page']}/${p.id}`, { body: { id: p.id, status: p.status, title: p.title, body: adfBody(p.body), version: { number: p.version, message: p.message } } });
 export const deletePage = (id: string, draft = false, of: Kind = 'page') => request<void>('DELETE', `/${SEG[of]}/${id}`, { query: { draft } });

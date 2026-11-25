@@ -7,6 +7,8 @@ import { pageUrl } from './format';
 import { useCurrentPageId } from './hooks';
 import { PageTree } from './PageTree';
 import { CreateFolderDialog } from './CreateKinds';
+import { CreatePageDialog } from './CreatePageDialog';
+import { useSpaceTemplates } from './templatesApi';
 import { spaceBlogs } from './contentApi';
 
 function Flyout({ icon, label, chevron = true, children }: { icon: IconName; label: string; chevron?: boolean; children: ReactNode }) {
@@ -109,6 +111,10 @@ function SpaceBlock({ space }: { space: Space }) {
   const currentId = useCurrentPageId();
   const create = () => navigate(`/wiki/spaces/${space.key}/pages/create`);
   const [folderOpen, setFolderOpen] = useState(false);
+  const [pickOpen, setPickOpen] = useState(false);
+  const templates = useSpaceTemplates(space.key);
+  // The Create row offers the template picker only when there is something to pick.
+  const createFromRow = () => (templates.data?.length ? setPickOpen(true) : create());
   const blogs = useQuery({ queryKey: ['blogs', space.id], queryFn: () => spaceBlogs(space.id) });
   return (
     <div className="kk-nav__group">
@@ -132,7 +138,7 @@ function SpaceBlock({ space }: { space: Space }) {
           <>
             <IconButton label="Create page" icon={<Icon name="plus" />} onClick={create} />
             <Menu label="Content actions" align="end" renderTrigger={(t) => <IconButton label="Content actions" icon={<Icon name="more" />} {...t} />}>
-              <MenuItem onSelect={create}>New page</MenuItem>
+              <MenuItem onSelect={createFromRow}>New page</MenuItem>
               <MenuItem onSelect={() => setFolderOpen(true)}>New folder</MenuItem>
               {todoItem('Reorder pages')}
             </Menu>
@@ -140,7 +146,7 @@ function SpaceBlock({ space }: { space: Space }) {
         }
       >
         <PageTree space={space} currentId={currentId} />
-        <button type="button" className="kk-nav__row kk-nav__create" onClick={create}>
+        <button type="button" className="kk-nav__row kk-nav__create" onClick={createFromRow}>
           <Icon name="plus" />
           <span className="kk-nav__label">Create</span>
         </button>
@@ -156,6 +162,7 @@ function SpaceBlock({ space }: { space: Space }) {
         ))}
       </Section>
       <CreateFolderDialog open={folderOpen} space={space} onClose={() => setFolderOpen(false)} />
+      <CreatePageDialog open={pickOpen} spaceKey={space.key} onClose={() => setPickOpen(false)} />
       <Section title="Calendars">
         <p className="kk-nav__empty">No calendars in this space</p>
       </Section>

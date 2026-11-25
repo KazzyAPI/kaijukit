@@ -1,6 +1,6 @@
 import { request } from './api';
 
-// kaijukit extension, not part of the Confluence API: GET/POST under /wiki/rest/kk/v1.
+// kaijukit extension (not in the pinned API specs): everything under /wiki/rest/kk/v1.
 const KK = '/wiki/rest/kk/v1';
 
 export interface Notification {

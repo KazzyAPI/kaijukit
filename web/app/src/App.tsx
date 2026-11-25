@@ -2,6 +2,7 @@ import { Skeleton } from '@kaijukit/ui';
 import { lazy, Suspense } from 'react';
 import { Navigate, Outlet, Route, Routes, useLocation, useParams } from 'react-router-dom';
 import { useAuth } from './auth';
+import { TemplateManager } from './Templates';
 import { Chrome } from './Chrome';
 import { ErrorPage, NotFound } from './screens/Errors';
 import { History } from './screens/History';
@@ -21,6 +22,7 @@ import { Tasks } from './screens/Tasks';
 const editorModule = () => import('./screens/EditorScreen');
 const EditorRoute = lazy(() => editorModule().then((m) => ({ default: m.EditorRoute })));
 const CreateRoute = lazy(() => editorModule().then((m) => ({ default: m.CreateRoute })));
+const TemplateEditorRoute = lazy(() => editorModule().then((m) => ({ default: m.TemplateEditorRoute })));
 const Loading = () => <div className="kk-container" aria-busy="true"><Skeleton height={36} width="50%" /><Skeleton height={240} style={{ marginTop: 16 }} /></div>;
 
 function RequireAuth() {
@@ -34,6 +36,19 @@ function Logout() {
   const { logout } = useAuth();
   logout();
   return <Navigate to="/wiki/login" replace />;
+}
+
+function SpaceTemplateRoute() {
+  return <TemplateEditorRoute spaceKey={useParams().key} />;
+}
+
+function GlobalTemplates() {
+  return (
+    <div className="kk-container">
+      <h1 className="kk-h1">Global templates</h1>
+      <TemplateManager />
+    </div>
+  );
 }
 
 function ErrorRoute() {
@@ -64,6 +79,7 @@ export function App() {
             <Route path="blog/:id/*" element={<PageRoute of="blogpost" />} />
             <Route path="blog/:y/:m/:d/:id/*" element={<PageRoute of="blogpost" />} />
             <Route path="settings" element={<SpaceSettings />} />
+            <Route path="templates/:tid" element={<Suspense fallback={<Loading />}><SpaceTemplateRoute /></Suspense>} />
             <Route path="pages/edit-v2/:id" element={<Suspense fallback={<Loading />}><EditorRoute /></Suspense>} />
             <Route path="pages/create" element={<Suspense fallback={<Loading />}><CreateRoute /></Suspense>} />
             <Route path="pages/history/:id" element={<History />} />
@@ -71,6 +87,8 @@ export function App() {
             <Route path="*" element={<NotFound />} />
           </Route>
           <Route path="/wiki/admin/groups" element={<Groups />} />
+          <Route path="/wiki/admin/templates" element={<GlobalTemplates />} />
+          <Route path="/wiki/admin/templates/:tid" element={<Suspense fallback={<Loading />}><TemplateEditorRoute /></Suspense>} />
           <Route path="/wiki/error/:code" element={<ErrorRoute />} />
           <Route path="*" element={<NotFound />} />
         </Route>

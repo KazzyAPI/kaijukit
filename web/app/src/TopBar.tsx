@@ -71,7 +71,7 @@ export function TopBar({ navOpen, onToggleNav }: { navOpen: boolean; onToggleNav
           </Button>
         )}
       >
-        <MenuItem onSelect={() => (inSpace ? navigate(`/wiki/spaces/${inSpace}/pages/create`) : setPageDialog(true))}>Page</MenuItem>
+        <MenuItem onSelect={() => setPageDialog(true)}>Page</MenuItem>
         <MenuItem onSelect={() => setSpaceDialog(true)}>Space</MenuItem>
       </Menu>
       <div className="kk-topbar__right">
@@ -93,6 +93,7 @@ export function TopBar({ navOpen, onToggleNav }: { navOpen: boolean; onToggleNav
         >
           <MenuLabel>{user?.email}</MenuLabel>
           <MenuItem onSelect={() => navigate('/wiki/tasks')}>Tasks</MenuItem>
+          <MenuItem onSelect={() => navigate('/wiki/admin/templates')}>Global templates</MenuItem>
           <MenuSeparator />
           <MenuLabel>Theme</MenuLabel>
           {(['light', 'dark', 'auto'] as const).map((t) => (
@@ -124,7 +125,7 @@ export function TopBar({ navOpen, onToggleNav }: { navOpen: boolean; onToggleNav
         </dl>
       </Dialog>
       <CreateSpaceDialog open={spaceDialog} onClose={() => setSpaceDialog(false)} />
-      <CreatePageDialog open={pageDialog} onClose={() => setPageDialog(false)} />
+      <CreatePageDialog open={pageDialog} onClose={() => setPageDialog(false)} spaceKey={inSpace} />
     </header>
   );
 }

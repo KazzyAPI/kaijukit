@@ -146,7 +146,7 @@ function route(method: string, path: string, q: URLSearchParams, body: Record<st
     const status = body.status === 'draft' ? 'draft' : 'current';
     if (!spaces.some((s) => s.id === body.spaceId)) throw new HttpError(404, 'Space not found.');
     if (status === 'current') checkTitle(body.spaceId, body.title ?? '');
-    return [200, pageJson(newPage({ spaceId: body.spaceId, title: body.title ?? '', parentId: body.parentId ?? null, status, body: body.body?.value }), false)];
+    return [200, pageJson(newPage({ spaceId: body.spaceId, title: body.title ?? '', parentId: body.parentId ?? null, status, body: body.body ? bodyAdf(body.body) : undefined }), false)];
   }
   if ((m = path.match(/^\/pages\/(\d+)$/))) {
     const p = method === 'GET' || method === 'PUT' || method === 'DELETE' ? getPage(m[1]) : null;
@@ -261,7 +261,6 @@ function kkRoute(method: string, path: string, q: URLSearchParams): [number, unk
 
 // Minimal stand-ins for the v1 search and current-user endpoints: substring match on `title ~ "x"` / `text ~ "x"` clauses only.
 function v1Json(url: URL, path: string): unknown {
-  if (path === '/template/page') return { results: [], start: 0, limit: 25, size: 0 };
   if (path === '/user/current') return { type: 'known', accountId: USER.id, accountType: 'standard', email: USER.email, publicName: 'Admin', displayName: 'Ada Admin' };
   const cql = url.searchParams.get('cql') ?? '';
   const term = /~ "((?:[^"\\]|\\.)*)"/.exec(cql)?.[1]?.toLowerCase() ?? '';
@@ -273,6 +272,66 @@ function v1Json(url: URL, path: string): unknown {
       return { title: p.title, excerpt: plainText(p.body), lastModified: p.version.createdAt, content: { id: p.id, type: 'page', space: { key: s.key, name: s.name } } };
     }),
   };
+}
+
+// Templates: bodies are stored as ADF; storage is a paragraph-only stand-in (`<p>text</p>`), enough for the create-from-template round trip.
+interface Template {
+  id: string;
+  name: string;
+  description: string;
+  labels: { name: string }[];
+  spaceKey?: string;
+  adf: string;
+}
+const templates: Template[] = [];
+const toStorage = (adf: string) => `<p>${plainText(adf)}</p>`;
+const fromStorage = (xml: string) => JSON.stringify({ version: 1, type: 'doc', content: [...xml.matchAll(/<p>(.*?)<\/p>/g)].map((m) => ({ type: 'paragraph', content: [{ type: 'text', text: m[1] }] })) });
+const bodyAdf = (b: { representation?: string; value?: string }) => (b.representation === 'storage' ? fromStorage(b.value ?? '') : (b.value ?? emptyBody));
+const templateJson = (t: Template, withBody: boolean) => ({
+  templateId: t.id,
+  name: t.name,
+  description: t.description,
+  labels: t.labels,
+  templateType: 'page',
+  space: t.spaceKey ? { key: t.spaceKey } : undefined,
+  body: withBody ? { storage: { representation: 'storage', value: toStorage(t.adf) } } : undefined,
+});
+async function templateApi(req: IncomingMessage, res: ServerResponse, url: URL): Promise<boolean> {
+  const path = url.pathname.slice(V1.length);
+  const [email, token] = Buffer.from((req.headers.authorization ?? '').replace(/^Basic /, ''), 'base64').toString().split(':');
+  if (email !== USER.email || token !== USER.token) return send(res, 401, { message: 'Authentication failed.' }), true;
+  const withBody = url.searchParams.getAll('templateExpand').includes('body');
+  const m = path.match(/^\/template\/(\d+)$/);
+  if (path === '/template/page' && req.method === 'GET') {
+    const key = url.searchParams.get('spaceKey') ?? undefined;
+    const rows = templates.filter((t) => t.spaceKey === key).sort((a, b) => a.name.localeCompare(b.name));
+    return send(res, 200, { results: rows.map((t) => templateJson(t, withBody)), start: 0, limit: 250, size: rows.length }), true;
+  }
+  if (m && req.method === 'GET') {
+    const t = templates.find((x) => x.id === m[1]);
+    return t ? send(res, 200, templateJson(t, withBody)) : send(res, 404, { message: 'template not found' }), true;
+  }
+  if (m && req.method === 'DELETE') {
+    const i = templates.findIndex((x) => x.id === m[1]);
+    if (i < 0) return send(res, 404, { message: 'template not found' }), true;
+    templates.splice(i, 1);
+    return send(res, 204), true;
+  }
+  if (path === '/template' && (req.method === 'POST' || req.method === 'PUT')) {
+    const b = await readBody(req);
+    if (!String(b.name ?? '').trim()) return send(res, 400, { message: 'name must be 1 to 255 characters' }), true;
+    const fields = { name: String(b.name).trim(), description: b.description ?? '', labels: (b.labels ?? []).map((l: { name: string }) => ({ name: l.name })), spaceKey: b.space?.key as string | undefined, adf: bodyAdf(b.body?.atlas_doc_format ?? b.body?.storage ?? b.body ?? {}) };
+    if (req.method === 'POST') {
+      const t = { id: nid(), ...fields };
+      templates.push(t);
+      return send(res, 200, templateJson(t, true)), true;
+    }
+    const t = templates.find((x) => x.id === b.templateId);
+    if (!t) return send(res, 404, { message: 'template not found' }), true;
+    Object.assign(t, fields);
+    return send(res, 200, templateJson(t, true)), true;
+  }
+  return false;
 }
 
 async function attachments(req: IncomingMessage, res: ServerResponse, path: string): Promise<boolean> {
@@ -306,14 +365,16 @@ export function mockApi(): Plugin {
       server.middlewares.use(async (req, res, next) => {
         const url = new URL(req.url ?? '/', 'http://x');
         const v1 = url.pathname.startsWith(V1 + '/') ? url.pathname.slice(V1.length) : '';
-        if (['/search', '/search/user', '/user/current', '/template/page'].includes(v1)) return send(res, 200, v1Json(url, v1));
+        if (['/search', '/search/user', '/user/current'].includes(v1)) return send(res, 200, v1Json(url, v1));
         if (url.pathname.startsWith(KK + '/')) return send(res, ...kkRoute(req.method ?? 'GET', url.pathname.slice(KK.length), url.searchParams));
+        if (url.pathname.startsWith(V1 + '/template') && (await templateApi(req, res, url))) return;
         if (url.pathname.startsWith(V1 + '/') && (await attachments(req, res, url.pathname.slice(V1.length)))) return;
         if (!url.pathname.startsWith(BASE + '/')) return next();
         if (url.pathname === BASE + '/__reset') {
           spaces.length = 0;
           pages.length = 0;
           notices.length = 0;
+          templates.length = 0;
           return send(res, 204);
         }
         if (url.pathname === BASE + '/__notify') {

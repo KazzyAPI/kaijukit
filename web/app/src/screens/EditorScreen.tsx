@@ -7,6 +7,7 @@ import { useNavigate, useOutletContext, useParams, useSearchParams } from 'react
 import { ApiError, createDraft, deletePage, getPage, resolveMedia, savePage, uploadAttachment, type Kind, type Page, type Space } from '../api';
 import { searchPeople } from '../contentApi';
 import { routes } from '../format';
+import { getTemplate } from '../templatesApi';
 import { PageHeaderBar } from '../PageHeader';
 import { QueryState } from '../QueryState';
 import { getJson, store } from '../storage';
@@ -32,17 +33,20 @@ export function CreateRoute({ of = 'page' }: { of?: Kind }) {
   const [error, setError] = useState<unknown>(null);
   const [attempt, setAttempt] = useState(0);
   const parent = params.get('parentPageId');
+  const templateId = params.get('templateId');
 
   useEffect(() => {
     if (started.current) return;
     started.current = true;
-    createDraft(s.id, of === 'page' ? (parent ?? s.homepageId) : undefined, JSON.stringify(emptyDoc()), of)
+    // A template's body is storage format; the server converts it when the draft is created.
+    (templateId ? getTemplate(templateId).then((t) => ({ representation: 'storage' as const, value: t.body?.storage?.value ?? '' })) : Promise.resolve({ representation: 'atlas_doc_format' as const, value: JSON.stringify(emptyDoc()) }))
+      .then((body) => createDraft(s.id, of === 'page' ? (parent ?? s.homepageId) : undefined, body, of))
       .then((p) => navigate(routes(of, s.key).edit(p.id), { replace: true }))
       .catch((e) => {
         started.current = false;
         setError(e);
       });
-  }, [s, parent, navigate, attempt, of]);
+  }, [s, parent, templateId, navigate, attempt, of]);
 
   if (error) return <div className="kk-container"><ErrorPanel error={error} onRetry={() => { setError(null); setAttempt((a) => a + 1); }} /></div>;
   return <div className="kk-container" aria-busy="true"><Skeleton height={36} width="50%" /><Skeleton height={200} style={{ marginTop: 16 }} /></div>;
@@ -321,3 +325,5 @@ function EditorScreen({ space, page, of }: { space: Space; page: Page; of: Kind 
     </div>
   );
 }
+
+export { TemplateEditorRoute } from './TemplateEditor';

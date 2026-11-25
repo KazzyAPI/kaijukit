@@ -263,3 +263,7 @@ mark.kk-annotation { color: inherit; }
 .kk-notif__text { overflow-wrap: anywhere; white-space: normal; }
 .kk-notif[data-unread="true"] .kk-notif__text, .kk-notif[data-unread="true"] .kk-result__title { font-weight: 700; }
 li.kk-notif { flex-direction: row; align-items: center; justify-content: space-between; }
+.kk-tpl { display: flex; flex-direction: column; gap: var(--kk-space-2); margin: 0; padding: 0; border: 0; min-width: 0; }
+.kk-tpl__opt { display: flex; gap: var(--kk-space-2); align-items: flex-start; padding: var(--kk-space-2); border: 1px solid var(--kk-border); border-radius: var(--kk-radius-sm); cursor: pointer; }
+.kk-tpl__opt:has(input:checked) { border-color: var(--kk-brand); background: var(--kk-surface-sunken); }
+.kk-tpl__opt input { margin-top: 3px; }

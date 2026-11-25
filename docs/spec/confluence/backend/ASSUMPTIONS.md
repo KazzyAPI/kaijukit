@@ -160,3 +160,13 @@ All `[V]`.
 - Admin key: site administrators only (403 otherwise). POST stores an expiry of 1 to 60 minutes (default 10) for the caller; GET/DELETE are 404 without an active key. It grants nothing extra because administrators already pass every check.
 - Data policies are not built: metadata says `anyContentBlocked: false`, the space list is empty.
 - Not built: redactions (`postRedactPage`, `postRedactBlog`), space roles and role assignments, space permission transition, `convertContentIdsToContentTypes`, `inviteByEmail`.
+
+## M4c: kaijukit extensions (not in the pinned specs)
+
+Everything under `/wiki/rest/kk/v1` is ours: the pinned specs have no such operation, so cases for it set `"extension": true` (schema mode checks the status only) and no parity row exists. Never `done`-able against the reference.
+
+- Notifications (read side of the M3 `notifications` table). All calls act on the caller's own rows.
+  - `GET /notifications?start&limit&unread=true`: v1-style page (`results,start,limit,size,_links`), newest first, default limit 25. Item: `{id, kind (content.created|content.updated), read, createdAt, actor {accountId, displayName} or null, content {id, type, title, spaceKey, _links.webui}}`. Rows whose content is trashed or no longer visible to the caller are left out of the page (so a page can be short).
+  - `GET /notifications/unread-count` -> `{count}`: unread rows on non-trashed content. It does not re-check restrictions, so it can exceed what the list shows.
+  - `POST /notifications/{id}/read` -> 204; another user's or an unknown id is 404. `POST /notifications/read-all` -> 204.
+- Users: `POST /users` `{email, displayName?, admin?}` (site administrators only, else 403) creates a user and an API token, returned once as `token` with `accountId`, `email`, `displayName`, `admin` (201). The email must have one `@` and a dotted domain, unique case-insensitively (400). Generated tokens are `kk_` plus 64 hex characters from the database's `gen_random_uuid()`; only the sha256 is stored. This is how a second, non-admin user is made without SQL.

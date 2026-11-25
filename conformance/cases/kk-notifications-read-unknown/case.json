@@ -1,0 +1,8 @@
+{
+  "id": "kk-notifications-read-unknown",
+  "ops": [],
+  "extension": true,
+  "setup": [],
+  "request": {"method": "POST", "path": "/wiki/rest/kk/v1/notifications/1/read"},
+  "expect": {"status": 404}
+}

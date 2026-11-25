@@ -73,6 +73,7 @@ export async function runCase(c: Case, mode: Mode, ctx: Ctx): Promise<Result> {
     const got = normalize(res.body, c.normalize);
     return isDeepStrictEqual(got, c.expect!.body) ? { id: c.id, status: "pass", detail: "" } : fail(firstDiff(c.expect!.body, got));
   }
+  if (c.extension) return { id: c.id, status: "pass", detail: `extension ${res.status}` };
   const spec = await ctx.spec(c.request.path);
   const op = matchOp(listOps(spec), c.request.method, c.request.path, serverBase(spec));
   if (!op) return fail(`${c.request.method} ${c.request.path} matches no operation in the spec`);

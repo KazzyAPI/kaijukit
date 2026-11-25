@@ -3818,3 +3818,156 @@ async fn classification_levels_admin_key_and_data_policies() {
         json!([])
     );
 }
+
+async fn kk(app: &Router, who: &str, method: Method, path: &str, body: Option<Value>) -> Res {
+    send(
+        app,
+        method,
+        &format!("/wiki/rest/kk/v1{path}"),
+        body,
+        Some(who),
+    )
+    .await
+}
+
+#[tokio::test]
+async fn created_users_and_notification_reads() {
+    let (app, db) = start_db().await;
+    // an administrator creates a user and gets its token; a non-admin cannot, duplicates and bad emails are 400
+    let u = kk(
+        &app,
+        ADMIN,
+        Method::POST,
+        "/users",
+        Some(json!({"email": "bo@example.test", "displayName": "Bo"})),
+    )
+    .await;
+    assert_eq!(u.status, StatusCode::CREATED);
+    let bo = format!("bo@example.test:{}", u.json["token"].as_str().unwrap());
+    assert_eq!(
+        kk(
+            &app,
+            ADMIN,
+            Method::POST,
+            "/users",
+            Some(json!({"email": "BO@example.test"}))
+        )
+        .await
+        .status,
+        StatusCode::BAD_REQUEST
+    );
+    assert_eq!(
+        kk(
+            &app,
+            ADMIN,
+            Method::POST,
+            "/users",
+            Some(json!({"email": "nope"}))
+        )
+        .await
+        .status,
+        StatusCode::BAD_REQUEST
+    );
+    assert_eq!(
+        kk(
+            &app,
+            &bo,
+            Method::POST,
+            "/users",
+            Some(json!({"email": "c@example.test"}))
+        )
+        .await
+        .status,
+        StatusCode::FORBIDDEN
+    );
+    let me = as_user_v1(&app, &bo, Method::GET, "/user/current", None).await;
+    assert_eq!(me.json["displayName"], "Bo");
+    assert_eq!(me.json["accountId"], u.json["accountId"]);
+
+    // bo watches a page; the admin's edit becomes one unread notification
+    let sp = space(&app, "NTFY").await;
+    let p = page(&app, &sp["id"], "Bell", None).await;
+    let pid = p["id"].as_str().unwrap();
+    kk_server::jobs::run_due(&db).await.unwrap(); // the create job, before bo watches
+    as_user_v1(
+        &app,
+        &bo,
+        Method::POST,
+        &format!("/user/watch/content/{pid}"),
+        None,
+    )
+    .await;
+    put_page(&app, pid, "Bell", 2, "<p>x</p>").await;
+    kk_server::jobs::run_due(&db).await.unwrap();
+    let c = kk(&app, &bo, Method::GET, "/notifications/unread-count", None).await;
+    assert_eq!(c.json["count"], 1);
+    let l = kk(&app, &bo, Method::GET, "/notifications?unread=true", None).await;
+    let n = &l.json["results"][0];
+    assert_eq!(n["kind"], "content.updated");
+    assert_eq!(n["read"], false);
+    assert_eq!(n["content"]["title"], "Bell");
+    assert_eq!(n["content"]["spaceKey"], "NTFY");
+    assert_eq!(n["actor"]["displayName"], "Admin");
+    // the admin has none, and cannot mark bo's
+    assert_eq!(
+        kk(&app, ADMIN, Method::GET, "/notifications", None)
+            .await
+            .json["size"],
+        0
+    );
+    let path = format!("/notifications/{}/read", n["id"].as_str().unwrap());
+    assert_eq!(
+        kk(&app, ADMIN, Method::POST, &path, None).await.status,
+        StatusCode::NOT_FOUND
+    );
+    assert_eq!(
+        kk(&app, &bo, Method::POST, &path, None).await.status,
+        StatusCode::NO_CONTENT
+    );
+    assert_eq!(
+        kk(&app, &bo, Method::GET, "/notifications/unread-count", None)
+            .await
+            .json["count"],
+        0
+    );
+    assert_eq!(
+        kk(&app, &bo, Method::GET, "/notifications?unread=true", None)
+            .await
+            .json["size"],
+        0
+    );
+    assert_eq!(
+        kk(&app, &bo, Method::GET, "/notifications", None)
+            .await
+            .json["results"][0]["read"],
+        true
+    );
+    // read-all, and trashed content drops out
+    put_page(&app, pid, "Bell", 3, "<p>y</p>").await;
+    kk_server::jobs::run_due(&db).await.unwrap();
+    assert_eq!(
+        kk(&app, &bo, Method::POST, "/notifications/read-all", None)
+            .await
+            .status,
+        StatusCode::NO_CONTENT
+    );
+    assert_eq!(
+        kk(&app, &bo, Method::GET, "/notifications/unread-count", None)
+            .await
+            .json["count"],
+        0
+    );
+    call(&app, Method::DELETE, &format!("/pages/{pid}"), None).await;
+    assert_eq!(
+        kk(&app, &bo, Method::GET, "/notifications", None)
+            .await
+            .json["size"],
+        0
+    );
+    assert_eq!(
+        kk(&app, "x:y", Method::GET, "/notifications", None)
+            .await
+            .status,
+        StatusCode::UNAUTHORIZED
+    );
+}

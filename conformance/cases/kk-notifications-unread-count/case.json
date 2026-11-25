@@ -1,0 +1,8 @@
+{
+  "id": "kk-notifications-unread-count",
+  "ops": [],
+  "extension": true,
+  "setup": [],
+  "request": {"method": "GET", "path": "/wiki/rest/kk/v1/notifications/unread-count"},
+  "expect": {"status": 200}
+}

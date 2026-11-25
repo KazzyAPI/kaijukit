@@ -1,0 +1,8 @@
+{
+  "id": "kk-notifications-read-all",
+  "ops": [],
+  "extension": true,
+  "setup": [],
+  "request": {"method": "POST", "path": "/wiki/rest/kk/v1/notifications/read-all"},
+  "expect": {"status": 204}
+}

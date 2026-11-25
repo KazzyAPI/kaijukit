@@ -1,0 +1,8 @@
+{
+  "id": "kk-user-create",
+  "ops": [],
+  "extension": true,
+  "setup": [],
+  "request": {"method": "POST", "path": "/wiki/rest/kk/v1/users", "body": {"email": "u{{run}}@example.test", "displayName": "User {{run}}"}},
+  "expect": {"status": 201}
+}

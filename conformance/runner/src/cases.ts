@@ -9,6 +9,8 @@ export interface Case {
   id: string; ops: string[]; setup: Array<Req & { as: string }>; request: Req;
   expect?: { status?: number; body?: Json; headers?: Record<string, string> };
   normalize?: Rules;
+  /** A kaijukit-only endpoint: the pinned spec has no schema, so schema mode checks the status only. */
+  extension?: boolean;
 }
 
 export function loadCases(dir: string): Case[] {

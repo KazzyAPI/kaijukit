@@ -13,7 +13,7 @@ use crate::{error::E, AppState};
 
 pub const DEV_TOKEN: &str = "kk-dev-token";
 
-fn hash(token: &str) -> String {
+pub(crate) fn hash(token: &str) -> String {
     Sha256::digest(token.as_bytes())
         .iter()
         .map(|b| format!("{b:02x}"))

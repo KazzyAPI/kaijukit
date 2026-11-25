@@ -17,6 +17,7 @@ mod kinds;
 mod labels;
 mod likes;
 mod multipart;
+mod notifications;
 mod pages;
 mod props;
 mod restrictions;
@@ -644,11 +645,30 @@ pub fn app(state: AppState) -> Router {
             state.clone(),
             auth::require_auth,
         ));
+    // kaijukit-only endpoints; ids are named `nid` so the content guard leaves them alone
+    let kk = Router::new()
+        .route("/users", post(users::create))
+        .route("/notifications", get(notifications::list))
+        .route(
+            "/notifications/unread-count",
+            get(notifications::unread_count),
+        )
+        .route(
+            "/notifications/read-all",
+            post(notifications::mark_all_read),
+        )
+        .route("/notifications/{nid}/read", post(notifications::mark_read))
+        .route_layer(middleware::from_fn_with_state(state.clone(), authz::guard))
+        .route_layer(middleware::from_fn_with_state(
+            state.clone(),
+            auth::require_auth,
+        ));
     Router::new()
         .route("/healthz", get(|| async { "ok" }))
         .route("/readyz", get(ready))
         .nest("/wiki/api/v2", v2)
         .nest("/wiki/rest/api", v1)
+        .nest("/wiki/rest/kk/v1", kk)
         .nest("/wiki/download", download)
         .fallback(|| async { E(ApiError::NotFound("no such route".into())) })
         .layer(DefaultBodyLimit::max(http::MAX_BODY))

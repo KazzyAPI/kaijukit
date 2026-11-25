@@ -125,6 +125,7 @@ export function TopBar({ navOpen, onToggleNav }: { navOpen: boolean; onToggleNav
           )}
         >
           <MenuLabel>{user?.email}</MenuLabel>
+          <MenuItem onSelect={() => navigate('/wiki/tasks')}>Tasks</MenuItem>
           <MenuSeparator />
           <MenuLabel>Theme</MenuLabel>
           {(['light', 'dark', 'auto'] as const).map((t) => (

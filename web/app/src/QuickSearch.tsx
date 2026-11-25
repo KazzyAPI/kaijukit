@@ -29,10 +29,10 @@ export function QuickSearch({ open, onClose }: { open: boolean; onClose: () => v
       title="Search"
       onSubmit={() => {
         const first = rows[0];
-        if (first) {
-          navigate(pageUrl(first.s.key, first.p.id, first.p.title));
-          close();
-        }
+        if (first) navigate(pageUrl(first.s.key, first.p.id, first.p.title));
+        else if (q) navigate(`/wiki/search?text=${encodeURIComponent(q)}`);
+        else return;
+        close();
       }}
     >
       <label className="kk-qs__field">
@@ -44,6 +44,11 @@ export function QuickSearch({ open, onClose }: { open: boolean; onClose: () => v
         {q && hits.isPending && <Skeleton height={36} />}
         {q && hits.isError && <p role="alert" className="kk-error-box">Search failed. Try again.</p>}
         {q && hits.data && rows.length === 0 && <p className="kk-muted">No page is titled "{q}".</p>}
+        {q && (
+          <Link className="kk-qs__all" to={`/wiki/search?text=${encodeURIComponent(q)}`} onClick={close}>
+            Search for "{q}" on the results page
+          </Link>
+        )}
         {rows.length > 0 && (
           <ul className="kk-list" aria-label="Results">
             {rows.map(({ p, s }) => (

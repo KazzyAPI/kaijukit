@@ -55,7 +55,7 @@ export const setCredentials = (c: { email: string; token: string } | null) => {
   authHeader = c ? `Basic ${btoa(`${c.email}:${c.token}`)}` : null;
 };
 
-async function request<T>(method: string, path: string, opts: { query?: Record<string, string | string[] | number | boolean | undefined>; body?: unknown; auth?: string } = {}): Promise<T> {
+export async function request<T>(method: string, path: string, opts: { query?: Record<string, string | string[] | number | boolean | undefined>; body?: unknown; auth?: string } = {}): Promise<T> {
   const q = new URLSearchParams();
   for (const [k, v] of Object.entries(opts.query ?? {})) {
     if (v === undefined) continue;
@@ -64,7 +64,7 @@ async function request<T>(method: string, path: string, opts: { query?: Record<s
   const qs = q.toString() ? `?${q}` : '';
   let res: Response;
   try {
-    res = await fetch(`${BASE}${path}${qs}`, {
+    res = await fetch(`${path.startsWith('/wiki/') ? '' : BASE}${path}${qs}`, {
       method,
       headers: { Accept: 'application/json', ...(opts.body ? { 'Content-Type': 'application/json' } : {}), Authorization: opts.auth ?? authHeader ?? '' },
       body: opts.body ? JSON.stringify(opts.body) : undefined,
@@ -103,7 +103,7 @@ export const rootPages = (spaceId: string) => request<Paged<ChildPage>>('GET', `
 export const childPages = (id: string) => request<Paged<ChildPage>>('GET', `/pages/${id}/direct-children`, { query: { limit: 250 } }).then((r) => r.results);
 export const recentPages = () => request<Paged<Page>>('GET', '/pages', { query: { sort: '-modified-date', limit: 12 } }).then((r) => r.results);
 
-export const getPage = (id: string, draft = false) => request<Page>('GET', `/pages/${id}`, { query: { 'body-format': 'atlas_doc_format', 'get-draft': draft } });
+export const getPage = (id: string, draft = false, version?: number) => request<Page>('GET', `/pages/${id}`, { query: { 'body-format': 'atlas_doc_format', 'get-draft': draft || undefined, version } });
 export async function getAncestors(id: string): Promise<{ id: string; title: string }[]> {
   const ids = (await request<Paged<{ id: string }>>('GET', `/pages/${id}/ancestors`)).results.map((a) => a.id);
   if (!ids.length) return [];
@@ -123,7 +123,7 @@ export const pagesByTitle = (title: string, spaceId?: string) =>
 export const lookupUsers = (accountIds: string[]) => request<{ results: User[] }>('POST', '/users-bulk', { body: { accountIds } }).then((r) => r.results);
 
 const V1 = '/wiki/rest/api';
-const authed = (url: string, init: RequestInit = {}) => fetch(url, { ...init, headers: { ...init.headers, Authorization: authHeader ?? '' } });
+export const authedFetch = (url: string, init: RequestInit = {}) => fetch(url, { ...init, headers: { ...init.headers, Authorization: authHeader ?? '' } });
 const mediaCache = new Map<string, Promise<string>>();
 const downloadUrl = (a: MediaAttrs) => `${V1}/content/${a.collection.replace(/^contentId-/, '')}/child/attachment/${a.id}/download`;
 
@@ -133,7 +133,7 @@ export async function uploadAttachment(pageId: string, file: File): Promise<Medi
   body.append('minorEdit', 'true');
   let res: Response;
   try {
-    res = await authed(`${V1}/content/${pageId}/child/attachment`, { method: 'POST', body });
+    res = await authedFetch(`${V1}/content/${pageId}/child/attachment`, { method: 'POST', body });
   } catch {
     throw new ApiError(0, 'Cannot reach the server.');
   }
@@ -150,7 +150,7 @@ export function resolveMedia(a: MediaAttrs): Promise<string> {
   const url = downloadUrl(a);
   let p = mediaCache.get(url);
   if (!p) {
-    p = authed(url).then(async (r) => {
+    p = authedFetch(url).then(async (r) => {
       if (!r.ok) throw new ApiError(r.status, 'Could not load the file.');
       return URL.createObjectURL(await r.blob());
     });

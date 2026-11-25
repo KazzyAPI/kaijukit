@@ -4,11 +4,14 @@ import { Navigate, Outlet, Route, Routes, useLocation, useParams } from 'react-r
 import { useAuth } from './auth';
 import { Chrome } from './Chrome';
 import { ErrorPage, NotFound } from './screens/Errors';
+import { History } from './screens/History';
 import { Home } from './screens/Home';
 import { Login } from './screens/Login';
 import { Overview, PageRoute } from './screens/PageView';
+import { Search } from './screens/Search';
 import { SpaceShell } from './screens/SpaceShell';
 import { Spaces } from './screens/Spaces';
+import { Tasks } from './screens/Tasks';
 
 // The editor (ProseMirror) loads as its own chunk, so view-only sessions never pay for it.
 const editorModule = () => import('./screens/EditorScreen');
@@ -44,11 +47,14 @@ export function App() {
           <Route path="/wiki" element={<Navigate to="/wiki/home" replace />} />
           <Route path="/wiki/home" element={<Home />} />
           <Route path="/wiki/spaces" element={<Spaces />} />
+          <Route path="/wiki/tasks" element={<Tasks />} />
+          <Route path="/wiki/search" element={<Search />} />
           <Route path="/wiki/spaces/:key" element={<SpaceShell />}>
             <Route index element={<Navigate to="overview" replace />} />
             <Route path="overview" element={<Overview />} />
             <Route path="pages/edit-v2/:id" element={<Suspense fallback={<Loading />}><EditorRoute /></Suspense>} />
             <Route path="pages/create" element={<Suspense fallback={<Loading />}><CreateRoute /></Suspense>} />
+            <Route path="pages/history/:id" element={<History />} />
             <Route path="pages/:id/*" element={<PageRoute />} />
             <Route path="*" element={<NotFound />} />
           </Route>

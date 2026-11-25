@@ -164,6 +164,10 @@ export function LeftNav({ space, loading }: { space?: Space; loading: boolean })
           <Icon name="home" />
           <span className="kk-nav__label">For you</span>
         </NavLink>
+        <NavLink to="/wiki/tasks" className="kk-nav__row">
+          <Icon name="checkbox" />
+          <span className="kk-nav__label">Tasks</span>
+        </NavLink>
         <Flyout icon="clock" label="Recent">
           <RecentItems />
         </Flyout>

@@ -58,6 +58,14 @@ const paths = {
   whiteboard: 'M4 5h16v11H4zM8 20l4-4 4 4',
   calendar: 'M4 6h16v14H4zM4 10h16M8 3v4M16 3v4',
   blog: 'M5 4h14v16H5zM8 8h8M8 12h8M8 16h5',
+  comment: 'M4 5h16v11H10l-4 4v-4H4z',
+  history: 'M3 12a9 9 0 103-6.7L3 8M3 3v5h5M12 7v5l3 2',
+  paperclip: 'M20 11l-8.5 8.5a5 5 0 01-7-7L13 4a3.5 3.5 0 015 5l-8.5 8.5a2 2 0 01-3-3L14 7',
+  download: 'M12 4v11M7 11l5 5 5-5M5 20h14',
+  upload: 'M12 16V5M7 9l5-5 5 5M5 20h14',
+  tag: 'M3 12V4h8l10 10-8 8zM7.5 8h.01',
+  thumbUp: 'M7 11v9H4v-9zM7 11l4-7c1.5 0 2.5 1 2.2 2.5L12.5 10H19a2 2 0 012 2.3l-1.2 6A2 2 0 0117.8 20H7',
+  reply: 'M10 8L4 13l6 5M4 13h9a7 7 0 017 7',
   textStyle: 'M4 7V5h10v2M9 5v14M7 19h4M14 11h6M17 11v8',
 } as const;
 

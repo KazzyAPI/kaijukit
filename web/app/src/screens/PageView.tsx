@@ -2,9 +2,14 @@ import { Avatar, Button, Dialog, EmptyState, Icon, IconButton, Lozenge, Menu, Me
 import { parseAdf, wordCount } from '@kaijukit/editor/adf';
 import { AdfView } from '@kaijukit/editor/render';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
-import { useNavigate, useOutletContext, useParams } from 'react-router-dom';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Link, useNavigate, useOutletContext, useParams, useSearchParams } from 'react-router-dom';
 import { deletePage, getAncestors, getPage, resolveMedia, type Space } from '../api';
+import { Attachments } from '../Attachments';
+import { FooterComments } from '../Comments';
+import { InlinePanel, isOpen, SelectionButton, useInlineComments, type Pending } from '../InlineComments';
+import { Labels } from '../Labels';
+import { LikeButton } from '../LikeButton';
 import { ContentIcon } from '../ContentIcon';
 import { pageUrl, readingMinutes } from '../format';
 import { Collaborators, EditedAt, NotBuilt, PageHeaderBar, ShareControl, useCopyLink } from '../PageHeader';
@@ -14,7 +19,7 @@ import { NotFound } from './Errors';
 
 export function PageRoute() {
   const { id } = useParams();
-  return <PageView id={id!} />;
+  return <PageView key={id} id={id!} />;
 }
 
 export function Overview() {
@@ -26,7 +31,7 @@ export function Overview() {
         <EmptyState title="This space has no home page yet" action={<Button appearance="primary" onClick={() => navigate(`/wiki/spaces/${space.key}/pages/create`)}>Create a page</Button>} />
       </div>
     );
-  return <PageView id={space.homepageId} />;
+  return <PageView key={space.homepageId} id={space.homepageId} />;
 }
 
 function PageView({ id }: { id: string }) {
@@ -35,6 +40,39 @@ function PageView({ id }: { id: string }) {
   const qc = useQueryClient();
   const toast = useToast();
   const [confirm, setConfirm] = useState(false);
+  const [params] = useSearchParams();
+  const deepLink = params.get('focusedCommentId') ?? undefined;
+  const [panelOpen, setPanelOpen] = useState(false);
+  const [pending, setPending] = useState<Pending | null>(null);
+  const [focusedId, setFocusedId] = useState(deepLink);
+  const docRef = useRef<HTMLDivElement>(null);
+  const inline = useInlineComments(id);
+  const openInline = useMemo(() => (inline.data ?? []).filter(isOpen), [inline.data]);
+  const showThread = useCallback((commentId: string) => {
+    setFocusedId(commentId);
+    setPanelOpen(true);
+  }, []);
+  const startComment = useCallback((p: Pending) => {
+    setPending(p);
+    setPanelOpen(true);
+  }, []);
+  useEffect(() => {
+    if (deepLink && inline.data?.some((c) => c.id === deepLink)) setPanelOpen(true);
+  }, [deepLink, inline.data]);
+  const annotations = useMemo(
+    () => ({
+      open: new Set(openInline.flatMap((c) => c.properties?.inlineMarkerRef ?? [])),
+      onSelect: (marker: string) => {
+        const c = openInline.find((x) => x.properties?.inlineMarkerRef === marker);
+        if (c) showThread(c.id);
+      },
+    }),
+    [openInline, showThread],
+  );
+  const focusedMarker = inline.data?.find((c) => c.id === focusedId)?.properties?.inlineMarkerRef;
+  useEffect(() => {
+    docRef.current?.querySelectorAll('[data-annotation-id]').forEach((el) => el.classList.toggle('is-focused', el.getAttribute('data-annotation-id') === focusedMarker));
+  });
   const page = useQuery({ queryKey: ['page', id], queryFn: () => getPage(id) });
   const ancestors = useQuery({ queryKey: ['ancestors', id], queryFn: () => getAncestors(id) });
   const p = page.data;
@@ -88,6 +126,9 @@ function PageView({ id }: { id: string }) {
               >
                 <EditedAt iso={p.version.createdAt} version={p.version.number} />
                 <Collaborators ids={[p.authorId, p.version.authorId]} />
+                <Button aria-pressed={panelOpen} aria-label={`Inline comments, ${openInline.length} open`} onClick={() => setPanelOpen(!panelOpen)}>
+                  <Icon name="comment" /> {openInline.length}
+                </Button>
                 <Button appearance="primary" onClick={() => navigate(`/wiki/spaces/${space.key}/pages/edit-v2/${p.id}`)}>
                   <Icon name="edit" /> {p.status === 'draft' ? 'Resume editing' : 'Edit'}
                 </Button>
@@ -95,9 +136,11 @@ function PageView({ id }: { id: string }) {
                 <Menu label="Page actions" align="end" renderTrigger={(t) => <IconButton label="More actions" icon={<Icon name="more" />} {...t} />}>
                   <MenuItem onSelect={() => navigate(`/wiki/spaces/${space.key}/pages/create?parentPageId=${p.id}`)}>Add child page</MenuItem>
                   <MenuItem onSelect={copy}>Copy link</MenuItem>
+                  <MenuItem onSelect={() => navigate(`/wiki/spaces/${space.key}/pages/history/${p.id}`)}>Page history</MenuItem>
                   <MenuItem danger onSelect={() => setConfirm(true)}>Move to trash</MenuItem>
                 </Menu>
               </PageHeaderBar>
+              <div className="kk-pagebody">
               <article className="kk-canvas">
                 <div className="kk-canvas__titlerow">
                   <h1 className="kk-canvas__title">{p.title || 'Untitled'}</h1>
@@ -114,15 +157,20 @@ function PageView({ id }: { id: string }) {
                   </span>
                   <NotBuilt icon="chart" label="See views" />
                   <NotBuilt icon="smilePlus" label="Add a reaction" />
-                  <span className="kk-byline__item">Version {p.version.number}</span>
+                  <LikeButton pageId={p.id} />
+                  <Link className="kk-byline__item" to={`/wiki/spaces/${space.key}/pages/history/${p.id}`}>Version {p.version.number}</Link>
                   {p.status === 'draft' && <Lozenge appearance="warning">Draft</Lozenge>}
                 </div>
-                <AdfView doc={doc} resolveMedia={resolveMedia} />
-                <section className="kk-labels" aria-labelledby="labels-h">
-                  <h2 id="labels-h" className="kk-labels__title">Labels</h2>
-                  <span className="kk-muted">No labels</span>
-                </section>
+                <div ref={docRef}>
+                  <AdfView doc={doc} resolveMedia={resolveMedia} annotations={annotations} />
+                </div>
+                <Labels pageId={p.id} />
+                <Attachments pageId={p.id} />
+                <FooterComments pageId={p.id} />
               </article>
+              {panelOpen && <InlinePanel pageId={p.id} pending={pending} onDone={() => setPending(null)} focusedId={focusedId} onClose={() => { setPanelOpen(false); setPending(null); }} />}
+              </div>
+              <SelectionButton root={docRef} onStart={startComment} />
               <Dialog
                 open={confirm}
                 onClose={() => setConfirm(false)}

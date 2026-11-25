@@ -117,7 +117,7 @@ fn clause(field: Field, op: Op, values: &[CqlValue], c: &mut Ctx) -> Result<Stri
             _ => format!("lower(c.title) {cmp} lower({})", c.bind(plain(v, c)?, "")),
         },
         (Scope::Content, Field::Text) => wrap(format!(
-            "to_tsvector('english', c.title || ' ' || d.txt) @@ plainto_tsquery('english', {})",
+            "d.tsv @@ plainto_tsquery('english', {})",
             c.bind(plain(v, c)?, "")
         )),
         (Scope::Content, Field::Label) => {
@@ -220,9 +220,7 @@ pub const HIT_COLS: &str =
     left(d.txt, 300), c.version_number::bigint";
 
 pub const DERIVED: &str = "FROM content c JOIN spaces sp ON sp.id = c.space_id \
-    JOIN LATERAL (SELECT v.created_at AS modified, \
-        COALESCE((SELECT string_agg(t #>> '{}', ' ') FROM jsonb_path_query(v.body, 'strict $.**.text') t), '') AS txt \
-        FROM content_versions v WHERE v.content_id = c.id AND v.number = c.version_number) d ON true \
+    JOIN content_search d ON d.content_id = c.id \
     WHERE c.status IN ('current', 'archived') AND c.type IN ('page', 'comment', 'attachment', 'blogpost') \
     AND ($1::bigint[] IS NULL OR c.space_id = ANY($1)) AND NOT (c.id = ANY($2))";
 

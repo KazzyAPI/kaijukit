@@ -3024,3 +3024,30 @@ async fn v1_descendants_by_type_and_depth() {
     .await;
     assert_eq!(summary.json["page"]["size"], 2);
 }
+
+#[tokio::test]
+async fn text_search_uses_the_stored_tsvector_and_gin_index() {
+    let (app, db) = start_db().await;
+    let sp = space(&app, "TS").await;
+    let p = page(&app, &sp["id"], "Searchable", None).await;
+    put_page(&app, p["id"].as_str().unwrap(), "Searchable", 2, "zebra crossing").await;
+    let n: i64 = sqlx::query_scalar(
+        "SELECT count(*) FROM content_search WHERE tsv @@ plainto_tsquery('english', 'zebras')",
+    )
+    .fetch_one(&db)
+    .await
+    .unwrap();
+    assert_eq!(n, 1, "stemmed match on the stored document");
+    let mut tx = db.begin().await.unwrap();
+    sqlx::query("SET LOCAL enable_seqscan = off")
+        .execute(&mut *tx)
+        .await
+        .unwrap();
+    let plan: Vec<String> = sqlx::query_scalar(
+        "EXPLAIN SELECT 1 FROM content_search WHERE tsv @@ plainto_tsquery('english', 'zebra')",
+    )
+    .fetch_all(&mut *tx)
+    .await
+    .unwrap();
+    assert!(plan.join("\n").contains("content_search_tsv_idx"), "{plan:?}");
+}

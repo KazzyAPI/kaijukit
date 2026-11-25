@@ -14,7 +14,7 @@ export function flattenTree(roots: ChildPage[], children: Record<string, ChildPa
     list.forEach((p) => {
       const kids = children[p.id];
       const open = expanded.has(p.id);
-      out.push({ id: p.id, label: p.title || 'Untitled', icon: <ContentIcon type={p.type} />, level, expanded: kids && kids.length === 0 ? undefined : open, actions: actions?.(p) });
+      out.push({ id: p.id, label: p.title || 'Untitled', icon: <ContentIcon type={p.type} />, level, expanded: kids?.length ? open : undefined, actions: actions?.(p) });
       if (open && kids) walk(kids, level + 1);
     });
   walk(roots, 1);
@@ -44,7 +44,7 @@ function TitleHits({ space, q }: { space: Space; q: string }) {
   const hits = useQuery({ queryKey: ['title-search', space.id, q], queryFn: () => pagesByTitle(q, space.id) });
   if (hits.isPending) return <div aria-busy="true"><Skeleton height={24} style={{ margin: '8px 0' }} /></div>;
   if (hits.isError) return <p className="kk-muted" role="alert">Search failed.</p>;
-  if (!hits.data.length) return <p className="kk-muted kk-nav__empty" role="status">No pages match "{q}".</p>;
+  if (!hits.data.length) return <p className="kk-muted kk-nav__empty" role="status">No page is titled "{q}".</p>;
   return (
     <ul className="kk-nav__hits" aria-label="Matching pages">
       {hits.data.map((p) => (
@@ -74,10 +74,22 @@ function TreeRows({ space, currentId }: { space: Space; currentId?: string }) {
 
   const roots = useQuery({ queryKey: ['tree', 'root', space.id], queryFn: () => rootPages(space.id) });
   const loadIds = useMemo(() => [...new Set([...(space.homepageId ? [space.homepageId] : []), ...expanded])], [space.homepageId, expanded]);
-  const kids = useQueries({ queries: loadIds.map((id) => ({ queryKey: ['tree', 'children', id], queryFn: () => childPages(id) })) });
-  const childMap = Object.fromEntries(loadIds.map((id, i) => [id, kids[i]?.data]));
+  const childQuery = (id: string) => ({ queryKey: ['tree', 'children', id], queryFn: () => childPages(id) });
+  const kids = useQueries({ queries: loadIds.map(childQuery) });
+  const base: Record<string, ChildPage[] | undefined> = Object.fromEntries(loadIds.map((id, i) => [id, kids[i]?.data]));
 
-  const top = [...(space.homepageId ? (childMap[space.homepageId] ?? []) : []), ...(roots.data ?? []).filter((r) => r.id !== space.homepageId)];
+  const top = [...(space.homepageId ? (base[space.homepageId] ?? []) : []), ...(roots.data ?? []).filter((r) => r.id !== space.homepageId)];
+  // A chevron is shown only for pages that have children, so every visible row's children are fetched (same cache keys as expanding).
+  const visible: string[] = [];
+  const see = (list: ChildPage[]) =>
+    list.forEach((p) => {
+      visible.push(p.id);
+      if (expanded.includes(p.id)) see(base[p.id] ?? []);
+    });
+  see(top);
+  const probeIds = visible.filter((id) => !loadIds.includes(id));
+  const probes = useQueries({ queries: probeIds.map(childQuery) });
+  const childMap = { ...base, ...Object.fromEntries(probeIds.map((id, i) => [id, probes[i]?.data])) };
   const titles = Object.fromEntries([...top, ...Object.values(childMap).flatMap((c) => c ?? [])].map((p) => [p.id, p.title]));
   const set = useMemo(() => new Set(expanded), [expanded]);
   const items = flattenTree(top, childMap, set, (p) => (

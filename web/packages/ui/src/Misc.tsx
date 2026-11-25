@@ -1,4 +1,4 @@
-import type { CSSProperties, ReactNode } from 'react';
+import { useState, type CSSProperties, type ReactNode } from 'react';
 
 export function Spinner({ size, label }: { size?: 'lg'; label?: string }) {
   return <span className={`kk-spinner${size ? ` kk-spinner--${size}` : ''}`} role={label ? 'status' : undefined} aria-label={label} aria-hidden={label ? undefined : true} />;
@@ -37,12 +37,25 @@ export interface Crumb {
   href?: string;
 }
 
+const COLLAPSE_OVER = 4;
+
 export function Breadcrumbs({ items, renderLink }: { items: Crumb[]; renderLink?: (c: { href: string; children: ReactNode }) => ReactNode }) {
+  const [expanded, setExpanded] = useState(false);
+  const hidden = !expanded && items.length > COLLAPSE_OVER ? new Set(items.slice(1, -2).map((_, i) => i + 1)) : new Set<number>();
   return (
     <nav className="kk-breadcrumbs" aria-label="Breadcrumbs">
       <ol>
         {items.map((c, i) => {
           const last = i === items.length - 1;
+          if (hidden.has(i)) {
+            return i === 1 ? (
+              <li key="more">
+                <button type="button" className="kk-breadcrumbs__more" aria-label={`Show ${hidden.size} more levels`} onClick={() => setExpanded(true)}>
+                  ...
+                </button>
+              </li>
+            ) : null;
+          }
           return (
             <li key={i}>
               {last || !c.href ? (

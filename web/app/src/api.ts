@@ -117,10 +117,6 @@ export const savePage = (p: { id: string; status: 'draft' | 'current'; title: st
   request<Page>('PUT', `/pages/${p.id}`, { body: { id: p.id, status: p.status, title: p.title, body: adfBody(p.body), version: { number: p.version, message: p.message } } });
 export const deletePage = (id: string, draft = false) => request<void>('DELETE', `/pages/${id}`, { query: { draft } });
 
-// The title filter on GET /pages is an exact match, so "search by title" lists the newest pages and matches substrings here until the search endpoint exists.
-export const pagesByTitle = (text: string, spaceId?: string) =>
-  request<Paged<Page>>('GET', '/pages', { query: { sort: '-modified-date', limit: 250, 'space-id': spaceId } }).then((r) => {
-    const q = text.trim().toLowerCase();
-    return r.results.filter((p) => (p.title || 'untitled').toLowerCase().includes(q));
-  });
+export const pagesByTitle = (title: string, spaceId?: string) =>
+  request<Paged<Page>>('GET', '/pages', { query: { title, limit: 250, 'space-id': spaceId } }).then((r) => r.results);
 export const lookupUsers = (accountIds: string[]) => request<{ results: User[] }>('POST', '/users-bulk', { body: { accountIds } }).then((r) => r.results);

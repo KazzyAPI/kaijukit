@@ -37,13 +37,13 @@ export function QuickSearch({ open, onClose }: { open: boolean; onClose: () => v
     >
       <label className="kk-qs__field">
         <Icon name="search" />
-        <input className="kk-input kk-qs__input" aria-label="Search pages by title" placeholder="Search page titles" autoFocus value={text} onChange={(e) => setText(e.target.value)} />
+        <input className="kk-input kk-qs__input" aria-label="Search pages by title" placeholder="Exact page title" autoFocus value={text} onChange={(e) => setText(e.target.value)} />
       </label>
       <div className="kk-qs__results" aria-live="polite">
-        {!q && <p className="kk-muted">Type to find pages by title. Full-text search isn't built yet.</p>}
+        {!q && <p className="kk-muted">Type a page's exact title. Partial matching and full-text search isn't built yet.</p>}
         {q && hits.isPending && <Skeleton height={36} />}
         {q && hits.isError && <p role="alert" className="kk-error-box">Search failed. Try again.</p>}
-        {q && hits.data && rows.length === 0 && <p className="kk-muted">No pages with "{q}" in the title.</p>}
+        {q && hits.data && rows.length === 0 && <p className="kk-muted">No page is titled "{q}".</p>}
         {rows.length > 0 && (
           <ul className="kk-list" aria-label="Results">
             {rows.map(({ p, s }) => (

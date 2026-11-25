@@ -74,7 +74,7 @@ export function TopBar({ navOpen, onToggleNav }: { navOpen: boolean; onToggleNav
   return (
     <header className="kk-topbar">
       <IconButton label={navOpen ? 'Collapse sidebar' : 'Show sidebar'} icon={<Icon name="panel" />} aria-expanded={navOpen} onClick={onToggleNav} />
-      <span className="kk-topbar__switcher">
+      <>
         <Menu label="Apps" renderTrigger={(p) => <IconButton label="Switch app" icon={<Icon name="grid" />} {...p} />}>
           <MenuLabel>Apps</MenuLabel>
           <MenuItem onSelect={() => navigate('/wiki/home')}>
@@ -83,7 +83,7 @@ export function TopBar({ navOpen, onToggleNav }: { navOpen: boolean; onToggleNav
           </MenuItem>
           <MenuItem disabled onSelect={() => undefined}>Other apps aren't built yet</MenuItem>
         </Menu>
-      </span>
+      </>
       <Link to="/wiki/home" className="kk-topbar__logo" aria-label="kaijukit home">
         <svg width="24" height="24" viewBox="0 0 32 32" aria-hidden="true">
           <rect width="32" height="32" rx="7" fill="currentColor" />
@@ -109,12 +109,12 @@ export function TopBar({ navOpen, onToggleNav }: { navOpen: boolean; onToggleNav
       </Menu>
       <div className="kk-topbar__right">
         <Notifications />
-        <span className="kk-topbar__help">
+        <>
           <Menu label="Help" align="end" renderTrigger={(p) => <IconButton label="Help" icon={<Icon name="help" />} {...p} />}>
             <MenuItem onSelect={() => setKeys(true)}>Keyboard shortcuts</MenuItem>
             <MenuItem disabled title="Not built yet" onSelect={() => undefined}>Documentation</MenuItem>
           </Menu>
-        </span>
+        </>
         <Menu
           label="Account"
           align="end"

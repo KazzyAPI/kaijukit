@@ -1,6 +1,6 @@
 import { cloneElement, useEffect, useId, useState, type ReactElement } from 'react';
 
-export function Tooltip({ content, children }: { content: string; children: ReactElement<Record<string, unknown>> }) {
+export function Tooltip({ content, children, above }: { content: string; children: ReactElement<Record<string, unknown>>; above?: boolean }) {
   const id = useId();
   const [open, setOpen] = useState(false);
   useEffect(() => {
@@ -10,10 +10,10 @@ export function Tooltip({ content, children }: { content: string; children: Reac
     return () => document.removeEventListener('keydown', esc);
   }, [open]);
   return (
-    <span className="kk-tooltip" onMouseEnter={() => setOpen(true)} onMouseLeave={() => setOpen(false)} onFocus={() => setOpen(true)} onBlur={() => setOpen(false)}>
+    <span className="kk-tooltip" onPointerDown={() => setOpen(false)} onMouseEnter={() => setOpen(true)} onMouseLeave={() => setOpen(false)} onFocus={() => setOpen(true)} onBlur={() => setOpen(false)}>
       {cloneElement(children, { 'aria-describedby': open ? id : undefined })}
       {open && (
-        <span role="tooltip" id={id} className="kk-tooltip__tip">
+        <span role="tooltip" id={id} className={`kk-tooltip__tip${above ? ' kk-tooltip__tip--above' : ''}`}>
           {content}
         </span>
       )}

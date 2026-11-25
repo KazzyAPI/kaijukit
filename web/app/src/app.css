@@ -18,7 +18,7 @@ a { color: var(--kk-brand); }
 kbd { padding: 1px 6px; border: 1px solid var(--kk-border-strong); border-radius: var(--kk-radius-sm); background: var(--kk-surface-sunken); font: 12px var(--kk-font-mono); }
 .kk-qs__field { display: flex; align-items: center; gap: var(--kk-space-2); color: var(--kk-text-subtle); }
 .kk-qs__results { min-height: 120px; max-height: 50vh; overflow-y: auto; }
-@media (max-width: 767px) { .kk-topbar__switcher, .kk-topbar__help { display: none; } .kk-topbar__search { flex: none; width: 32px; padding: 0; justify-content: center; border-color: transparent; } .kk-topbar__searchtext { display: none; } }
+@media (max-width: 767px) { .kk-topbar__search { flex: none; width: 32px; padding: 0; justify-content: center; border-color: transparent; } .kk-topbar__searchtext { display: none; } }
 @media (max-width: 480px) { .kk-topbar__logo span, .kk-topbar__createtext { display: none; } .kk-topbar { gap: var(--kk-space-1); padding: 0 var(--kk-space-2); } .kk-topbar__create { width: 32px; padding: 0; } }
 
 .kk-main { min-height: calc(100vh - 56px); }

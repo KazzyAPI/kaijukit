@@ -124,36 +124,36 @@ Status: `not started` | `partial` | `done`. `done` requires a conformance case. 
 
 | Method | Path | operationId | Summary | Status | Case |
 |---|---|---|---|---|---|
-| DELETE | `/blogposts/{id}/permissions` | `deleteBlogPostPermissions` | Delete blog post permissions | not started | - |
-| GET | `/blogposts/{id}/permissions` | `getBlogPostPermissions` | Get blog post permissions | not started | - |
-| POST | `/blogposts/{id}/permissions` | `addBlogPostPermissions` | Add blog post permissions | not started | - |
-| PUT | `/blogposts/{id}/permissions` | `setBlogPostPermissions` | Set blog post permissions | not started | - |
-| GET | `/blogposts/{id}/restriction-state` | `getBlogPostRestrictionState` | Get blog post restriction state | not started | - |
-| PUT | `/blogposts/{id}/restriction-state` | `setBlogPostRestrictionState` | Set blog post restriction state | not started | - |
-| DELETE | `/databases/{id}/permissions` | `deleteDatabasePermissions` | Delete database permissions | not started | - |
-| GET | `/databases/{id}/permissions` | `getDatabasePermissions` | Get database permissions | not started | - |
-| POST | `/databases/{id}/permissions` | `addDatabasePermissions` | Add database permissions | not started | - |
-| PUT | `/databases/{id}/permissions` | `setDatabasePermissions` | Set database permissions | not started | - |
-| GET | `/databases/{id}/restriction-state` | `getDatabaseRestrictionState` | Get database restriction state | not started | - |
-| PUT | `/databases/{id}/restriction-state` | `setDatabaseRestrictionState` | Set database restriction state | not started | - |
-| DELETE | `/folders/{id}/permissions` | `deleteFolderPermissions` | Delete folder permissions | not started | - |
-| GET | `/folders/{id}/permissions` | `getFolderPermissions` | Get folder permissions | not started | - |
-| POST | `/folders/{id}/permissions` | `addFolderPermissions` | Add folder permissions | not started | - |
-| PUT | `/folders/{id}/permissions` | `setFolderPermissions` | Set folder permissions | not started | - |
-| GET | `/folders/{id}/restriction-state` | `getFolderRestrictionState` | Get folder restriction state | not started | - |
-| PUT | `/folders/{id}/restriction-state` | `setFolderRestrictionState` | Set folder restriction state | not started | - |
-| DELETE | `/pages/{id}/permissions` | `deletePagePermissions` | Delete page permissions | not started | - |
+| DELETE | `/blogposts/{id}/permissions` | `deleteBlogPostPermissions` | Delete blog post permissions | partial (schema) | v2-blogpost-permissions-delete |
+| GET | `/blogposts/{id}/permissions` | `getBlogPostPermissions` | Get blog post permissions | partial (schema) | v2-blogpost-permissions-get |
+| POST | `/blogposts/{id}/permissions` | `addBlogPostPermissions` | Add blog post permissions | partial (schema) | v2-blogpost-permissions-add |
+| PUT | `/blogposts/{id}/permissions` | `setBlogPostPermissions` | Set blog post permissions | partial (schema) | v2-blogpost-permissions-set |
+| GET | `/blogposts/{id}/restriction-state` | `getBlogPostRestrictionState` | Get blog post restriction state | partial (schema) | v2-blogpost-restriction-state |
+| PUT | `/blogposts/{id}/restriction-state` | `setBlogPostRestrictionState` | Set blog post restriction state | partial (schema) | v2-blogpost-restriction-state-set |
+| DELETE | `/databases/{id}/permissions` | `deleteDatabasePermissions` | Delete database permissions | partial (schema) | v2-database-permissions-delete |
+| GET | `/databases/{id}/permissions` | `getDatabasePermissions` | Get database permissions | partial (schema) | v2-database-permissions-get |
+| POST | `/databases/{id}/permissions` | `addDatabasePermissions` | Add database permissions | partial (schema) | v2-database-permissions-add |
+| PUT | `/databases/{id}/permissions` | `setDatabasePermissions` | Set database permissions | partial (schema) | v2-database-permissions-set |
+| GET | `/databases/{id}/restriction-state` | `getDatabaseRestrictionState` | Get database restriction state | partial (schema) | v2-database-restriction-state |
+| PUT | `/databases/{id}/restriction-state` | `setDatabaseRestrictionState` | Set database restriction state | partial (schema) | v2-database-restriction-state-set |
+| DELETE | `/folders/{id}/permissions` | `deleteFolderPermissions` | Delete folder permissions | partial (schema) | v2-folder-permissions-delete |
+| GET | `/folders/{id}/permissions` | `getFolderPermissions` | Get folder permissions | partial (schema) | v2-folder-permissions-get |
+| POST | `/folders/{id}/permissions` | `addFolderPermissions` | Add folder permissions | partial (schema) | v2-folder-permissions-add |
+| PUT | `/folders/{id}/permissions` | `setFolderPermissions` | Set folder permissions | partial (schema) | v2-folder-permissions-set |
+| GET | `/folders/{id}/restriction-state` | `getFolderRestrictionState` | Get folder restriction state | partial (schema) | v2-folder-restriction-state |
+| PUT | `/folders/{id}/restriction-state` | `setFolderRestrictionState` | Set folder restriction state | partial (schema) | v2-folder-restriction-state-set |
+| DELETE | `/pages/{id}/permissions` | `deletePagePermissions` | Delete page permissions | partial (schema) | v2-page-permissions-delete |
 | GET | `/pages/{id}/permissions` | `getPagePermissions` | Get page permissions | partial (schema) | v2-page-permissions |
-| POST | `/pages/{id}/permissions` | `addPagePermissions` | Add page permissions | not started | - |
-| PUT | `/pages/{id}/permissions` | `setPagePermissions` | Set page permissions | not started | - |
+| POST | `/pages/{id}/permissions` | `addPagePermissions` | Add page permissions | partial (schema) | v2-page-permissions-add |
+| PUT | `/pages/{id}/permissions` | `setPagePermissions` | Set page permissions | partial (schema) | v2-page-permissions-set |
 | GET | `/pages/{id}/restriction-state` | `getPageRestrictionState` | Get page restriction state | partial (schema) | v2-page-restriction-state |
-| PUT | `/pages/{id}/restriction-state` | `setPageRestrictionState` | Set page restriction state | not started | - |
-| DELETE | `/whiteboards/{id}/permissions` | `deleteWhiteboardPermissions` | Delete whiteboard permissions | not started | - |
-| GET | `/whiteboards/{id}/permissions` | `getWhiteboardPermissions` | Get whiteboard permissions | not started | - |
-| POST | `/whiteboards/{id}/permissions` | `addWhiteboardPermissions` | Add whiteboard permissions | not started | - |
-| PUT | `/whiteboards/{id}/permissions` | `setWhiteboardPermissions` | Set whiteboard permissions | not started | - |
-| GET | `/whiteboards/{id}/restriction-state` | `getWhiteboardRestrictionState` | Get whiteboard restriction state | not started | - |
-| PUT | `/whiteboards/{id}/restriction-state` | `setWhiteboardRestrictionState` | Set whiteboard restriction state | not started | - |
+| PUT | `/pages/{id}/restriction-state` | `setPageRestrictionState` | Set page restriction state | partial (schema) | v2-page-restriction-state-set |
+| DELETE | `/whiteboards/{id}/permissions` | `deleteWhiteboardPermissions` | Delete whiteboard permissions | partial (schema) | v2-whiteboard-permissions-delete |
+| GET | `/whiteboards/{id}/permissions` | `getWhiteboardPermissions` | Get whiteboard permissions | partial (schema) | v2-whiteboard-permissions-get |
+| POST | `/whiteboards/{id}/permissions` | `addWhiteboardPermissions` | Add whiteboard permissions | partial (schema) | v2-whiteboard-permissions-add |
+| PUT | `/whiteboards/{id}/permissions` | `setWhiteboardPermissions` | Set whiteboard permissions | partial (schema) | v2-whiteboard-permissions-set |
+| GET | `/whiteboards/{id}/restriction-state` | `getWhiteboardRestrictionState` | Get whiteboard restriction state | partial (schema) | v2-whiteboard-restriction-state |
+| PUT | `/whiteboards/{id}/restriction-state` | `setWhiteboardRestrictionState` | Set whiteboard restriction state | partial (schema) | v2-whiteboard-restriction-state-set |
 
 ## Content Properties
 

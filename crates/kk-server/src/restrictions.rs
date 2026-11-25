@@ -20,18 +20,24 @@ use crate::{
     authz::{self, Access, Target},
     error::{db_err, R},
     http::{paged, parse_id, ts, JsonBody, Q},
-    v1, AppState,
+    kinds, v1, AppState,
 };
 
 type Res<T> = Result<T, ApiError>;
 
 /// A live page the caller can see; 404 otherwise.
 async fn page_of(s: &AppState, a: &Access, raw: &str) -> Res<(i64, Target)> {
+    typed(s, a, raw, "page").await
+}
+
+/// A live content row of type `ty` the caller can see; 404 otherwise.
+async fn typed(s: &AppState, a: &Access, raw: &str, ty: &str) -> Res<(i64, Target)> {
     let id = parse_id(raw)?;
     let live: Option<i64> = sqlx::query_scalar(
-        "SELECT id FROM content WHERE id = $1 AND type = 'page' AND status NOT IN ('deleted', 'historical')",
+        "SELECT id FROM content WHERE id = $1 AND type = $2 AND status NOT IN ('deleted', 'historical')",
     )
     .bind(id)
+    .bind(ty)
     .fetch_optional(&s.db)
     .await
     .map_err(|e| db_err(e, ""))?;
@@ -595,7 +601,29 @@ pub async fn check(
     Ok(answer(ok, if space_ok { "content" } else { "space" }))
 }
 
-pub async fn page_permissions(
+fn perm_entry(
+    row: &(
+        String,
+        String,
+        i64,
+        chrono::DateTime<chrono::Utc>,
+        Option<i64>,
+    ),
+) -> Value {
+    let (op, kind, sid, at, by) = row;
+    let mut v = json!({
+        "operation": op,
+        "principal": {"principalType": kind, "principalId": sid.to_string()},
+        "createdAt": ts(*at),
+    });
+    if let Some(b) = by {
+        v["createdBy"] = json!(b.to_string());
+        v["createdByAaid"] = json!(b.to_string());
+    }
+    v
+}
+
+pub async fn permissions<const K: u8>(
     State(s): State<AppState>,
     Extension(a): Extension<Arc<Access>>,
     Path(id): Path<String>,
@@ -603,7 +631,8 @@ pub async fn page_permissions(
 ) -> R<Response> {
     let q = Q::parse(raw);
     let (limit, offset) = (q.limit()?, q.offset()?);
-    let (id, _) = page_of(&s, &a, &id).await?;
+    let k = kinds::of(K);
+    let (id, _) = typed(&s, &a, &id, k.ty).await?;
     #[allow(clippy::type_complexity)]
     let rows: Vec<(String, String, i64, chrono::DateTime<chrono::Utc>, Option<i64>)> = sqlx::query_as(
         "SELECT operation, subject_type, subject_id, created_at, created_by FROM content_restrictions \
@@ -619,37 +648,176 @@ pub async fn page_permissions(
     .bind(offset)
     .fetch_all(&s.db)
     .await?;
-    let rows = rows
-        .iter()
-        .map(|(op, kind, sid, at, by)| {
-            let mut v = json!({
-                "operation": op,
-                "principal": {"principalType": kind, "principalId": sid.to_string()},
-                "createdAt": ts(*at),
-            });
-            if let Some(b) = by {
-                v["createdBy"] = json!(b.to_string());
-                v["createdByAaid"] = json!(b.to_string());
-            }
-            v
-        })
-        .collect();
     Ok(paged(
         &q,
-        &format!("/wiki/api/v2/pages/{id}/permissions"),
+        &format!("/wiki/api/v2/{}/{id}/permissions", k.seg),
         &s.site(),
-        rows,
+        rows.iter().map(perm_entry).collect(),
         limit,
         offset,
     ))
 }
 
-pub async fn restriction_state(
+#[derive(Deserialize)]
+pub struct PermissionsReq {
+    permissions: Vec<OpPrincipals>,
+}
+
+#[derive(Deserialize)]
+struct OpPrincipals {
+    operation: String,
+    principals: Vec<PrincipalIn>,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct PrincipalIn {
+    principal_type: String,
+    principal_id: String,
+}
+
+fn principal_kind(raw: &str) -> Res<&str> {
+    match raw {
+        "user" | "group" => Ok(raw),
+        _ => Err(ApiError::BadRequest(
+            "principalType must be user or group".into(),
+        )),
+    }
+}
+
+fn self_lockout_allowed(q: &Q) -> bool {
+    q.get("allow-self-lockout") == Some("true")
+}
+
+/// `replace` drops every existing row of the operations named in the body first (PUT).
+async fn write_permissions<const K: u8>(
+    s: AppState,
+    a: Arc<Access>,
+    user: UserId,
+    raw_id: String,
+    raw_q: Option<String>,
+    body: PermissionsReq,
+    replace: bool,
+) -> R<Json<Value>> {
+    let q = Q::parse(raw_q);
+    let (id, t) = typed(&s, &a, &raw_id, kinds::of(K).ty).await?;
+    require_restrict(&s, &a, &t, id).await?;
+    let mut tx = s.db.begin().await?;
+    let before = access_now(&mut tx, &a, t.space_id, id).await?;
+    let mut seen = Vec::new();
+    for entry in body.permissions {
+        let op = op_key(&entry.operation)?.to_string();
+        if seen.contains(&op) {
+            return Err(ApiError::BadRequest("one entry per operation".into()).into());
+        }
+        if replace {
+            sqlx::query(
+                "DELETE FROM content_restrictions WHERE content_id = $1 AND operation = $2",
+            )
+            .bind(id)
+            .bind(&op)
+            .execute(&mut *tx)
+            .await?;
+        }
+        seen.push(op.clone());
+        for p in entry.principals {
+            let kind = principal_kind(&p.principal_type)?;
+            let sid = exists(
+                &mut tx,
+                if kind == "user" { "users" } else { "groups" },
+                &p.principal_id,
+            )
+            .await?;
+            add_row(&mut tx, id, &op, kind, sid, user.0).await?;
+        }
+    }
+    if !self_lockout_allowed(&q) {
+        no_lockout(&mut tx, &a, t.space_id, id, before).await?;
+    }
+    tx.commit().await?;
+    let rows = permission_rows(&s, id).await?;
+    Ok(Json(json!({
+        "results": rows.iter().map(perm_entry).collect::<Vec<_>>(),
+        "_links": {"base": s.site()},
+    })))
+}
+
+type PermRow = (
+    String,
+    String,
+    i64,
+    chrono::DateTime<chrono::Utc>,
+    Option<i64>,
+);
+
+async fn permission_rows(s: &AppState, id: i64) -> Res<Vec<PermRow>> {
+    sqlx::query_as(
+        "SELECT operation, subject_type, subject_id, created_at, created_by FROM content_restrictions \
+         WHERE content_id = $1 ORDER BY operation, subject_type, subject_id",
+    )
+    .bind(id)
+    .fetch_all(&s.db)
+    .await
+    .map_err(|e| db_err(e, ""))
+}
+
+pub async fn permissions_add<const K: u8>(
+    State(s): State<AppState>,
+    Extension(a): Extension<Arc<Access>>,
+    Extension(user): Extension<UserId>,
+    Path(id): Path<String>,
+    RawQuery(raw): RawQuery,
+    JsonBody(body): JsonBody<PermissionsReq>,
+) -> R<Json<Value>> {
+    write_permissions::<K>(s, a, user, id, raw, body, false).await
+}
+
+pub async fn permissions_set<const K: u8>(
+    State(s): State<AppState>,
+    Extension(a): Extension<Arc<Access>>,
+    Extension(user): Extension<UserId>,
+    Path(id): Path<String>,
+    RawQuery(raw): RawQuery,
+    JsonBody(body): JsonBody<PermissionsReq>,
+) -> R<Json<Value>> {
+    write_permissions::<K>(s, a, user, id, raw, body, true).await
+}
+
+pub async fn permissions_delete<const K: u8>(
     State(s): State<AppState>,
     Extension(a): Extension<Arc<Access>>,
     Path(id): Path<String>,
-) -> R<Json<Value>> {
-    let (id, _) = page_of(&s, &a, &id).await?;
+    RawQuery(raw): RawQuery,
+) -> R<axum::http::StatusCode> {
+    let q = Q::parse(raw);
+    let (id, t) = typed(&s, &a, &id, kinds::of(K).ty).await?;
+    require_restrict(&s, &a, &t, id).await?;
+    if let Some(op) = q.get("operation") {
+        op_key(op)?;
+    }
+    if let Some(kind) = q.get("principal-type") {
+        principal_kind(kind)?;
+    }
+    let mut tx = s.db.begin().await?;
+    let before = access_now(&mut tx, &a, t.space_id, id).await?;
+    sqlx::query(
+        "DELETE FROM content_restrictions WHERE content_id = $1 AND ($2::text IS NULL OR operation = $2) \
+         AND ($3::text IS NULL OR subject_type = $3) AND ($4::text IS NULL OR subject_id::text = $4)",
+    )
+    .bind(id)
+    .bind(q.get("operation"))
+    .bind(q.get("principal-type"))
+    .bind(q.get("principal-id"))
+    .execute(&mut *tx)
+    .await?;
+    if !self_lockout_allowed(&q) {
+        no_lockout(&mut tx, &a, t.space_id, id, before).await?;
+    }
+    tx.commit().await?;
+    Ok(axum::http::StatusCode::NO_CONTENT)
+}
+
+async fn state_of(s: &AppState, id: i64) -> Res<Value> {
     let last: Option<(String, chrono::DateTime<chrono::Utc>, Option<i64>)> = sqlx::query_as(
         "SELECT CASE WHEN bool_or(operation = 'read') THEN 'VIEW_RESTRICTED' ELSE 'EDIT_RESTRICTED' END, \
          max(created_at), (array_agg(created_by ORDER BY created_at DESC))[1] \
@@ -657,8 +825,9 @@ pub async fn restriction_state(
     )
     .bind(id)
     .fetch_optional(&s.db)
-    .await?;
-    Ok(Json(match last {
+    .await
+    .map_err(|e| db_err(e, ""))?;
+    Ok(match last {
         None => json!({"state": "OPEN"}),
         Some((state, at, by)) => {
             let mut v = json!({"state": state, "createdAt": ts(at)});
@@ -668,5 +837,59 @@ pub async fn restriction_state(
             }
             v
         }
-    }))
+    })
+}
+
+pub async fn restriction_state<const K: u8>(
+    State(s): State<AppState>,
+    Extension(a): Extension<Arc<Access>>,
+    Path(id): Path<String>,
+) -> R<Json<Value>> {
+    let (id, _) = typed(&s, &a, &id, kinds::of(K).ty).await?;
+    Ok(Json(state_of(&s, id).await?))
+}
+
+#[derive(Deserialize)]
+pub struct StateReq {
+    state: String,
+}
+
+/// `[V]` OPEN clears every row; EDIT_RESTRICTED leaves only the caller on update; VIEW_RESTRICTED
+/// leaves only the caller on read and update.
+pub async fn set_restriction_state<const K: u8>(
+    State(s): State<AppState>,
+    Extension(a): Extension<Arc<Access>>,
+    Extension(user): Extension<UserId>,
+    Path(id): Path<String>,
+    RawQuery(raw): RawQuery,
+    JsonBody(req): JsonBody<StateReq>,
+) -> R<Json<Value>> {
+    let q = Q::parse(raw);
+    let (id, t) = typed(&s, &a, &id, kinds::of(K).ty).await?;
+    require_restrict(&s, &a, &t, id).await?;
+    let ops: &[&str] = match req.state.as_str() {
+        "OPEN" => &[],
+        "EDIT_RESTRICTED" => &["update"],
+        "VIEW_RESTRICTED" => &["read", "update"],
+        _ => {
+            return Err(ApiError::BadRequest(
+                "state must be OPEN, EDIT_RESTRICTED or VIEW_RESTRICTED".into(),
+            )
+            .into())
+        }
+    };
+    let mut tx = s.db.begin().await?;
+    let before = access_now(&mut tx, &a, t.space_id, id).await?;
+    sqlx::query("DELETE FROM content_restrictions WHERE content_id = $1")
+        .bind(id)
+        .execute(&mut *tx)
+        .await?;
+    for op in ops {
+        add_row(&mut tx, id, op, "user", user.0, user.0).await?;
+    }
+    if !self_lockout_allowed(&q) {
+        no_lockout(&mut tx, &a, t.space_id, id, before).await?;
+    }
+    tx.commit().await?;
+    Ok(Json(state_of(&s, id).await?))
 }

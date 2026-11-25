@@ -91,11 +91,58 @@ pub fn app(state: AppState) -> Router {
         .route("/spaces/{id}/permissions", get(space_perms::assignments))
         .route(
             "/pages/{id}/permissions",
-            get(restrictions::page_permissions),
+            get(restrictions::permissions::<0>)
+                .post(restrictions::permissions_add::<0>)
+                .put(restrictions::permissions_set::<0>)
+                .delete(restrictions::permissions_delete::<0>),
         )
         .route(
             "/pages/{id}/restriction-state",
-            get(restrictions::restriction_state),
+            get(restrictions::restriction_state::<0>).put(restrictions::set_restriction_state::<0>),
+        )
+        .route(
+            "/blogposts/{id}/permissions",
+            get(restrictions::permissions::<4>)
+                .post(restrictions::permissions_add::<4>)
+                .put(restrictions::permissions_set::<4>)
+                .delete(restrictions::permissions_delete::<4>),
+        )
+        .route(
+            "/blogposts/{id}/restriction-state",
+            get(restrictions::restriction_state::<4>).put(restrictions::set_restriction_state::<4>),
+        )
+        .route(
+            "/folders/{id}/permissions",
+            get(restrictions::permissions::<5>)
+                .post(restrictions::permissions_add::<5>)
+                .put(restrictions::permissions_set::<5>)
+                .delete(restrictions::permissions_delete::<5>),
+        )
+        .route(
+            "/folders/{id}/restriction-state",
+            get(restrictions::restriction_state::<5>).put(restrictions::set_restriction_state::<5>),
+        )
+        .route(
+            "/whiteboards/{id}/permissions",
+            get(restrictions::permissions::<6>)
+                .post(restrictions::permissions_add::<6>)
+                .put(restrictions::permissions_set::<6>)
+                .delete(restrictions::permissions_delete::<6>),
+        )
+        .route(
+            "/whiteboards/{id}/restriction-state",
+            get(restrictions::restriction_state::<6>).put(restrictions::set_restriction_state::<6>),
+        )
+        .route(
+            "/databases/{id}/permissions",
+            get(restrictions::permissions::<7>)
+                .post(restrictions::permissions_add::<7>)
+                .put(restrictions::permissions_set::<7>)
+                .delete(restrictions::permissions_delete::<7>),
+        )
+        .route(
+            "/databases/{id}/restriction-state",
+            get(restrictions::restriction_state::<7>).put(restrictions::set_restriction_state::<7>),
         )
         .route(
             "/user/access/check-access-by-email",

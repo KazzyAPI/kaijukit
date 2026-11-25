@@ -1,0 +1,36 @@
+{
+  "id": "v2-database-restriction-state-set",
+  "ops": [
+    "setDatabaseRestrictionState"
+  ],
+  "setup": [
+    {
+      "as": "space",
+      "method": "POST",
+      "path": "/wiki/api/v2/spaces",
+      "body": {
+        "name": "Conf {{run}}",
+        "key": "K{{run}}"
+      }
+    },
+    {
+      "as": "x",
+      "method": "POST",
+      "path": "/wiki/api/v2/databases",
+      "body": {
+        "spaceId": "{{space.id}}",
+        "title": "x {{run}}"
+      }
+    }
+  ],
+  "request": {
+    "method": "PUT",
+    "path": "/wiki/api/v2/databases/{{x.id}}/restriction-state",
+    "body": {
+      "state": "EDIT_RESTRICTED"
+    }
+  },
+  "expect": {
+    "status": 200
+  }
+}

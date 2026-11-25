@@ -3081,14 +3081,30 @@ async fn restriction_filters_agree_with_the_core_rules() {
         seed ^= seed << 17;
         (seed % n as u64) as usize
     };
+    // a mixed tree: restrictions on any kind govern everything below it
+    let segs = ["pages", "folders", "whiteboards", "databases"];
+    let mut seg_of = vec!["pages"];
     for i in 1..=12 {
         let p = rnd(nodes.len());
-        let pg = page(&app, &sp["id"], &format!("n{i}"), Some(&json!(nodes[p]))).await;
-        nodes.push(pg["id"].as_str().unwrap().to_string());
+        let seg = if i <= 3 {
+            "pages"
+        } else {
+            segs[rnd(segs.len())]
+        };
+        let body = json!({"spaceId": sp["id"], "title": format!("n{i}"), "parentId": nodes[p], "status": "current", "body": {"representation": "storage", "value": "<p>x</p>"}});
+        let pg = call(&app, Method::POST, &format!("/{seg}"), Some(body)).await;
+        assert!(pg.status.is_success(), "{seg}: {}", pg.json);
+        nodes.push(pg.json["id"].as_str().unwrap().to_string());
+        seg_of.push(seg);
         parent_of.push(p);
     }
     let mut comments = vec![];
-    for n in [3, 7, 10] {
+    let page_nodes: Vec<usize> = (0..nodes.len()).filter(|n| seg_of[*n] == "pages").collect();
+    for n in [
+        page_nodes[1],
+        page_nodes[2],
+        page_nodes[page_nodes.len() - 1],
+    ] {
         let c = post_comment(
             &app,
             "/footer-comments",
@@ -3198,9 +3214,21 @@ async fn restriction_filters_agree_with_the_core_rules() {
                 .filter(|n| node_ok(*n))
                 .map(|n| nodes[n].clone())
                 .collect();
+            let want_pages: Vec<String> = page_nodes
+                .iter()
+                .filter(|n| node_ok(**n))
+                .map(|n| nodes[*n].clone())
+                .collect();
             let mut by_guard = vec![];
             for (n, id) in nodes.iter().enumerate() {
-                let r = as_user(&app, creds, Method::GET, &format!("/pages/{id}"), None).await;
+                let r = as_user(
+                    &app,
+                    creds,
+                    Method::GET,
+                    &format!("/{}/{id}", seg_of[n]),
+                    None,
+                )
+                .await;
                 match r.status {
                     StatusCode::OK => by_guard.push(id.clone()),
                     StatusCode::NOT_FOUND => {}
@@ -3210,7 +3238,9 @@ async fn restriction_filters_agree_with_the_core_rules() {
             let mut listed =
                 ids(&as_user(&app, creds, Method::GET, "/pages?limit=250", None).await);
             listed.sort();
-            let (mut want_sorted, mut guard_sorted) = (want.clone(), by_guard.clone());
+            let (mut want_sorted, mut guard_sorted, mut want_pages) =
+                (want.clone(), by_guard.clone(), want_pages);
+            want_pages.sort();
             want_sorted.sort();
             guard_sorted.sort();
             hidden_total += nodes.len() - want_sorted.len();
@@ -3220,7 +3250,7 @@ async fn restriction_filters_agree_with_the_core_rules() {
                 "round {round} person {pi}: guard vs oracle"
             );
             assert_eq!(
-                listed, want_sorted,
+                listed, want_pages,
                 "round {round} person {pi}: list vs oracle"
             );
             let listed_comments = {
@@ -3442,4 +3472,83 @@ async fn blog_posts_folders_and_custom_content() {
         get(&app, &format!("/blogposts/{bid}")).await.status,
         StatusCode::NOT_FOUND
     );
+}
+
+#[tokio::test]
+async fn v2_permissions_and_restriction_state_for_every_kind() {
+    let (app, db) = start_db().await;
+    let sp = space(&app, "PRM").await;
+    let (_, other) = user(&db, "pm").await;
+    for seg in ["pages", "blogposts", "folders", "whiteboards", "databases"] {
+        let mut body = json!({"spaceId": sp["id"], "title": format!("t {seg}")});
+        if seg == "pages" || seg == "blogposts" {
+            body["body"] = json!({"representation": "storage", "value": "<p>x</p>"});
+        }
+        let c = call(&app, Method::POST, &format!("/{seg}"), Some(body)).await;
+        assert!(c.status.is_success(), "{seg}: {}", c.json);
+        let id = c.json["id"].as_str().unwrap();
+        let base = format!("/{seg}/{id}");
+        let st = get(&app, &format!("{base}/restriction-state")).await;
+        assert_eq!(st.json["state"], "OPEN", "{seg}");
+        let req = json!({"permissions": [{"operation": "update", "principals": [{"principalType": "user", "principalId": other}]}]});
+        let add = call(
+            &app,
+            Method::POST,
+            &format!("{base}/permissions"),
+            Some(req),
+        )
+        .await;
+        assert_eq!(add.status, StatusCode::OK, "{seg}: {}", add.json);
+        assert_eq!(add.json["results"][0]["principal"]["principalId"], other);
+        let st = get(&app, &format!("{base}/restriction-state")).await;
+        assert_eq!(st.json["state"], "EDIT_RESTRICTED", "{seg}");
+        // PUT replaces the operation's rows
+        let admin = sp["authorId"].as_str().unwrap();
+        let req = json!({"permissions": [{"operation": "read", "principals": [{"principalType": "user", "principalId": admin}]}]});
+        let set = call(&app, Method::PUT, &format!("{base}/permissions"), Some(req)).await;
+        assert_eq!(set.status, StatusCode::OK, "{seg}: {}", set.json);
+        let rows = get(&app, &format!("{base}/permissions")).await;
+        assert_eq!(rows.json["results"].as_array().unwrap().len(), 2, "{seg}");
+        let del = call(
+            &app,
+            Method::DELETE,
+            &format!("{base}/permissions?operation=read"),
+            None,
+        )
+        .await;
+        assert_eq!(del.status, StatusCode::NO_CONTENT, "{seg}");
+        let rows = get(&app, &format!("{base}/permissions")).await;
+        assert_eq!(rows.json["results"].as_array().unwrap().len(), 1, "{seg}");
+        let put = call(
+            &app,
+            Method::PUT,
+            &format!("{base}/restriction-state"),
+            Some(json!({"state": "VIEW_RESTRICTED"})),
+        )
+        .await;
+        assert_eq!(put.json["state"], "VIEW_RESTRICTED", "{seg}: {}", put.json);
+        // the other user can no longer see it
+        let hidden = as_user(&app, &user(&db, "pm").await.0, Method::GET, &base, None).await;
+        assert_eq!(hidden.status, StatusCode::NOT_FOUND, "{seg}");
+        let open = call(
+            &app,
+            Method::PUT,
+            &format!("{base}/restriction-state"),
+            Some(json!({"state": "OPEN"})),
+        )
+        .await;
+        assert_eq!(open.json["state"], "OPEN", "{seg}");
+        let bad = call(
+            &app,
+            Method::PUT,
+            &format!("{base}/restriction-state"),
+            Some(json!({"state": "NOPE"})),
+        )
+        .await;
+        assert_eq!(bad.status, StatusCode::BAD_REQUEST, "{seg}");
+        // a page type does not answer for another kind's id
+        let wrong = if seg == "pages" { "folders" } else { "pages" };
+        let r = get(&app, &format!("/{wrong}/{id}/permissions")).await;
+        assert_eq!(r.status, StatusCode::NOT_FOUND, "{seg}");
+    }
 }

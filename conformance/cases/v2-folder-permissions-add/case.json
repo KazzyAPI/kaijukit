@@ -1,0 +1,46 @@
+{
+  "id": "v2-folder-permissions-add",
+  "ops": [
+    "addFolderPermissions"
+  ],
+  "setup": [
+    {
+      "as": "space",
+      "method": "POST",
+      "path": "/wiki/api/v2/spaces",
+      "body": {
+        "name": "Conf {{run}}",
+        "key": "K{{run}}"
+      }
+    },
+    {
+      "as": "x",
+      "method": "POST",
+      "path": "/wiki/api/v2/folders",
+      "body": {
+        "spaceId": "{{space.id}}",
+        "title": "x {{run}}"
+      }
+    }
+  ],
+  "request": {
+    "method": "POST",
+    "path": "/wiki/api/v2/folders/{{x.id}}/permissions",
+    "body": {
+      "permissions": [
+        {
+          "operation": "update",
+          "principals": [
+            {
+              "principalType": "user",
+              "principalId": "{{space.authorId}}"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "expect": {
+    "status": 200
+  }
+}

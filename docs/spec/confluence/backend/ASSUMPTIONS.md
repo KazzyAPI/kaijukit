@@ -140,3 +140,12 @@ All are rows of the generic `content` table, so permissions, restrictions, trash
 - Smart links need an `http` or `https` `embedUrl`; no fetching or unfurling happens.
 - Custom content: `type` plus exactly one of `spaceId`, `pageId`, `blogPostId`, `customContentId`. A string body is stored verbatim and returned as `raw`; storage and ADF bodies convert as for pages. `[V]` that Confluence validates the type against an installed app; we accept any non-empty string. Create answers 201 as the spec says.
 - `include-labels|properties|operations|likes|versions` on page and blog reads, and `include-properties|operations` elsewhere, add `{results, meta.hasMore, _links.self}` blocks capped at 50 items. `[V]` the cap and block item shapes; the spec only names the keys. `include-favorited-by-current-user-status` always reports false until favorites exist.
+
+## M4b: v2 content permissions and restriction state (all kinds)
+
+All `[V]`: shapes from the pinned spec, rules from our own v1 restriction model.
+
+- `GET|POST|PUT|DELETE /{pages|blogposts|folders|whiteboards|databases}/{id}/permissions` and `GET|PUT .../restriction-state` share one implementation over the `content_restrictions` table. A kind's id on another kind's path is 404. Restrictions on any tree row govern everything below it (the oracle test mixes pages, folders, whiteboards and databases).
+- POST adds principals. PUT replaces every row of each operation named in the body (operations not named are untouched). DELETE removes rows matching the optional `operation`, `principal-type`, `principal-id` filters (none = all) and answers 204. One entry per operation; unknown principals are 400.
+- `allow-self-lockout=true` skips the check that rejects a change taking the caller's own view or update access away.
+- `PUT restriction-state`: `OPEN` clears every row; `EDIT_RESTRICTED` leaves the caller alone on `update`; `VIEW_RESTRICTED` leaves the caller alone on `read` and `update`. The caller needs the right to restrict content.

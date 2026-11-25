@@ -1,0 +1,41 @@
+{
+  "id": "v2-page-restriction-state-set",
+  "ops": [
+    "setPageRestrictionState"
+  ],
+  "setup": [
+    {
+      "as": "space",
+      "method": "POST",
+      "path": "/wiki/api/v2/spaces",
+      "body": {
+        "name": "Conf {{run}}",
+        "key": "K{{run}}"
+      }
+    },
+    {
+      "as": "x",
+      "method": "POST",
+      "path": "/wiki/api/v2/pages",
+      "body": {
+        "spaceId": "{{space.id}}",
+        "title": "x {{run}}",
+        "status": "current",
+        "body": {
+          "representation": "storage",
+          "value": "<p>hello</p>"
+        }
+      }
+    }
+  ],
+  "request": {
+    "method": "PUT",
+    "path": "/wiki/api/v2/pages/{{x.id}}/restriction-state",
+    "body": {
+      "state": "EDIT_RESTRICTED"
+    }
+  },
+  "expect": {
+    "status": 200
+  }
+}

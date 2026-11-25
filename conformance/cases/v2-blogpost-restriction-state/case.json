@@ -1,0 +1,38 @@
+{
+  "id": "v2-blogpost-restriction-state",
+  "ops": [
+    "getBlogPostRestrictionState"
+  ],
+  "setup": [
+    {
+      "as": "space",
+      "method": "POST",
+      "path": "/wiki/api/v2/spaces",
+      "body": {
+        "name": "Conf {{run}}",
+        "key": "K{{run}}"
+      }
+    },
+    {
+      "as": "x",
+      "method": "POST",
+      "path": "/wiki/api/v2/blogposts",
+      "body": {
+        "spaceId": "{{space.id}}",
+        "title": "x {{run}}",
+        "status": "current",
+        "body": {
+          "representation": "storage",
+          "value": "<p>hello</p>"
+        }
+      }
+    }
+  ],
+  "request": {
+    "method": "GET",
+    "path": "/wiki/api/v2/blogposts/{{x.id}}/restriction-state"
+  },
+  "expect": {
+    "status": 200
+  }
+}

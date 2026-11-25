@@ -221,7 +221,7 @@ const CONTENT: (&str, &str) = ("content_labels", "content_id");
 const SPACE: (&str, &str) = ("space_labels", "space_id");
 
 async fn any_content(s: &AppState, raw: &str) -> Result<i64, ApiError> {
-    let id = crate::http::parse_id(raw)?;
+    let id = crate::http::parse_attachment_id(raw)?;
     let ty: Option<String> = sqlx::query_scalar(
         "SELECT type FROM content WHERE id = $1 AND status IN ('current', 'draft', 'archived')",
     )

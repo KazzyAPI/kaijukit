@@ -40,10 +40,10 @@ Status: `not started` | `partial` | `done`. `done` requires a conformance case. 
 | GET | `/attachments` | `getAttachments` | Get attachments | partial (schema) | v2-attachments-list |
 | DELETE | `/attachments/{id}` | `deleteAttachment` | Delete attachment | partial (schema) | v2-attachment-delete |
 | GET | `/attachments/{id}` | `getAttachmentById` | Get attachment by id | partial (schema) | v2-attachment-get |
-| GET | `/attachments/{id}/thumbnail/download` | `getAttachmentThumbnailById` | Download attachment thumbnail by id | not started | - |
+| GET | `/attachments/{id}/thumbnail/download` | `getAttachmentThumbnailById` | Download attachment thumbnail by id | partial (schema) | v2-attachment-thumbnail |
 | GET | `/blogposts/{id}/attachments` | `getBlogpostAttachments` | Get attachments for blog post | partial (schema) | v2-blogpost-attachments |
 | GET | `/custom-content/{id}/attachments` | `getCustomContentAttachments` | Get attachments for custom content | partial (schema) | v2-custom-content-attachments |
-| GET | `/labels/{id}/attachments` | `getLabelAttachments` | Get attachments for label | not started | - |
+| GET | `/labels/{id}/attachments` | `getLabelAttachments` | Get attachments for label | partial (schema) | v2-label-attachments |
 | GET | `/pages/{id}/attachments` | `getPageAttachments` | Get attachments for page | partial (schema) | v2-page-attachments |
 
 ## Blog Post

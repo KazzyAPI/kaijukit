@@ -81,6 +81,7 @@ pub fn app(state: AppState) -> Router {
         .route("/spaces/{id}", get(spaces::get))
         .route("/spaces/{id}/pages", get(pages::in_space))
         .route("/labels/{id}/pages", get(pages::of_label))
+        .route("/labels/{id}/attachments", get(attachments::of_label))
         .route("/pages", get(pages::list).post(pages::create))
         .route(
             "/pages/{id}",
@@ -223,6 +224,10 @@ pub fn app(state: AppState) -> Router {
         )
         .route("/pages/{id}/attachments", get(attachments::list_page::<0>))
         .route("/attachments/{id}/versions", get(attachments::version_list))
+        .route(
+            "/attachments/{id}/thumbnail/download",
+            get(attachments::thumbnail),
+        )
         .route(
             "/attachments/{id}/versions/{number}",
             get(attachments::version_get),

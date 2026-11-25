@@ -1,0 +1,62 @@
+{
+  "id": "v2-label-attachments",
+  "ops": [
+    "getLabelAttachments"
+  ],
+  "setup": [
+    {
+      "as": "space",
+      "method": "POST",
+      "path": "/wiki/api/v2/spaces",
+      "body": {
+        "name": "Conf {{run}}",
+        "key": "K{{run}}"
+      }
+    },
+    {
+      "as": "page1",
+      "method": "POST",
+      "path": "/wiki/api/v2/pages",
+      "body": {
+        "spaceId": "{{space.id}}",
+        "title": "page1 {{run}}",
+        "status": "current",
+        "body": {
+          "representation": "storage",
+          "value": "<p>hello</p>"
+        }
+      }
+    },
+    {
+      "as": "att",
+      "method": "POST",
+      "path": "/wiki/rest/api/content/{{page1.id}}/child/attachment",
+      "multipart": {
+        "filename": "pic.gif",
+        "content": "GIF89a-x",
+        "fields": {
+          "comment": "c",
+          "minorEdit": "false"
+        }
+      }
+    },
+    {
+      "as": "lbl",
+      "method": "POST",
+      "path": "/wiki/rest/api/content/{{att.results.0.id}}/label",
+      "body": [
+        {
+          "prefix": "global",
+          "name": "l{{run}}"
+        }
+      ]
+    }
+  ],
+  "request": {
+    "method": "GET",
+    "path": "/wiki/api/v2/labels/{{lbl.results.0.id}}/attachments"
+  },
+  "expect": {
+    "status": 200
+  }
+}

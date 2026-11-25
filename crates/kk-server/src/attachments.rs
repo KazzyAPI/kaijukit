@@ -10,7 +10,7 @@ use axum::{
     response::{IntoResponse, Response},
     Extension, Json,
 };
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, Timelike, Utc};
 use kk_core::{ApiError, UserId};
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
@@ -116,7 +116,13 @@ pub(crate) async fn blocking<T: Send + 'static>(
         })
 }
 
-async fn list(s: &AppState, a: &Access, q: Q, container: Option<i64>, path: &str) -> R<Response> {
+async fn list(
+    s: &AppState,
+    a: &Access,
+    q: Q,
+    (container, label): (Option<i64>, Option<i64>),
+    path: &str,
+) -> R<Response> {
     let (limit, offset) = (q.limit_or(50)?, q.offset()?);
     let order = q.order_by(&ORDER, "c.id")?;
     let status: Vec<String> = match q.list("status") {
@@ -135,6 +141,7 @@ async fn list(s: &AppState, a: &Access, q: Q, container: Option<i64>, path: &str
         "{SELECT} AND c.status = ANY($2) AND ($3::bigint IS NULL OR a.container_id = $3) \
          AND ($4::text IS NULL OR av.media_type = $4) AND ($5::text IS NULL OR lower(c.title) = lower($5)) \
          AND NOT (c.id = ANY($8)) AND ($9::bigint[] IS NULL OR c.space_id = ANY($9)) \
+         AND ($10::bigint IS NULL OR c.id IN (SELECT content_id FROM content_labels WHERE label_id = $10)) \
          ORDER BY {order} LIMIT $6 OFFSET $7"
     );
     let rows: Vec<Row> = sqlx::query_as(&sql)
@@ -147,6 +154,7 @@ async fn list(s: &AppState, a: &Access, q: Q, container: Option<i64>, path: &str
         .bind(offset)
         .bind(a.hidden(&s.db).await?)
         .bind(a.readable_spaces())
+        .bind(label)
         .fetch_all(&s.db)
         .await?;
     Ok(paged(
@@ -164,7 +172,14 @@ pub async fn list_all(
     Extension(a): Extension<Arc<Access>>,
     RawQuery(raw): RawQuery,
 ) -> R<Response> {
-    list(&s, &a, Q::parse(raw), None, "/wiki/api/v2/attachments").await
+    list(
+        &s,
+        &a,
+        Q::parse(raw),
+        (None, None),
+        "/wiki/api/v2/attachments",
+    )
+    .await
 }
 
 pub async fn list_page<const K: u8>(
@@ -179,10 +194,26 @@ pub async fn list_page<const K: u8>(
         &s,
         &a,
         Q::parse(raw),
-        Some(id),
+        (Some(id), None),
         &format!("/wiki/api/v2/{}/{id}/attachments", k.seg),
     )
     .await
+}
+
+pub async fn of_label(
+    State(s): State<AppState>,
+    Extension(a): Extension<Arc<Access>>,
+    Path(id): Path<String>,
+    RawQuery(raw): RawQuery,
+) -> R<Response> {
+    let id = parse_id(&id)?;
+    sqlx::query_scalar::<_, i64>("SELECT id FROM labels WHERE id = $1")
+        .bind(id)
+        .fetch_optional(&s.db)
+        .await?
+        .ok_or_else(|| ApiError::NotFound("label not found".into()))?;
+    let path = format!("/wiki/api/v2/labels/{id}/attachments");
+    list(&s, &a, Q::parse(raw), (None, Some(id)), &path).await
 }
 
 async fn load(s: &AppState, id: i64, version: Option<i32>) -> Result<Row, ApiError> {
@@ -505,16 +536,18 @@ pub async fn v1_download(
 
 pub async fn download(
     State(s): State<AppState>,
+    headers: HeaderMap,
     Path((container, filename)): Path<(String, String)>,
     RawQuery(raw): RawQuery,
 ) -> R<Response> {
     let version = Q::parse(raw).int("version")?;
     let (container,) = (parse_id(&container)?,);
-    let (key, media, title): (String, String, String) = sqlx::query_as(
-        "SELECT av.blob_key, av.media_type, c.title FROM content c \
+    let (key, media, title, modified): (String, String, String, DateTime<Utc>) = sqlx::query_as(
+        "SELECT av.blob_key, av.media_type, c.title, v.created_at FROM content c \
          JOIN attachments a ON a.content_id = c.id \
          JOIN content p ON p.id = a.container_id AND p.status IN ('current', 'draft', 'archived') \
          JOIN attachment_versions av ON av.content_id = c.id AND av.number = COALESCE($3, c.version_number) \
+         JOIN content_versions v ON v.content_id = c.id AND v.number = av.number \
          WHERE a.container_id = $1 AND lower(c.title) = lower($2) AND c.status = 'current'",
     )
     .bind(container)
@@ -523,7 +556,17 @@ pub async fn download(
     .fetch_optional(&s.db)
     .await?
     .ok_or_else(|| ApiError::NotFound("attachment not found".into()))?;
-    let data = blocking(&s.blobs, move |b| b.get(&key)).await?;
+    // the key is the sha256 of the bytes, so it is a strong validator
+    let etag = format!("\"{key}\"");
+    let modified = modified.with_nanosecond(0).unwrap_or(modified);
+    let last_modified = modified.format("%a, %d %b %Y %H:%M:%S GMT").to_string();
+    let hv = |name: &str| headers.get(name).and_then(|v| v.to_str().ok());
+    let fresh = match hv("if-none-match") {
+        Some(inm) => inm.split(',').any(|t| t.trim() == etag || t.trim() == "*"),
+        None => hv("if-modified-since")
+            .and_then(|d| DateTime::parse_from_rfc2822(d).ok())
+            .is_some_and(|d| modified <= d),
+    };
     let inline =
         media.starts_with("image/") && media != "image/svg+xml" || media == "application/pdf";
     let disposition = format!(
@@ -533,15 +576,98 @@ pub async fn download(
             .collect::<String>()
             .replace('+', "%20")
     );
+    let common = [
+        (header::ETAG, etag.clone()),
+        (header::LAST_MODIFIED, last_modified.clone()),
+        (header::ACCEPT_RANGES, "bytes".into()),
+        (header::X_CONTENT_TYPE_OPTIONS, "nosniff".into()),
+    ];
+    if fresh {
+        return Ok((StatusCode::NOT_MODIFIED, common).into_response());
+    }
+    let data = blocking(&s.blobs, move |b| b.get(&key)).await?;
+    // If-Range: a stale validator means the whole body
+    let range = hv("range").filter(|_| match hv("if-range") {
+        Some(v) => v == etag || v == last_modified,
+        None => true,
+    });
+    let head = [
+        (header::CONTENT_TYPE, media),
+        (header::CONTENT_DISPOSITION, disposition),
+    ];
+    Ok(match range.map(|r| byte_range(r, data.len() as u64)) {
+        Some(Ok(Some((from, to)))) => (
+            StatusCode::PARTIAL_CONTENT,
+            head,
+            common,
+            [(
+                header::CONTENT_RANGE,
+                format!("bytes {from}-{to}/{}", data.len()),
+            )],
+            data[from as usize..=to as usize].to_vec(),
+        )
+            .into_response(),
+        Some(Err(())) => (
+            StatusCode::RANGE_NOT_SATISFIABLE,
+            common,
+            [(header::CONTENT_RANGE, format!("bytes */{}", data.len()))],
+        )
+            .into_response(),
+        // no header, or a form we ignore (units other than bytes, several ranges)
+        _ => (head, common, data).into_response(),
+    })
+}
+
+/// One `bytes=` range against a body of `len` bytes: `Ok(Some((first, last)))`, `Ok(None)` when the
+/// header is not a single byte range (served whole), `Err` when it cannot be satisfied.
+fn byte_range(header: &str, len: u64) -> Result<Option<(u64, u64)>, ()> {
+    let Some(spec) = header.trim().strip_prefix("bytes=") else {
+        return Ok(None);
+    };
+    let Some((a, b)) = spec.split_once('-') else {
+        return Ok(None);
+    };
+    if spec.contains(',') {
+        return Ok(None); // shortcut: multipart/byteranges is not built, answer 200 with the body
+    }
+    let (from, to) = match (a.trim(), b.trim()) {
+        ("", n) => {
+            let n: u64 = n.parse().map_err(|_| ())?;
+            if n == 0 {
+                return Err(());
+            }
+            (len.saturating_sub(n), len.wrapping_sub(1))
+        }
+        (f, "") => (f.parse().map_err(|_| ())?, len.wrapping_sub(1)),
+        (f, t) => (
+            f.parse().map_err(|_| ())?,
+            t.parse::<u64>().map_err(|_| ())?.min(len.wrapping_sub(1)),
+        ),
+    };
+    if len == 0 || from >= len || from > to {
+        return Err(());
+    }
+    Ok(Some((from, to)))
+}
+
+/// `[V]` no image library is built in: an image redirects to the original, anything else is 404.
+pub async fn thumbnail(
+    State(s): State<AppState>,
+    Path(id): Path<String>,
+    RawQuery(raw): RawQuery,
+) -> R<impl IntoResponse> {
+    let q = Q::parse(raw);
+    for k in ["height", "width"] {
+        q.int(k)?;
+    }
+    let row = load(&s, parse_attachment_id(&id)?, q.int("version")?).await?;
+    if !row.media_type.starts_with("image/") || row.media_type == "image/svg+xml" {
+        return Err(ApiError::NotFound("attachment has no thumbnail".into()).into());
+    }
     Ok((
-        [
-            (header::CONTENT_TYPE, media),
-            (header::CONTENT_DISPOSITION, disposition),
-            (header::X_CONTENT_TYPE_OPTIONS, "nosniff".into()),
-        ],
-        data,
-    )
-        .into_response())
+        StatusCode::FOUND,
+        [(header::LOCATION, format!("/wiki{}", download_link(&row)))],
+    ))
 }
 
 #[cfg(test)]
@@ -554,6 +680,19 @@ mod tests {
         assert_eq!(sniff("x.json", b"{}"), "application/json");
         assert_eq!(sniff("x.png", b"\x00\x01"), "application/octet-stream");
         assert_eq!(sniff("x", b"RIFF1234WAVE"), "text/plain");
+    }
+
+    #[test]
+    fn byte_ranges() {
+        assert_eq!(byte_range("bytes=0-3", 10), Ok(Some((0, 3))));
+        assert_eq!(byte_range("bytes=4-", 10), Ok(Some((4, 9))));
+        assert_eq!(byte_range("bytes=-3", 10), Ok(Some((7, 9))));
+        assert_eq!(byte_range("bytes=8-99", 10), Ok(Some((8, 9))));
+        assert_eq!(byte_range("bytes=10-", 10), Err(()));
+        assert_eq!(byte_range("bytes=5-2", 10), Err(()));
+        assert_eq!(byte_range("bytes=0-1,4-5", 10), Ok(None));
+        assert_eq!(byte_range("items=0-1", 10), Ok(None));
+        assert_eq!(byte_range("bytes=0-", 0), Err(()));
     }
 
     #[test]

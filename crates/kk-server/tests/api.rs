@@ -3552,3 +3552,151 @@ async fn v2_permissions_and_restriction_state_for_every_kind() {
         assert_eq!(r.status, StatusCode::NOT_FOUND, "{seg}");
     }
 }
+
+/// GET with extra request headers.
+async fn raw_get(
+    app: &Router,
+    uri: &str,
+    extra: &[(&str, &str)],
+) -> (StatusCode, HeaderMap, Vec<u8>) {
+    let mut req = Request::builder().uri(uri).header(
+        header::AUTHORIZATION,
+        format!("Basic {}", STANDARD.encode(ADMIN)),
+    );
+    for (k, v) in extra {
+        req = req.header(*k, *v);
+    }
+    let res = app
+        .clone()
+        .oneshot(req.body(Body::empty()).unwrap())
+        .await
+        .unwrap();
+    let (parts, body) = res.into_parts();
+    (
+        parts.status,
+        parts.headers,
+        body.collect().await.unwrap().to_bytes().to_vec(),
+    )
+}
+
+#[tokio::test]
+async fn attachment_download_ranges_validators_and_thumbnails() {
+    let app = start().await;
+    let sp = space(&app, "RNG").await;
+    let pg = page(&app, &sp["id"], "Files", None).await;
+    let pid = pg["id"].as_str().unwrap();
+    let up = format!("/wiki/rest/api/content/{pid}/child/attachment");
+    let png = b"\x89PNG\r\n\x1a\n0123456789".to_vec();
+    let (st, _, body) = raw(
+        &app,
+        Method::POST,
+        &up,
+        Some(MP),
+        form(("pic.png", &png), &[]),
+    )
+    .await;
+    assert_eq!(st, StatusCode::OK);
+    let created: Value = serde_json::from_slice(&body).unwrap();
+    let att = created["results"][0]["id"].as_str().unwrap().to_string();
+    let (st, _, _) = raw(
+        &app,
+        Method::POST,
+        &up,
+        Some(MP),
+        form(("notes.txt", b"text"), &[]),
+    )
+    .await;
+    assert_eq!(st, StatusCode::OK);
+    let url = format!("/wiki/download/attachments/{pid}/pic.png");
+
+    let (st, h, body) = raw_get(&app, &url, &[]).await;
+    assert_eq!((st, body.as_slice()), (StatusCode::OK, png.as_slice()));
+    assert_eq!(h[header::ACCEPT_RANGES], "bytes");
+    let etag = h[header::ETAG].to_str().unwrap().to_string();
+    let modified = h[header::LAST_MODIFIED].to_str().unwrap().to_string();
+    assert!(modified.ends_with(" GMT"));
+
+    let (st, h, body) = raw_get(&app, &url, &[("range", "bytes=8-11")]).await;
+    assert_eq!(
+        (st, body.as_slice()),
+        (StatusCode::PARTIAL_CONTENT, &png[8..12])
+    );
+    assert_eq!(
+        h[header::CONTENT_RANGE],
+        format!("bytes 8-11/{}", png.len())
+    );
+    let (_, _, tail) = raw_get(&app, &url, &[("range", "bytes=-3")]).await;
+    assert_eq!(tail.as_slice(), &png[png.len() - 3..]);
+    let (st, h, _) = raw_get(&app, &url, &[("range", "bytes=500-")]).await;
+    assert_eq!(st, StatusCode::RANGE_NOT_SATISFIABLE);
+    assert_eq!(h[header::CONTENT_RANGE], format!("bytes */{}", png.len()));
+    // a stale If-Range gets the whole body
+    let (st, _, body) = raw_get(
+        &app,
+        &url,
+        &[("range", "bytes=0-1"), ("if-range", "\"other\"")],
+    )
+    .await;
+    assert_eq!((st, body.len()), (StatusCode::OK, png.len()));
+    let (st, _, _) = raw_get(&app, &url, &[("range", "bytes=0-1"), ("if-range", &etag)]).await;
+    assert_eq!(st, StatusCode::PARTIAL_CONTENT);
+
+    let (st, h, body) = raw_get(&app, &url, &[("if-none-match", &etag)]).await;
+    assert_eq!((st, body.len()), (StatusCode::NOT_MODIFIED, 0));
+    assert_eq!(h[header::ETAG].to_str().unwrap(), etag);
+    let (st, _, _) = raw_get(&app, &url, &[("if-modified-since", &modified)]).await;
+    assert_eq!(st, StatusCode::NOT_MODIFIED);
+    let (st, _, _) = raw_get(&app, &url, &[("if-none-match", "\"nope\"")]).await;
+    assert_eq!(st, StatusCode::OK);
+
+    let lbl = v1(
+        &app,
+        Method::POST,
+        &format!("/content/{att}/label"),
+        Some(json!([{"prefix": "global", "name": "pics"}])),
+    )
+    .await;
+    assert_eq!(lbl.status, StatusCode::OK, "{}", lbl.json);
+    let lid = lbl.json["results"][0]["id"].as_str().unwrap().to_string();
+    let by_label = get(&app, &format!("/labels/{lid}/attachments")).await;
+    assert_eq!(ids(&by_label), std::slice::from_ref(&att));
+    // thumbnails: images redirect to the original, other files have none
+    let t = get(
+        &app,
+        &format!("/attachments/{att}/thumbnail/download?width=10"),
+    )
+    .await;
+    assert_eq!(t.status, StatusCode::FOUND);
+    assert!(t.headers[header::LOCATION]
+        .to_str()
+        .unwrap()
+        .starts_with(&format!("/wiki/download/attachments/{pid}/pic.png")));
+    let txt = raw_get(&app, &format!("{API}/pages/{pid}/attachments"), &[])
+        .await
+        .2;
+    let txt: Value = serde_json::from_slice(&txt).unwrap();
+    let txt_id = txt["results"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|a| a["title"] == "notes.txt")
+        .unwrap()["id"]
+        .as_str()
+        .unwrap()
+        .to_string();
+    assert_eq!(
+        get(&app, &format!("/attachments/{txt_id}/thumbnail/download"))
+            .await
+            .status,
+        StatusCode::NOT_FOUND
+    );
+    assert_eq!(
+        get(
+            &app,
+            &format!("/attachments/{att}/thumbnail/download?width=x")
+        )
+        .await
+        .status,
+        StatusCode::BAD_REQUEST
+    );
+}

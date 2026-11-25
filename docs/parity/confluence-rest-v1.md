@@ -163,7 +163,7 @@ Status: `not started` | `partial` | `done`. `done` requires a conformance case. 
 | POST | `/wiki/rest/api/group` | `createGroup` | Create new user group | partial (schema) | v1-group-create |
 | DELETE | `/wiki/rest/api/group/by-id` | `removeGroupById` | Delete user group | partial (schema) | v1-group-delete |
 | GET | `/wiki/rest/api/group/by-id` | `getGroupByGroupId` | Get group | partial (schema) | v1-group-get |
-| GET | `/wiki/rest/api/group/picker` | `searchGroups` | Search groups by partial query | not started | - |
+| GET | `/wiki/rest/api/group/picker` | `searchGroups` | Search groups by partial query | partial (schema) | v1-group-picker |
 | DELETE | `/wiki/rest/api/group/userByGroupId` | `removeMemberFromGroupByGroupId` | Remove member from group using group id | partial (schema) | v1-group-member-remove |
 | POST | `/wiki/rest/api/group/userByGroupId` | `addUserToGroupByGroupId` | Add member to group by groupId | partial (schema) | v1-group-member-add |
 | GET | `/wiki/rest/api/group/{groupId}/membersByGroupId` | `getGroupMembersByGroupId` | Get group members | partial (schema) | v1-group-members |
@@ -268,10 +268,10 @@ Status: `not started` | `partial` | `done`. `done` requires a conformance case. 
 
 | Method | Path | operationId | Summary | Status | Case |
 |---|---|---|---|---|---|
-| GET | `/wiki/rest/api/user` | `getUser` | Get user | not started | - |
-| GET | `/wiki/rest/api/user/anonymous` | `getAnonymousUser` | Get anonymous user | not started | - |
-| GET | `/wiki/rest/api/user/bulk` | `getBulkUserLookup` | Get multiple users using ids | not started | - |
+| GET | `/wiki/rest/api/user` | `getUser` | Get user | partial (schema) | v1-user-get |
+| GET | `/wiki/rest/api/user/anonymous` | `getAnonymousUser` | Get anonymous user | partial (schema) | v1-user-anonymous |
+| GET | `/wiki/rest/api/user/bulk` | `getBulkUserLookup` | Get multiple users using ids | partial (schema) | v1-user-bulk |
 | GET | `/wiki/rest/api/user/current` | `getCurrentUser` | Get current user | partial (schema) | v1-user-current |
-| GET | `/wiki/rest/api/user/email` | `getPrivacyUnsafeUserEmail` | Get user email address | not started | - |
-| GET | `/wiki/rest/api/user/email/bulk` | `getPrivacyUnsafeUserEmailBulk` | Get user email addresses in batch | not started | - |
-| GET | `/wiki/rest/api/user/memberof` | `getGroupMembershipsForUser` | Get group memberships for user | not started | - |
+| GET | `/wiki/rest/api/user/email` | `getPrivacyUnsafeUserEmail` | Get user email address | partial (schema) | v1-user-email |
+| GET | `/wiki/rest/api/user/email/bulk` | `getPrivacyUnsafeUserEmailBulk` | Get user email addresses in batch | partial (schema) | v1-user-email-bulk |
+| GET | `/wiki/rest/api/user/memberof` | `getGroupMembershipsForUser` | Get group memberships for user | partial (schema) | v1-user-memberof |

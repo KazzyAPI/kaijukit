@@ -1,0 +1,23 @@
+{
+  "id": "v1-user-email",
+  "ops": [
+    "getPrivacyUnsafeUserEmail"
+  ],
+  "setup": [
+    {
+      "as": "me",
+      "method": "GET",
+      "path": "/wiki/rest/api/user/current"
+    }
+  ],
+  "request": {
+    "method": "GET",
+    "path": "/wiki/rest/api/user/email",
+    "query": {
+      "accountId": "{{me.accountId}}"
+    }
+  },
+  "expect": {
+    "status": 200
+  }
+}

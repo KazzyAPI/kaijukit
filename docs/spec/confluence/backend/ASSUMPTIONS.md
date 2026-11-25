@@ -180,3 +180,11 @@ All `[V]`: shapes from the pinned v1 spec; rules ours. The spec has no "create p
 - `GET /template/page` without `spaceKey` lists the global templates only, with `spaceKey` that space's, ordered by name. `GET /template/blueprint` is always empty (no blueprints). `originalTemplate` and `referencingBlueprint` never appear.
 - Update replaces name, description, labels and body; `space.key` must match the stored space (400). Labels are stored as names (prefix reported as `global`, `id` empty). Description over 255 characters is 400 (the update schema says 100; we use the create limit for both).
 - Not built: template labels as real label rows, template versions, instantiating a blueprint.
+
+## M4c: v1 user and group lookups
+
+All `[V]`.
+
+- `GET /user?accountId=` returns the long user shape (avatar `isDefault`, `isGuest=false`, `operations=[]`, `personalSpace=null`, `_expandable`); unknown or non-numeric ids are 404. `GET /user/bulk?accountId=` takes up to 100 ids (repeated or comma lists), skips unknown ones, answers 400 for none or too many. `expand` is accepted and ignored. `GET /user/anonymous` is a static record (anonymous access does not exist).
+- `GET /user/email` and `/user/email/bulk` answer any authenticated caller (the reference restricts them to apps; we have no app identity yet, and `users-bulk` already returns emails). Bulk returns a bare array and skips unknown ids; the single form is 404 for an unknown id.
+- `GET /user/memberof` lists the user's groups plus the built-in `kk-users`, ordered by name. `GET /group/picker?query=` is a case-insensitive substring match on the group name; `shouldReturnTotalSize` adds `totalSize`.

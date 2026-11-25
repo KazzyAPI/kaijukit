@@ -236,3 +236,41 @@ pub async fn members(
     }
     Ok(v1::ok(page))
 }
+
+/// v1 `searchGroups`: case-insensitive substring of the group name.
+pub async fn picker(State(s): State<AppState>, RawQuery(raw): RawQuery) -> R<Response> {
+    let q = Q::parse(raw);
+    let (start, limit) = v1::window(&q, 200)?;
+    let needle = format!(
+        "%{}%",
+        required(&q, "query")?
+            .replace('\\', "\\\\")
+            .replace('%', "\\%")
+            .replace('_', "\\_")
+    );
+    let ids: Vec<i64> = sqlx::query_scalar(
+        "SELECT id FROM groups WHERE name ILIKE $1 ORDER BY lower(name), id LIMIT $2 OFFSET $3",
+    )
+    .bind(&needle)
+    .bind(limit + 1)
+    .bind(start)
+    .fetch_all(&s.db)
+    .await?;
+    let rows = v1::groups(&s.db, &s.site(), &ids).await?;
+    let mut page = v1::page(
+        &q,
+        "/wiki/rest/api/group/picker",
+        &s.site(),
+        rows,
+        start,
+        limit,
+    );
+    if q.flag("shouldReturnTotalSize")? {
+        let n: i64 = sqlx::query_scalar("SELECT count(*) FROM groups WHERE name ILIKE $1")
+            .bind(&needle)
+            .fetch_one(&s.db)
+            .await?;
+        page["totalSize"] = json!(n);
+    }
+    Ok(v1::ok(page))
+}

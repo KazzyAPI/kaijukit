@@ -4126,3 +4126,117 @@ fn names_of(r: &Res) -> Vec<&str> {
         .map(|t| t["name"].as_str().unwrap())
         .collect()
 }
+
+#[tokio::test]
+async fn v1_user_and_group_lookups() {
+    let (app, db) = start_db().await;
+    let (cy, cy_id) = user(&db, "cy").await;
+    let g = v1(
+        &app,
+        Method::POST,
+        "/group",
+        Some(json!({"name": "Editors"})),
+    )
+    .await;
+    let gid = g.json["id"].as_str().unwrap().to_string();
+    v1(
+        &app,
+        Method::POST,
+        &format!("/group/userByGroupId?groupId={gid}"),
+        Some(json!({"accountId": cy_id})),
+    )
+    .await;
+    let u = as_user_v1(
+        &app,
+        &cy,
+        Method::GET,
+        &format!("/user?accountId={cy_id}"),
+        None,
+    )
+    .await;
+    assert_eq!(u.json["email"], "cy@example.test");
+    assert_eq!(u.json["profilePicture"]["isDefault"], true);
+    assert_eq!(
+        v1(&app, Method::GET, "/user?accountId=999999", None)
+            .await
+            .status,
+        StatusCode::NOT_FOUND
+    );
+    assert_eq!(
+        v1(&app, Method::GET, "/user", None).await.status,
+        StatusCode::BAD_REQUEST
+    );
+    let b = v1(
+        &app,
+        Method::GET,
+        &format!("/user/bulk?accountId={cy_id},nope,{cy_id}"),
+        None,
+    )
+    .await;
+    assert_eq!(b.json["size"], 1);
+    assert_eq!(
+        v1(&app, Method::GET, "/user/bulk?accountId=x", None)
+            .await
+            .status,
+        StatusCode::BAD_REQUEST
+    );
+    assert_eq!(
+        v1(&app, Method::GET, "/user/anonymous", None).await.json["type"],
+        "anonymous"
+    );
+    let e = v1(
+        &app,
+        Method::GET,
+        &format!("/user/email?accountId={cy_id}"),
+        None,
+    )
+    .await;
+    assert_eq!(e.json["email"], "cy@example.test");
+    let eb = v1(
+        &app,
+        Method::GET,
+        &format!("/user/email/bulk?accountId={cy_id}&accountId=1"),
+        None,
+    )
+    .await;
+    assert_eq!(eb.json.as_array().unwrap().len(), 1);
+    let m = v1(
+        &app,
+        Method::GET,
+        &format!("/user/memberof?accountId={cy_id}"),
+        None,
+    )
+    .await;
+    let names: Vec<&str> = m.json["results"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|g| g["name"].as_str().unwrap())
+        .collect();
+    assert_eq!(names, ["Editors", "kk-users"]);
+    assert_eq!(
+        v1(&app, Method::GET, "/user/memberof?accountId=999999", None)
+            .await
+            .status,
+        StatusCode::NOT_FOUND
+    );
+    let p = v1(
+        &app,
+        Method::GET,
+        "/group/picker?query=edit&shouldReturnTotalSize=true",
+        None,
+    )
+    .await;
+    assert_eq!(p.json["totalSize"], 1);
+    assert_eq!(p.json["results"][0]["name"], "Editors");
+    assert_eq!(
+        v1(&app, Method::GET, "/group/picker?query=%25", None)
+            .await
+            .json["size"],
+        0
+    );
+    assert_eq!(
+        v1(&app, Method::GET, "/group/picker", None).await.status,
+        StatusCode::BAD_REQUEST
+    );
+}

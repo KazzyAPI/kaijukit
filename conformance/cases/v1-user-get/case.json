@@ -1,0 +1,23 @@
+{
+  "id": "v1-user-get",
+  "ops": [
+    "getUser"
+  ],
+  "setup": [
+    {
+      "as": "me",
+      "method": "GET",
+      "path": "/wiki/rest/api/user/current"
+    }
+  ],
+  "request": {
+    "method": "GET",
+    "path": "/wiki/rest/api/user",
+    "query": {
+      "accountId": "{{me.accountId}}"
+    }
+  },
+  "expect": {
+    "status": 200
+  }
+}

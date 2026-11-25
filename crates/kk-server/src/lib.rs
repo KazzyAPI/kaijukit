@@ -623,6 +623,13 @@ pub fn app(state: AppState) -> Router {
             "/template/{contentTemplateId}",
             get(templates::get).delete(templates::remove),
         )
+        .route("/user", get(users::get))
+        .route("/user/bulk", get(users::bulk_lookup))
+        .route("/user/anonymous", get(users::anonymous))
+        .route("/user/email", get(users::email))
+        .route("/user/email/bulk", get(users::email_bulk))
+        .route("/user/memberof", get(users::member_of))
+        .route("/group/picker", get(groups::picker))
         .route("/user/current", get(users::current))
         .route(
             "/user/watch/content/{contentId}",

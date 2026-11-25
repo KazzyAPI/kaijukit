@@ -1,0 +1,23 @@
+{
+  "id": "v1-user-bulk",
+  "ops": [
+    "getBulkUserLookup"
+  ],
+  "setup": [
+    {
+      "as": "me",
+      "method": "GET",
+      "path": "/wiki/rest/api/user/current"
+    }
+  ],
+  "request": {
+    "method": "GET",
+    "path": "/wiki/rest/api/user/bulk",
+    "query": {
+      "accountId": "{{me.accountId}}"
+    }
+  },
+  "expect": {
+    "status": 200
+  }
+}

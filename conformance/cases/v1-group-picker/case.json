@@ -1,0 +1,18 @@
+{
+  "id": "v1-group-picker",
+  "ops": [
+    "searchGroups"
+  ],
+  "setup": [],
+  "request": {
+    "method": "GET",
+    "path": "/wiki/rest/api/group/picker",
+    "query": {
+      "query": "kk",
+      "shouldReturnTotalSize": "true"
+    }
+  },
+  "expect": {
+    "status": 200
+  }
+}

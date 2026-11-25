@@ -1,11 +1,21 @@
 use std::sync::Arc;
 
-use axum::{extract::State, http::StatusCode, Extension, Json};
+use axum::{
+    extract::{RawQuery, State},
+    http::StatusCode,
+    response::Response,
+    Extension, Json,
+};
 use kk_core::ApiError;
 use serde::Deserialize;
 use serde_json::{json, Value};
 
-use crate::{authz::Access, error::R, http::JsonBody, AppState};
+use crate::{
+    authz::Access,
+    error::R,
+    http::{JsonBody, Q},
+    v1, AppState,
+};
 
 const MAX_LOOKUP: usize = 100;
 
@@ -145,4 +155,125 @@ pub fn valid_email(e: &str) -> bool {
     e.split_once('@').is_some_and(|(l, d)| {
         !l.is_empty() && d.contains('.') && !e.contains(char::is_whitespace) && !d.contains('@')
     })
+}
+
+fn account_ids(q: &Q) -> Vec<i64> {
+    // ids that are not numeric belong to nobody
+    q.list("accountId")
+        .iter()
+        .filter_map(|i| i.parse().ok())
+        .collect()
+}
+
+fn one(q: &Q) -> Result<i64, ApiError> {
+    q.get("accountId")
+        .and_then(|i| i.parse().ok())
+        .ok_or_else(|| {
+            ApiError::BadRequest("accountId is required and must be an account id".into())
+        })
+}
+
+fn no_user() -> ApiError {
+    ApiError::NotFound("user not found".into())
+}
+
+/// v1 `getUser`.
+pub async fn get(State(s): State<AppState>, RawQuery(raw): RawQuery) -> R<Json<Value>> {
+    let id = one(&Q::parse(raw))?;
+    let mut u = v1::full_users(&s.db, &s.site(), &[id]).await?;
+    if u.is_empty() {
+        return Err(no_user().into());
+    }
+    Ok(Json(u.remove(0)))
+}
+
+/// v1 `getBulkUserLookup`: unknown ids are skipped; at most 100.
+pub async fn bulk_lookup(State(s): State<AppState>, RawQuery(raw): RawQuery) -> R<Response> {
+    let q = Q::parse(raw);
+    let ids = account_ids(&q);
+    if ids.is_empty() || ids.len() > MAX_LOOKUP {
+        return Err(
+            ApiError::BadRequest(format!("accountId must hold 1 to {MAX_LOOKUP} ids")).into(),
+        );
+    }
+    let rows = v1::full_users(&s.db, &s.site(), &ids).await?;
+    let n = rows.len();
+    Ok(v1::ok(json!({
+        "results": rows, "start": 0, "limit": ids.len(), "size": n,
+        "_links": {"base": s.site(), "context": "/wiki"},
+    })))
+}
+
+/// v1 `getAnonymousUser`; anonymous access is not built, the record is static.
+pub async fn anonymous(State(s): State<AppState>) -> Json<Value> {
+    Json(json!({
+        "type": "anonymous",
+        "displayName": "Anonymous",
+        "profilePicture": {"path": "/wiki/aa-avatar/default", "width": 48, "height": 48, "isDefault": true},
+        "operations": [],
+        "_expandable": {"operations": ""},
+        "_links": {"base": s.site(), "context": "/wiki"},
+    }))
+}
+
+/// v1 `getPrivacyUnsafeUserEmail`.
+pub async fn email(State(s): State<AppState>, RawQuery(raw): RawQuery) -> R<Json<Value>> {
+    let id = one(&Q::parse(raw))?;
+    let e: Option<String> = sqlx::query_scalar("SELECT email FROM users WHERE id = $1")
+        .bind(id)
+        .fetch_optional(&s.db)
+        .await?;
+    let e = e.ok_or_else(no_user)?;
+    Ok(Json(json!({"accountId": id.to_string(), "email": e})))
+}
+
+/// v1 `getPrivacyUnsafeUserEmailBulk`: a bare array, unknown ids skipped.
+pub async fn email_bulk(State(s): State<AppState>, RawQuery(raw): RawQuery) -> R<Json<Value>> {
+    let ids = account_ids(&Q::parse(raw));
+    if ids.is_empty() || ids.len() > MAX_LOOKUP {
+        return Err(
+            ApiError::BadRequest(format!("accountId must hold 1 to {MAX_LOOKUP} ids")).into(),
+        );
+    }
+    let rows: Vec<(i64, String)> =
+        sqlx::query_as("SELECT id, email FROM users WHERE id = ANY($1) ORDER BY id")
+            .bind(ids)
+            .fetch_all(&s.db)
+            .await?;
+    Ok(Json(Value::Array(
+        rows.into_iter()
+            .map(|(i, e)| json!({"accountId": i.to_string(), "email": e}))
+            .collect(),
+    )))
+}
+
+/// v1 `getGroupMembershipsForUser`, including the built-in everyone group.
+pub async fn member_of(State(s): State<AppState>, RawQuery(raw): RawQuery) -> R<Response> {
+    let q = Q::parse(raw);
+    let (start, limit) = v1::window(&q, 200)?;
+    let id = one(&q)?;
+    let known: Option<i64> = sqlx::query_scalar("SELECT id FROM users WHERE id = $1")
+        .bind(id)
+        .fetch_optional(&s.db)
+        .await?;
+    known.ok_or_else(no_user)?;
+    let ids: Vec<i64> = sqlx::query_scalar(
+        "SELECT g.id FROM groups g WHERE g.everyone OR EXISTS \
+         (SELECT 1 FROM group_members m WHERE m.group_id = g.id AND m.user_id = $1) \
+         ORDER BY lower(g.name), g.id LIMIT $2 OFFSET $3",
+    )
+    .bind(id)
+    .bind(limit + 1)
+    .bind(start)
+    .fetch_all(&s.db)
+    .await?;
+    let rows = v1::groups(&s.db, &s.site(), &ids).await?;
+    Ok(v1::ok(v1::page(
+        &q,
+        "/wiki/rest/api/user/memberof",
+        &s.site(),
+        rows,
+        start,
+        limit,
+    )))
 }

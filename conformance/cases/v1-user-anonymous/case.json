@@ -1,0 +1,14 @@
+{
+  "id": "v1-user-anonymous",
+  "ops": [
+    "getAnonymousUser"
+  ],
+  "setup": [],
+  "request": {
+    "method": "GET",
+    "path": "/wiki/rest/api/user/anonymous"
+  },
+  "expect": {
+    "status": 200
+  }
+}

@@ -83,3 +83,37 @@ pub async fn groups(db: &PgPool, site: &str, ids: &[i64]) -> Result<Vec<Value>, 
             .map_err(|e| db_err(e, ""))?;
     Ok(rows.iter().map(|(i, n)| group_json(*i, n, site)).collect())
 }
+
+/// The long `User` shape (avatar, collaborator flags) used by lookups and watcher lists.
+pub fn full_user(id: i64, name: &str, email: &str, account_type: &str, site: &str) -> Value {
+    json!({
+        "type": "known",
+        "accountId": id.to_string(),
+        "accountType": account_type,
+        "email": email,
+        "publicName": name,
+        "displayName": name,
+        "profilePicture": {"path": "/wiki/aa-avatar/default", "width": 48, "height": 48, "isDefault": true},
+        "isExternalCollaborator": false,
+        "externalCollaborator": false,
+        "isGuest": false,
+        "operations": [],
+        "personalSpace": null,
+        "_expandable": {"operations": "", "details": "", "personalSpace": ""},
+        "_links": {"self": format!("{site}/rest/api/user?accountId={id}")},
+    })
+}
+
+pub async fn full_users(db: &PgPool, site: &str, ids: &[i64]) -> Result<Vec<Value>, ApiError> {
+    let rows: Vec<(i64, String, String, String)> = sqlx::query_as(
+        "SELECT id, display_name, email, account_type FROM users WHERE id = ANY($1) ORDER BY id",
+    )
+    .bind(ids)
+    .fetch_all(db)
+    .await
+    .map_err(|e| db_err(e, ""))?;
+    Ok(rows
+        .iter()
+        .map(|(i, n, e, t)| full_user(*i, n, e, t, site))
+        .collect())
+}

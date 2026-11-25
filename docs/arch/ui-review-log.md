@@ -43,11 +43,28 @@ Screens covered (shell rebuild of 2026-11-25 adds the notifications menu, help a
 
 Design decisions worth knowing: quick search and tree search list the newest 250 pages and match substrings on the client because `GET /pages?title=` is exact-match; the notifications badge is a single local welcome item that clears when opened (no fake counts); the Share lock icon is always the open state because restrictions are not built; toolbar items without a Tiptap extension are `aria-disabled` buttons with a "not built yet" tooltip, not hidden.
 
+## Editor features and known issues (M2), 2026-11-25
+
+Driven with Playwright (`web/e2e/tests/editor-features.spec.ts`): every feature is inserted through the toolbar or its keyboard trigger, the saved ADF is read back from the API and compared literally, then the page is screenshotted in view and edit mode, light and dark, at 1280 and 390 wide, with axe. Run against both the mock API and the real stack (`COMPOSE_PROJECT_NAME=kk-web`, port 8181).
+
+| # | Found by looking | Fix |
+|---|------------------|-----|
+| 1 | Pressing Enter on an empty last action item or decision added more empty items instead of leaving the list. | Enter falls back to lifting the item out of the list. |
+| 2 | Inserting an image (or any block) while a block such as the table of contents was selected replaced it. | Inserts go after a selected block node. |
+| 3 | After editing an Expand title, clicking its body left the caret at the top of the page, so typing landed in the first paragraph. ProseMirror skips resyncing the DOM caret when the click does not change its own selection. | Re-focus the view after a click that left the title input. |
+| 4 | New lines after aligned or indented text inherited the alignment and indent, so `[] ` produced centred action items. | Kept (it matches Word-style behaviour); the spec resets alignment before typing the list. |
+| 5 | Red text on the yellow highlight failed axe colour contrast (3.9:1) in view mode. | Red swatch changed to `#bf2600` (5.5:1). |
+| 6 | Dark-blue text colour is low contrast on the dark theme. | Not fixed: author-chosen colours are content, and the palette keeps ADF-compatible values. |
+
+Title search: `GET /pages?title=` is an exact (case-insensitive) match on the title, not a prefix or substring search. Quick search and the tree filter now say "Exact page title" and, when nothing matches, "No page is titled ...". Prefix or full-text search needs a backend endpoint.
+
 ## Known, not fixed
 
 - Page byline shows `User <short id>` until the server implements `POST /users-bulk`; the UI already uses it when present.
-- Leaf pages show an expand chevron until their children have been fetched (the tree endpoint reports no child count).
-- The help menu and app switcher are hidden under 768px; their items are not reachable on phones yet.
-- Tree has no "load more" past 250 children and no virtualization or drag and drop.
-- Breadcrumbs do not collapse long chains; they truncate and wrap.
-- Toolbar tooltips can cover the first editor line.
+- Page tree drag and drop is not built. There is no move endpoint (`PUT /pages/{id}` cannot change the parent), so a UI for it would only pretend to work.
+- Tree has no "load more" past 250 children and no virtualization.
+- Chevrons appear only for pages with children (the tree probes children of every visible row), which costs one request per visible row.
+- Mention picker offers only the page author and last editor (there is no user search endpoint yet).
+- The table of contents is a static placeholder while editing; it lists headings when the page is viewed.
+- Inline-comment annotation marks survive load and save and `Editor.annotate` / `removeAnnotation` exist, but no comment UI is built on them yet.
+- Layout sections have no per-column width controls (2 and 3 equal columns only).

@@ -34,7 +34,7 @@ const divider: Entry = { label: 'Divider', run: (e) => c(e).setHorizontalRule().
 const insertTable: Entry = { label: 'Insert table', run: (e) => c(e).insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run(), can: (e) => !e.isActive('table') };
 const inTable = (e: Editor) => e.isActive('table');
 const NO_UPLOAD = 'Uploading files is not available here';
-const COLOR_NAMES: Record<string, string> = { '#172b4d': 'Dark blue', '#de350b': 'Red', '#ff8b00': 'Orange', '#ff991f': 'Amber', '#00875a': 'Green', '#006644': 'Dark green', '#0065ff': 'Blue', '#403294': 'Dark purple', '#6554c0': 'Purple', '#97a0af': 'Gray', '#ffebe6': 'Light red', '#fff0b3': 'Yellow', '#e3fcef': 'Light green', '#deebff': 'Light blue', '#eae6ff': 'Light purple', '#f4f5f7': 'Light gray' };
+const COLOR_NAMES: Record<string, string> = { '#172b4d': 'Dark blue', '#bf2600': 'Red', '#ff8b00': 'Orange', '#ff991f': 'Amber', '#00875a': 'Green', '#006644': 'Dark green', '#0065ff': 'Blue', '#403294': 'Dark purple', '#6554c0': 'Purple', '#97a0af': 'Gray', '#ffebe6': 'Light red', '#fff0b3': 'Yellow', '#e3fcef': 'Light green', '#deebff': 'Light blue', '#eae6ff': 'Light purple', '#f4f5f7': 'Light gray' };
 const colorEntries = (markName: string, none: string, palette: string[]): (Entry | 'sep')[] => [
   { label: none, run: (e) => c(e).unsetMark(markName).run() },
   'sep',

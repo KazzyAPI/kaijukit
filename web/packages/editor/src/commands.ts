@@ -1,4 +1,5 @@
 import type { Editor } from '@tiptap/core';
+import { NodeSelection } from '@tiptap/pm/state';
 import { PANEL_TYPES } from './extensions';
 import { expand, layoutSection, panel, toc } from './insert';
 
@@ -20,7 +21,12 @@ export interface Actions {
 }
 
 const heading = (level: 1 | 2 | 3 | 4 | 5 | 6): Command => ({ id: `h${level}`, title: `Heading ${level}`, hint: `${'#'.repeat(level)} `, keywords: `h${level} heading title`, run: (e) => e.chain().focus().setHeading({ level }).run() });
-const insert = (e: Editor, node: object | object[]) => e.chain().focus().insertContent(node).run();
+// Inserting over a selected block node (a TOC, an image) would replace it, so go after it instead.
+export const insert = (e: Editor, node: object | object[]) => {
+  const { selection } = e.state;
+  const chain = e.chain().focus();
+  return (selection instanceof NodeSelection ? chain.insertContentAt(selection.to, node) : chain.insertContent(node)).run();
+};
 
 export function buildCommands(a: Actions): Command[] {
   return [

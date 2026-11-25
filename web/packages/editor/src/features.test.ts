@@ -25,7 +25,7 @@ describe('marks', () => {
   it('text color', () => {
     const e = open();
     e.chain().selectAll().setMark('textColor', { color: COLORS[1] }).run();
-    expect(adf(e)).toEqual([{ type: 'paragraph', content: [text('hello', [{ type: 'textColor', attrs: { color: '#de350b' } }])] }]);
+    expect(adf(e)).toEqual([{ type: 'paragraph', content: [text('hello', [{ type: 'textColor', attrs: { color: '#bf2600' } }])] }]);
   });
 
   it('highlight is a backgroundColor mark', () => {
@@ -85,6 +85,14 @@ describe('action items and decisions', () => {
     e.chain().toggleList('taskList', 'taskItem').run();
     expect(adf(e)).toEqual([{ type: 'taskList', attrs: { localId: 'ID' }, content: [{ type: 'taskItem', attrs: { localId: 'ID', state: 'TODO' }, content: [text('hello')] }] }]);
   });
+  it('Enter on an empty last item leaves the list', () => {
+    const e = open(doc({ type: 'taskList', content: [{ type: 'taskItem', attrs: { localId: 'a', state: 'TODO' }, content: [text('one')] }] }));
+    e.commands.focus('end');
+    e.view.someProp('handleKeyDown', (f) => f(e.view, new KeyboardEvent('keydown', { key: 'Enter' })));
+    e.view.someProp('handleKeyDown', (f) => f(e.view, new KeyboardEvent('keydown', { key: 'Enter' })));
+    expect(adf(e).map((n) => n.type)).toEqual(['taskList', 'paragraph']);
+  });
+
   it('splits on Enter and keeps the state of the first', () => {
     const e = open(doc(tasks));
     e.chain().setTextSelection(4).splitListItem('taskItem').run();

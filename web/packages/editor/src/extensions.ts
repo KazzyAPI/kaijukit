@@ -1,7 +1,7 @@
 import { Extension, Mark, Node as TNode, wrappingInputRule, type Editor } from '@tiptap/core';
 import { Plugin } from '@tiptap/pm/state';
 
-export const COLORS = ['#172b4d', '#de350b', '#ff8b00', '#ff991f', '#00875a', '#006644', '#0065ff', '#403294', '#6554c0', '#97a0af'];
+export const COLORS = ['#172b4d', '#bf2600', '#ff8b00', '#ff991f', '#00875a', '#006644', '#0065ff', '#403294', '#6554c0', '#97a0af'];
 export const HIGHLIGHTS = ['#ffebe6', '#fff0b3', '#e3fcef', '#deebff', '#eae6ff', '#f4f5f7'];
 export const PANEL_TYPES = ['info', 'note', 'success', 'warning', 'error'] as const;
 export const STATUS_COLORS = ['neutral', 'purple', 'blue', 'red', 'yellow', 'green'] as const;
@@ -124,7 +124,7 @@ export const TaskList = itemList('taskList', 'taskItem', '\\[\\]');
 export const DecisionList = itemList('decisionList', 'decisionItem', '<>');
 
 const itemKeys = (name: string) => ({
-  Enter: ({ editor }: { editor: Editor }) => editor.commands.splitListItem(name),
+  Enter: ({ editor }: { editor: Editor }) => editor.commands.first(({ commands }) => [() => commands.splitListItem(name), () => commands.liftListItem(name)]),
   'Shift-Tab': ({ editor }: { editor: Editor }) => editor.commands.liftListItem(name),
 });
 
@@ -232,8 +232,12 @@ export const Expand = TNode.create({
       });
       input.addEventListener('input', () => {
         const pos = getPos();
-        if (typeof pos === 'number') editor.chain().command(({ tr }) => !!tr.setNodeMarkup(pos, undefined, { title: input.value })).run();
+        if (typeof pos === 'number') editor.view.dispatch(editor.state.tr.setNodeAttribute(pos, 'title', input.value));
       });
+      // Leaving the title input by click leaves the DOM caret stale: ProseMirror sees no state change and skips resyncing it.
+      let fromTitle = false;
+      dom.addEventListener('mousedown', (e) => (fromTitle = document.activeElement === input && !head.contains(e.target as Node)));
+      dom.addEventListener('click', () => fromTitle && setTimeout(() => editor.view.focus()));
       head.append(toggle, input);
       dom.append(head, body);
       return {

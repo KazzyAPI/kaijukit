@@ -3,7 +3,7 @@ import { EditorContent, useEditor, type Editor as TiptapEditor } from '@tiptap/r
 import { createPortal } from 'react-dom';
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import { fromAdf, toAdf, type AdfDoc, type AdfNode } from './adf';
-import { buildCommands, type Command } from './commands';
+import { buildCommands, insert, type Command } from './commands';
 import { STATUS_COLORS, type MediaAttrs } from './extensions';
 import { date, emoji, EMOJIS, mediaBlock, mention, status } from './insert';
 import { kkExtensions } from './schema';
@@ -112,7 +112,7 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor({ va
     for (const f of files) {
       setUploading((u) => [...u, f.name]);
       try {
-        e.chain().focus().insertContent(mediaBlock(await up(f))).run();
+        insert(e, mediaBlock(await up(f)));
       } catch (err) {
         live.current.onError?.(`Couldn't upload ${f.name}. ${err instanceof Error ? err.message : ''}`.trim());
       } finally {

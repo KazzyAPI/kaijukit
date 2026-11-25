@@ -37,7 +37,7 @@ test('create space, create page, edit, publish, view', async ({ page }) => {
   await expect(page).toHaveURL(/pages\/edit-v2\/\d+$/);
   const editor = page.getByRole('textbox', { name: 'Page content' });
   await editor.click();
-  await page.keyboard.press('Control+End');
+  await page.keyboard.press(process.platform === 'darwin' ? 'Meta+ArrowDown' : 'Control+End');
   await page.keyboard.type('Added later');
   await expect(page.getByRole('status')).toContainText('Unpublished changes');
   await page.getByRole('button', { name: 'Publish', exact: true }).click();

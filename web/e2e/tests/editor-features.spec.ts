@@ -4,6 +4,8 @@ import { ADMIN, createSpace, login } from './helpers';
 
 const auth = { Authorization: `Basic ${Buffer.from(`${ADMIN.email}:${ADMIN.token}`).toString('base64')}` };
 // 1x1 transparent PNG
+const END = process.platform === 'darwin' ? 'Meta+ArrowDown' : 'Control+End';
+const ALL = 'ControlOrMeta+a';
 const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==', 'base64');
 
 type N = { type: string; attrs?: Record<string, unknown>; content?: N[]; marks?: unknown[]; text?: string };
@@ -27,23 +29,26 @@ test('editor features write ADF and render in light and dark at both widths', as
   await page.getByLabel('Title', { exact: true }).fill('Editor features');
   await page.getByLabel('Title', { exact: true }).press('Enter');
   const editor = page.getByRole('textbox', { name: 'Page content' });
-  const pick = async (tool: string, item: string | RegExp) => {
+  const pick = async (tool: string, item: string | RegExp, dialog = false) => {
     await page.getByRole('button', { name: tool, exact: true }).click();
     await page.getByRole('menuitem', { name: item }).click();
+    if (!dialog) await expect(editor).toBeFocused();
   };
-  const insert = async (item: string | RegExp) => pick('Insert', item);
+  const insert = async (item: string | RegExp, dialog = false) => pick('Insert', item, dialog);
   const end = async () => {
-    await page.keyboard.press('Control+End');
+    await page.keyboard.press(END);
   };
 
   await page.keyboard.type('Colored centered text');
-  await page.keyboard.press('Control+a');
+  await page.keyboard.press(ALL);
   await pick('Text color', 'Red');
   await pick('Highlight', 'Yellow');
   await pick('Alignment', 'Align center');
   await pick('Alignment', 'Indent');
   await end();
   await page.keyboard.press('Enter');
+  await pick('Alignment', 'Align left');
+  await pick('Alignment', 'Outdent');
 
   await page.keyboard.type('[] Write the spec\nReview it');
   await page.keyboard.press('Enter');
@@ -66,15 +71,17 @@ test('editor features write ADF and render in light and dark at both widths', as
   await page.getByRole('button', { name: 'Layouts' }).click();
   await page.getByRole('menuitem', { name: 'Three columns' }).click();
   await page.keyboard.type('One');
-  await page.keyboard.press('Control+End');
+  await page.keyboard.press(END);
 
-  await insert('Status');
+  await insert('Status', true);
   await page.getByRole('dialog').getByLabel('Text').fill('In review');
   await page.getByRole('dialog').getByLabel('Color').selectOption('purple');
   await page.getByRole('dialog').getByRole('button', { name: 'Insert' }).click();
-  await insert('Date');
+  await expect(editor).toBeFocused();
+  await insert('Date', true);
   await page.getByRole('dialog').getByLabel('Date').fill('2026-11-25');
   await page.getByRole('dialog').getByRole('button', { name: 'Insert' }).click();
+  await expect(editor).toBeFocused();
 
   await page.keyboard.type(' @Ada');
   await expect(page.getByRole('option', { name: 'Ada Admin' })).toBeVisible();
@@ -98,7 +105,7 @@ test('editor features write ADF and render in light and dark at both widths', as
   expect(adf[0]).toEqual({
     type: 'paragraph',
     marks: [{ type: 'alignment', attrs: { align: 'center' } }, { type: 'indentation', attrs: { level: 1 } }],
-    content: [{ type: 'text', text: 'Colored centered text', marks: [{ type: 'textColor', attrs: { color: '#de350b' } }, { type: 'backgroundColor', attrs: { color: '#fff0b3' } }] }],
+    content: [{ type: 'text', text: 'Colored centered text', marks: [{ type: 'textColor', attrs: { color: '#bf2600' } }, { type: 'backgroundColor', attrs: { color: '#fff0b3' } }] }],
   });
   expect(find(adf, 'taskList')).toEqual({
     type: 'taskList',
@@ -112,7 +119,8 @@ test('editor features write ADF and render in light and dark at both widths', as
   expect(find(adf, 'panel')).toEqual({ type: 'panel', attrs: { panelType: 'info' }, content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Panel body' }] }] });
   expect(find(adf, 'expand')).toEqual({ type: 'expand', attrs: { title: 'More detail' }, content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Hidden body' }] }] });
   expect(find(adf, 'layoutSection')?.content?.map((c) => c.attrs?.width)).toEqual([33.33, 33.33, 33.33]);
-  const inline = adf.flatMap((n) => n.content ?? []);
+  const descendants = (n: N): N[] => (n.content ?? []).flatMap((c) => [c, ...descendants(c)]);
+  const inline = adf.flatMap(descendants);
   expect(inline).toContainEqual({ type: 'status', attrs: { text: 'In review', color: 'purple', localId: 'ID' } });
   expect(inline).toContainEqual({ type: 'date', attrs: { timestamp: '1795564800000' } });
   expect(inline).toContainEqual({ type: 'mention', attrs: { id: '1', text: '@Ada Admin' } });

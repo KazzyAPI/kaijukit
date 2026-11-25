@@ -100,7 +100,9 @@ export const getSpaceByKey = async (key: string) => {
 export const createSpace = (name: string, key: string) => request<Space>('POST', '/spaces', { body: { name, key } });
 
 export const rootPages = (spaceId: string) => request<Paged<ChildPage>>('GET', `/spaces/${spaceId}/pages`, { query: { depth: 'root', limit: 250 } }).then((r) => r.results);
-export const childPages = (id: string) => request<Paged<ChildPage>>('GET', `/pages/${id}/direct-children`, { query: { limit: 250 } }).then((r) => r.results);
+const children = (kind: 'pages' | 'folders', id: string) => request<Paged<ChildPage>>('GET', `/${kind}/${id}/direct-children`, { query: { limit: 250 } }).then((r) => r.results);
+// Folders have their own children endpoint; the tree only knows an id, so a 404 from the pages one falls through to folders.
+export const childPages = (id: string) => children('pages', id).catch((e: unknown) => (e instanceof ApiError && e.status === 404 ? children('folders', id) : Promise.reject(e)));
 export const recentPages = () => request<Paged<Page>>('GET', '/pages', { query: { sort: '-modified-date', limit: 12 } }).then((r) => r.results);
 
 export const getPage = (id: string, draft = false, version?: number) => request<Page>('GET', `/pages/${id}`, { query: { 'body-format': 'atlas_doc_format', 'get-draft': draft || undefined, version } });

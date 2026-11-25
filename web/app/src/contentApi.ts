@@ -111,3 +111,10 @@ export const labelPages = (labelId: string) => list<Page>(`/labels/${labelId}/pa
 
 export type RestrictionState = 'OPEN' | 'VIEW_RESTRICTED' | 'EDIT_RESTRICTED';
 export const restrictionState = (pageId: string) => request<{ state: RestrictionState }>('GET', `/pages/${pageId}/restriction-state`).then((r) => r.state);
+
+export const spaceBlogs = (spaceId: string) => list<Page>(`/spaces/${spaceId}/blogposts`, { sort: '-created-date', limit: 25 });
+export const getBlog = (id: string) => request<Page>('GET', `/blogposts/${id}`, { query: { 'body-format': ADF } });
+const plainDoc = (text: string) => JSON.stringify({ version: 1, type: 'doc', content: text.split(/\n{2,}/).map((t) => t.trim()).filter(Boolean).map((t) => ({ type: 'paragraph', content: [{ type: 'text', text: t }] })) });
+export const createBlog = (spaceId: string, title: string, text: string) => request<Page>('POST', '/blogposts', { body: { spaceId, status: 'current', title, body: adfBody(plainDoc(text)) } });
+// Root-level folders are not listed by any endpoint, so folders are created under the space home page.
+export const createFolder = (spaceId: string, title: string, parentId?: string) => request<{ id: string }>('POST', '/folders', { body: { spaceId, title, parentId } });

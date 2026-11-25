@@ -93,24 +93,32 @@ function TreeRows({ space, currentId }: { space: Space; currentId?: string }) {
   const probeIds = visible.filter((id) => !loadIds.includes(id));
   const probes = useQueries({ queries: probeIds.map(childQuery) });
   const childMap = { ...base, ...Object.fromEntries(probeIds.map((id, i) => [id, probes[i]?.data])) };
-  const titles = Object.fromEntries([...top, ...Object.values(childMap).flatMap((c) => c ?? [])].map((p) => [p.id, p.title]));
+  const all = [...top, ...Object.values(childMap).flatMap((c) => c ?? [])];
+  const titles = Object.fromEntries(all.map((p) => [p.id, p.title]));
+  const folders = new Set(all.filter((p) => p.type === 'folder').map((p) => p.id));
   const set = useMemo(() => new Set(expanded), [expanded]);
   const items = flattenTree(top, childMap, set, (p) => (
     <>
       <IconButton label={`Create child page under ${p.title || 'Untitled'}`} icon={<Icon name="plus" />} tabIndex={-1} onClick={() => navigate(`/wiki/spaces/${space.key}/pages/create?parentPageId=${p.id}`)} />
       <Menu label={`Actions for ${p.title || 'Untitled'}`} align="end" renderTrigger={(t) => <IconButton label={`More actions for ${p.title || 'Untitled'}`} icon={<Icon name="more" />} tabIndex={-1} {...t} />}>
-        <MenuItem onSelect={() => navigate(`/wiki/spaces/${space.key}/pages/edit-v2/${p.id}`)}>Edit</MenuItem>
-        <MenuItem onSelect={() => setMoving(p)}>Move</MenuItem>
-        <MenuItem
-          onSelect={() =>
-            void navigator.clipboard?.writeText(`${location.origin}${pageUrl(space.key, p.id, p.title)}`).then(
-              () => toast({ title: 'Link copied', appearance: 'success' }),
-              () => toast({ title: "Couldn't copy the link", appearance: 'warning' }),
-            )
-          }
-        >
-          Copy link
-        </MenuItem>
+        {p.type === 'folder' ? (
+          <MenuItem onSelect={() => navigate(`/wiki/spaces/${space.key}/pages/create?parentPageId=${p.id}`)}>Add page</MenuItem>
+        ) : (
+          <>
+            <MenuItem onSelect={() => navigate(`/wiki/spaces/${space.key}/pages/edit-v2/${p.id}`)}>Edit</MenuItem>
+            <MenuItem onSelect={() => setMoving(p)}>Move</MenuItem>
+            <MenuItem
+              onSelect={() =>
+                void navigator.clipboard?.writeText(`${location.origin}${pageUrl(space.key, p.id, p.title)}`).then(
+                  () => toast({ title: 'Link copied', appearance: 'success' }),
+                  () => toast({ title: "Couldn't copy the link", appearance: 'warning' }),
+                )
+              }
+            >
+              Copy link
+            </MenuItem>
+          </>
+        )}
       </Menu>
     </>
   ));
@@ -126,7 +134,8 @@ function TreeRows({ space, currentId }: { space: Space; currentId?: string }) {
       label="Pages"
       items={items}
       selectedId={currentId}
-      onSelect={(id) => navigate(pageUrl(space.key, id, titles[id] ?? ''))}
+      // A folder has no page of its own: selecting it opens or closes it.
+      onSelect={(id) => (folders.has(id) ? setExpanded((e) => (e.includes(id) ? e.filter((x) => x !== id) : [...e, id])) : navigate(pageUrl(space.key, id, titles[id] ?? '')))}
       onToggle={(id, open) => setExpanded((e) => (open ? [...new Set([...e, id])] : e.filter((x) => x !== id)))}
       onDrop={(id, target, position) => move.mutate({ id, target, position })}
     />

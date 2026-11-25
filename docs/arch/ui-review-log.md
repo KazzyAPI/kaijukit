@@ -102,6 +102,17 @@ Notes: the Share dialog still opens with the page link selected (first field is 
 
 Not built: blog posts and folders in the left nav (the backend has no routes for them on main), a notification read API (the bell stays a local stub), inherited-restriction display, space roles.
 
+## Blog posts and folders in the nav (M4), 2026-11-25
+
+Method: `web/e2e/tests/kinds.spec.ts` on the real stack (four configurations, axe, overflow check); screenshots `kn-{light,dark}-{wide,narrow}-{folder-tree,blog-dialog,blog-view}.png` read by eye. Blogs are listed from `GET /spaces/{id}/blogposts`, created with `POST /blogposts` (title and plain text, no rich editor yet) and opened at `/wiki/spaces/:key/blog/:id`. Folders appear in the tree where a page lists them as children (type `folder`); a folder's children come from `/folders/{id}/direct-children`, selecting a folder opens it instead of navigating, and "New folder" creates one under the space home page.
+
+| # | Where | Bug | Fix |
+|---|---|---|---|
+| 1 | Tree | The children probe used `/pages/{id}/direct-children`, which answers 404 for a folder, so folder contents never loaded. | A 404 falls through to the folders endpoint. |
+| 2 | e2e | Folder seeded under a collapsed page was not visible, and the nav link is hidden after navigation at 390 wide (sidebar overlay closes). | Spec parents the folder to the home page and checks the nav link on wide only. |
+
+Limits: root-level folders are not listed by any endpoint (so none are created at the root); folders cannot be deleted or moved from the UI; blog posts cannot be edited, commented or labelled yet.
+
 ## Known, not fixed
 
 - Tree has no "load more" past 250 children and no virtualization.

@@ -1,21 +1,23 @@
 import { Button, Dialog, TextField } from '@kaijukit/ui';
 import { EditorContent, useEditor, type Editor as TiptapEditor } from '@tiptap/react';
-import Link from '@tiptap/extension-link';
-import Placeholder from '@tiptap/extension-placeholder';
-import { Table } from '@tiptap/extension-table';
-import TableCell from '@tiptap/extension-table-cell';
-import TableHeader from '@tiptap/extension-table-header';
-import TableRow from '@tiptap/extension-table-row';
-import Underline from '@tiptap/extension-underline';
-import StarterKit from '@tiptap/starter-kit';
-import { InputRule } from '@tiptap/core';
 import { createPortal } from 'react-dom';
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import { fromAdf, toAdf, type AdfDoc, type AdfNode } from './adf';
+import { buildCommands, type Command } from './commands';
+import { STATUS_COLORS, type MediaAttrs } from './extensions';
+import { date, emoji, EMOJIS, mediaBlock, mention, status } from './insert';
+import { kkExtensions } from './schema';
 import { Toolbar } from './Toolbar';
 
+export interface MentionCandidate {
+  id: string;
+  name: string;
+}
 export interface EditorHandle {
   focus: () => void;
+  /** Marks the selected text as the anchor of an inline comment; false when nothing is selected. */
+  annotate: (id: string) => boolean;
+  removeAnnotation: (id: string) => void;
 }
 export interface EditorProps {
   value: AdfNode | null;
@@ -25,59 +27,49 @@ export interface EditorProps {
   toolbarHost?: HTMLElement | null;
   pinned?: boolean;
   onPinnedChange?: (pinned: boolean) => void;
+  /** Without it the image and file entries are disabled. */
+  upload?: (file: File) => Promise<MediaAttrs>;
+  resolveMedia?: (a: MediaAttrs) => Promise<string>;
+  searchUsers?: (query: string) => Promise<MentionCandidate[]>;
+  onAnnotationClick?: (id: string) => void;
+  onError?: (message: string) => void;
 }
 
-const MarkdownLink = Link.extend({
-  addInputRules() {
-    return [
-      new InputRule({
-        find: /\[([^\]]+)\]\((https?:\/\/[^\s)]+|mailto:[^\s)]+|tel:[^\s)]+)\)$/,
-        handler: ({ range, match, chain }) => {
-          const [, text = '', href = ''] = match;
-          chain().insertContentAt(range, { type: 'text', text, marks: [{ type: 'link', attrs: { href } }] }).run();
-        },
-      }),
-    ];
-  },
-});
-
-interface Command {
-  id: string;
-  title: string;
-  hint: string;
-  keywords: string;
-  run: (e: TiptapEditor) => void;
-}
-const heading = (level: 1 | 2 | 3 | 4 | 5 | 6): Command => ({ id: `h${level}`, title: `Heading ${level}`, hint: `${'#'.repeat(level)} `, keywords: `h${level} heading title`, run: (e) => e.chain().focus().setHeading({ level }).run() });
-const COMMANDS: Command[] = [
-  { id: 'p', title: 'Paragraph', hint: 'Plain text', keywords: 'text paragraph', run: (e) => e.chain().focus().setParagraph().run() },
-  heading(1), heading(2), heading(3), heading(4), heading(5), heading(6),
-  { id: 'ul', title: 'Bulleted list', hint: '- ', keywords: 'bullet list unordered', run: (e) => e.chain().focus().toggleBulletList().run() },
-  { id: 'ol', title: 'Numbered list', hint: '1. ', keywords: 'number ordered list', run: (e) => e.chain().focus().toggleOrderedList().run() },
-  { id: 'quote', title: 'Quote', hint: '> ', keywords: 'blockquote quote', run: (e) => e.chain().focus().toggleBlockquote().run() },
-  { id: 'code', title: 'Code snippet', hint: '```', keywords: 'code block snippet', run: (e) => e.chain().focus().toggleCodeBlock().run() },
-  { id: 'rule', title: 'Divider', hint: '---', keywords: 'rule divider line hr', run: (e) => e.chain().focus().setHorizontalRule().run() },
-  { id: 'table', title: 'Table', hint: '3 x 3', keywords: 'table grid', run: (e) => e.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run() },
-];
-
-interface Slash {
+type Kind = '/' | '@' | ':';
+interface Trigger {
+  kind: Kind;
   from: number;
   to: number;
   query: string;
   left: number;
   top: number;
 }
+interface Item {
+  id: string;
+  title: string;
+  hint?: string;
+  run: (e: TiptapEditor) => void;
+}
 
-function detectSlash(editor: TiptapEditor): Slash | null {
+const PATTERNS: [Kind, RegExp][] = [
+  ['/', /(?:^|\s)\/([\w-]*)$/],
+  ['@', /(?:^|\s)@([\w.-]*)$/],
+  [':', /(?:^|\s):([\w+-]+)$/],
+];
+
+function detectTrigger(editor: TiptapEditor): Trigger | null {
   const { selection } = editor.state;
   const { $from } = selection;
   if (!selection.empty || !$from.parent.isTextblock || $from.parent.type.name === 'codeBlock') return null;
   const before = $from.parent.textBetween(0, $from.parentOffset, undefined, '￼');
-  const m = /(?:^|\s)\/([\w-]*)$/.exec(before);
-  if (!m) return null;
-  const query = m[1] ?? '';
-  const c = editor.view.coordsAtPos(selection.from);
-  return { from: selection.from - query.length - 1, to: selection.from, query, left: Math.min(c.left, window.innerWidth - 276), top: c.bottom + 4 };
+  for (const [kind, re] of PATTERNS) {
+    const m = re.exec(before);
+    if (!m) continue;
+    const query = m[1] ?? '';
+    const c = editor.view.coordsAtPos(selection.from);
+    return { kind, from: selection.from - query.length - 1, to: selection.from, query, left: Math.min(c.left, window.innerWidth - 276), top: c.bottom + 4 };
+  }
+  return null;
 }
 
 const ALLOWED = /^(https?:|mailto:|tel:)/i;
@@ -88,74 +80,141 @@ function normalizeUrl(raw: string): string | null {
   return `https://${v}`;
 }
 
-export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor({ value, onChange, label = 'Page content', toolbarHost, pinned, onPinnedChange }, ref) {
-  const [slash, setSlash] = useState<Slash | null>(null);
+type NodeDialog = { kind: 'status'; pos?: number; text: string; color: string } | { kind: 'date'; pos?: number; value: string } | null;
+
+export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor({ value, onChange, label = 'Page content', toolbarHost, pinned, onPinnedChange, upload, resolveMedia, searchUsers, onAnnotationClick, onError }, ref) {
+  const [trigger, setTriggerState] = useState<Trigger | null>(null);
   const [index, setIndex] = useState(0);
+  const [people, setPeople] = useState<MentionCandidate[]>([]);
   const [linkOpen, setLinkOpen] = useState(false);
   const [url, setUrl] = useState('');
   const [urlError, setUrlError] = useState('');
-  const slashRef = useRef<Slash | null>(null);
+  const [nodeDialog, setNodeDialog] = useState<NodeDialog>(null);
+  const [uploading, setUploading] = useState<string[]>([]);
+  const triggerRef = useRef<Trigger | null>(null);
   const indexRef = useRef(0);
   const dismissed = useRef<number | null>(null);
-  const onChangeRef = useRef(onChange);
-  onChangeRef.current = onChange;
   const editorRef = useRef<TiptapEditor | null>(null);
+  const fileInput = useRef<HTMLInputElement>(null);
+  const fileKind = useRef<'image' | 'file'>('file');
+  const live = useRef({ onChange, upload, resolveMedia, onAnnotationClick, onError });
+  live.current = { onChange, upload, resolveMedia, onAnnotationClick, onError };
 
-  const matches = useMemo(() => {
-    const q = slash?.query.toLowerCase() ?? '';
-    return COMMANDS.filter((c) => !q || c.title.toLowerCase().includes(q) || c.keywords.includes(q));
-  }, [slash?.query]);
-  const matchesRef = useRef(matches);
-  matchesRef.current = matches;
-
-  const setSlashState = useCallback((s: Slash | null) => {
-    slashRef.current = s;
-    setSlash(s);
+  const setTrigger = useCallback((t: Trigger | null) => {
+    triggerRef.current = t;
+    setTriggerState(t);
   }, []);
 
-  const runCommand = useCallback((c: Command) => {
+  const handleFiles = useCallback(async (files: File[]) => {
     const e = editorRef.current;
-    const s = slashRef.current;
-    if (!e || !s) return;
-    e.chain().focus().deleteRange({ from: s.from, to: s.to }).run();
-    setSlashState(null);
-    c.run(e);
-  }, [setSlashState]);
+    const up = live.current.upload;
+    if (!e || !up) return;
+    for (const f of files) {
+      setUploading((u) => [...u, f.name]);
+      try {
+        e.chain().focus().insertContent([mediaBlock(await up(f)), { type: 'paragraph' }]).run();
+      } catch (err) {
+        live.current.onError?.(`Couldn't upload ${f.name}. ${err instanceof Error ? err.message : ''}`.trim());
+      } finally {
+        setUploading((u) => u.filter((n) => n !== f.name));
+      }
+    }
+  }, []);
 
-  const refreshSlash = useCallback((e: TiptapEditor) => {
-    const s = detectSlash(e);
-    if (s && dismissed.current === s.from) return setSlashState(null);
-    if (!s) dismissed.current = null;
-    if (s?.query !== slashRef.current?.query) {
+  const commands = useMemo(
+    () =>
+      buildCommands({
+        canUpload: !!upload,
+        status: () => setNodeDialog({ kind: 'status', text: '', color: 'neutral' }),
+        date: () => setNodeDialog({ kind: 'date', value: new Date().toISOString().slice(0, 10) }),
+        file: (kind) => {
+          fileKind.current = kind;
+          if (fileInput.current) fileInput.current.accept = kind === 'image' ? 'image/*' : '';
+          fileInput.current?.click();
+        },
+      }),
+    [upload],
+  );
+
+  const items = useMemo<Item[]>(() => {
+    const q = trigger?.query.toLowerCase() ?? '';
+    if (trigger?.kind === '@') return people.map((p) => ({ id: p.id, title: p.name, run: (e) => e.chain().focus().insertContent([mention(p.id, p.name), { type: 'text', text: ' ' }]).run() }));
+    if (trigger?.kind === ':')
+      return EMOJIS.filter(([n]) => n.includes(q))
+        .slice(0, 8)
+        .map(([n, c]) => ({ id: n, title: `${c} :${n}:`, run: (e) => e.chain().focus().insertContent([emoji(n, c), { type: 'text', text: ' ' }]).run() }));
+    return commands.filter((c: Command) => c.available !== false && (!q || c.title.toLowerCase().includes(q) || c.keywords.includes(q))).map((c) => ({ id: c.id, title: c.title, hint: c.hint, run: c.run }));
+  }, [trigger?.kind, trigger?.query, people, commands]);
+  const itemsRef = useRef(items);
+  itemsRef.current = items;
+
+  useEffect(() => {
+    if (trigger?.kind !== '@' || !searchUsers) return setPeople([]);
+    let stale = false;
+    void searchUsers(trigger.query).then((r) => !stale && setPeople(r.slice(0, 10)), () => !stale && setPeople([]));
+    return () => {
+      stale = true;
+    };
+  }, [trigger?.kind, trigger?.query, searchUsers]);
+
+  const runItem = useCallback((item: Item) => {
+    const e = editorRef.current;
+    const t = triggerRef.current;
+    if (!e || !t) return;
+    e.chain().focus().deleteRange({ from: t.from, to: t.to }).run();
+    setTrigger(null);
+    item.run(e);
+  }, [setTrigger]);
+
+  const refresh = useCallback((e: TiptapEditor) => {
+    const t = detectTrigger(e);
+    if (t && dismissed.current === t.from) return setTrigger(null);
+    if (!t) dismissed.current = null;
+    if (t?.query !== triggerRef.current?.query || t?.kind !== triggerRef.current?.kind) {
       indexRef.current = 0;
       setIndex(0);
     }
-    setSlashState(s);
-  }, [setSlashState]);
+    setTrigger(t);
+  }, [setTrigger]);
 
   const editor = useEditor({
-    extensions: [
-      StarterKit,
-      Underline,
-      MarkdownLink.configure({ openOnClick: false, autolink: true, protocols: ['mailto', 'tel'], HTMLAttributes: { rel: 'noopener noreferrer nofollow' } }),
-      Table,
-      TableRow,
-      TableHeader,
-      TableCell,
-      Placeholder.configure({ placeholder: "Type '/' for commands" }),
-    ],
+    extensions: kkExtensions((a) => (live.current.resolveMedia ? live.current.resolveMedia(a) : Promise.resolve(''))),
     content: fromAdf(value),
     editorProps: {
       attributes: { class: 'kk-doc', role: 'textbox', 'aria-multiline': 'true', 'aria-label': label },
+      handleClick: (_v, _p, event) => {
+        const id = (event.target as HTMLElement).closest('[data-annotation-id]')?.getAttribute('data-annotation-id');
+        if (id) live.current.onAnnotationClick?.(id);
+        return false;
+      },
+      handleClickOn: (_v, _p, node, nodePos) => {
+        if (node.type.name === 'status') setNodeDialog({ kind: 'status', pos: nodePos, text: node.attrs.text, color: node.attrs.color });
+        else if (node.type.name === 'date') setNodeDialog({ kind: 'date', pos: nodePos, value: new Date(Number(node.attrs.timestamp)).toISOString().slice(0, 10) });
+        return false;
+      },
+      handleDrop: (_v, event) => {
+        const files = Array.from(event.dataTransfer?.files ?? []);
+        if (!files.length || !live.current.upload) return false;
+        event.preventDefault();
+        void handleFiles(files);
+        return true;
+      },
+      handlePaste: (_v, event) => {
+        const files = Array.from(event.clipboardData?.files ?? []);
+        if (!files.length || !live.current.upload) return false;
+        event.preventDefault();
+        void handleFiles(files);
+        return true;
+      },
       handleKeyDown: (_view, event) => {
         if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
           event.preventDefault();
           openLink();
           return true;
         }
-        const s = slashRef.current;
-        const list = matchesRef.current;
-        if (!s) return false;
+        const t = triggerRef.current;
+        const list = itemsRef.current;
+        if (!t) return false;
         const move = (n: number) => {
           event.preventDefault();
           indexRef.current = list.length ? (n + list.length) % list.length : 0;
@@ -168,42 +227,51 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor({ va
           const c = list[indexRef.current];
           if (!c) return false;
           event.preventDefault();
-          runCommand(c);
+          runItem(c);
           return true;
         }
         if (event.key === 'Escape') {
-          dismissed.current = s.from;
-          setSlashState(null);
+          dismissed.current = t.from;
+          setTrigger(null);
           return true;
         }
         return false;
       },
     },
     onUpdate: ({ editor: e }) => {
-      onChangeRef.current(toAdf(e.getJSON() as Parameters<typeof toAdf>[0]));
-      refreshSlash(e);
+      live.current.onChange(toAdf(e.getJSON() as Parameters<typeof toAdf>[0]));
+      refresh(e);
     },
-    onSelectionUpdate: ({ editor: e }) => refreshSlash(e),
+    onSelectionUpdate: ({ editor: e }) => refresh(e),
   });
   editorRef.current = editor;
 
-  useImperativeHandle(ref, () => ({ focus: () => {
+  useImperativeHandle(ref, () => ({
+    focus: () => {
       editor?.view.dom.focus();
       editor?.commands.setTextSelection(1);
-    } }), [editor]);
+    },
+    annotate: (id) => !!editor && !editor.state.selection.empty && editor.chain().focus().setMark('annotation', { id }).run(),
+    removeAnnotation: (id) => {
+      editor?.state.doc.descendants((node, pos) => {
+        const m = node.marks.find((x) => x.type.name === 'annotation' && x.attrs.id === id);
+        if (m) editor.view.dispatch(editor.state.tr.removeMark(pos, pos + node.nodeSize, m));
+      });
+    },
+  }), [editor]);
 
   useEffect(() => {
     const dom = editor?.view.dom;
     if (!dom) return;
-    const c = matches[index];
-    if (slash && c) {
+    const c = items[index];
+    if (trigger && c) {
       dom.setAttribute('aria-activedescendant', `kk-slash-${c.id}`);
       dom.setAttribute('aria-controls', 'kk-slash');
     } else {
       dom.removeAttribute('aria-activedescendant');
       dom.removeAttribute('aria-controls');
     }
-  }, [editor, slash, matches, index]);
+  }, [editor, trigger, items, index]);
 
   function openLink() {
     const e = editorRef.current;
@@ -219,21 +287,50 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor({ va
     setLinkOpen(false);
   };
 
+  const applyNode = () => {
+    const d = nodeDialog;
+    if (!editor || !d) return;
+    const node = d.kind === 'status' ? status(d.text.trim() || 'Status', d.color) : date(d.value);
+    if (d.kind === 'date' && !d.value) return;
+    const chain = editor.chain().focus();
+    if (d.pos === undefined) chain.insertContent([node, { type: 'text', text: ' ' }]).run();
+    else chain.command(({ tr }) => !!tr.setNodeMarkup(d.pos!, undefined, { ...tr.doc.nodeAt(d.pos!)?.attrs, ...node.attrs })).run();
+    setNodeDialog(null);
+  };
+
   if (!editor) return null;
-  const toolbar = <Toolbar editor={editor} onLink={openLink} pinned={pinned} onPinnedChange={onPinnedChange} />;
+  const toolbar = <Toolbar editor={editor} commands={commands} onLink={openLink} onFile={(k) => commands.find((x) => x.id === k)?.run(editor)} canUpload={!!upload} pinned={pinned} onPinnedChange={onPinnedChange} />;
+  const popupLabel = trigger?.kind === '@' ? 'Mention' : trigger?.kind === ':' ? 'Emoji' : 'Insert';
+  const emptyText = trigger?.kind === '@' ? (searchUsers ? 'No matching people' : 'People search is not available') : 'No matching items';
   return (
     <div className="kk-editor">
       {toolbarHost ? createPortal(toolbar, toolbarHost) : toolbar}
       <div className="kk-editor__content" onClick={(e) => e.target === e.currentTarget && editor.commands.focus('end')}>
         <EditorContent editor={editor} />
       </div>
-      {slash && (
-        <ul id="kk-slash" role="listbox" tabIndex={0} aria-label="Insert" className="kk-slash" style={{ left: slash.left, top: slash.top }} onMouseDown={(e) => e.preventDefault()}>
-          {matches.length === 0 && <li className="kk-slash__empty" role="presentation">No matching items</li>}
-          {matches.map((c, i) => (
-            <li key={c.id} id={`kk-slash-${c.id}`} role="option" aria-selected={i === index} className="kk-slash__item" onMouseEnter={() => { indexRef.current = i; setIndex(i); }} onClick={() => runCommand(c)}>
+      <div role="status" className="kk-editor__uploads">
+        {uploading.map((n) => <span key={n}>Uploading {n}...</span>)}
+      </div>
+      <input
+        ref={fileInput}
+        type="file"
+        multiple
+        hidden
+        aria-hidden="true"
+        tabIndex={-1}
+        onChange={(e) => {
+          const files = Array.from(e.target.files ?? []);
+          e.target.value = '';
+          void handleFiles(fileKind.current === 'image' ? files.filter((f) => f.type.startsWith('image/')) : files);
+        }}
+      />
+      {trigger && (
+        <ul id="kk-slash" role="listbox" tabIndex={0} aria-label={popupLabel} className="kk-slash" style={{ left: trigger.left, top: trigger.top }} onMouseDown={(e) => e.preventDefault()}>
+          {items.length === 0 && <li className="kk-slash__empty" role="presentation">{emptyText}</li>}
+          {items.map((c, i) => (
+            <li key={c.id} id={`kk-slash-${c.id}`} role="option" aria-selected={i === index} className="kk-slash__item" onMouseEnter={() => { indexRef.current = i; setIndex(i); }} onClick={() => runItem(c)}>
               <span>{c.title}</span>
-              <span className="kk-slash__hint">{c.hint}</span>
+              {c.hint && <span className="kk-slash__hint">{c.hint}</span>}
             </li>
           ))}
         </ul>
@@ -254,6 +351,44 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor({ va
         }
       >
         <TextField label="Address" value={url} onChange={(e) => { setUrl(e.target.value); setUrlError(''); }} error={urlError} autoFocus placeholder="https://" />
+      </Dialog>
+      <Dialog
+        open={nodeDialog?.kind === 'status'}
+        onClose={() => setNodeDialog(null)}
+        title="Status"
+        onSubmit={applyNode}
+        footer={
+          <>
+            <Button onClick={() => setNodeDialog(null)}>Cancel</Button>
+            <Button type="submit" appearance="primary">{nodeDialog?.pos === undefined ? 'Insert' : 'Apply'}</Button>
+          </>
+        }
+      >
+        {nodeDialog?.kind === 'status' && (
+          <>
+            <TextField label="Text" value={nodeDialog.text} placeholder="Status" autoFocus onChange={(e) => setNodeDialog({ ...nodeDialog, text: e.target.value })} />
+            <div className="kk-field">
+              <label className="kk-field__label" htmlFor="kk-status-color">Color</label>
+              <select id="kk-status-color" className="kk-input" value={nodeDialog.color} onChange={(e) => setNodeDialog({ ...nodeDialog, color: e.target.value })}>
+                {STATUS_COLORS.map((c) => <option key={c} value={c}>{c[0]!.toUpperCase() + c.slice(1)}</option>)}
+              </select>
+            </div>
+          </>
+        )}
+      </Dialog>
+      <Dialog
+        open={nodeDialog?.kind === 'date'}
+        onClose={() => setNodeDialog(null)}
+        title="Date"
+        onSubmit={applyNode}
+        footer={
+          <>
+            <Button onClick={() => setNodeDialog(null)}>Cancel</Button>
+            <Button type="submit" appearance="primary">{nodeDialog?.pos === undefined ? 'Insert' : 'Apply'}</Button>
+          </>
+        }
+      >
+        {nodeDialog?.kind === 'date' && <TextField label="Date" type="date" value={nodeDialog.value} autoFocus onChange={(e) => setNodeDialog({ ...nodeDialog, value: e.target.value })} />}
       </Dialog>
     </div>
   );

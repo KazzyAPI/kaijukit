@@ -61,11 +61,11 @@ describe('ADF <-> editor JSON', () => {
   });
 
   it('flattens unsupported nodes and reports them', () => {
-    const doc = { type: 'doc', content: [{ type: 'panel', attrs: { panelType: 'info' }, content: [{ type: 'paragraph', content: [{ type: 'text', text: 'in panel' }] }] }, { type: 'mediaSingle' }] };
-    expect(unsupportedTypes(doc)).toEqual(['panel', 'mediaSingle']);
+    const doc = { type: 'doc', content: [{ type: 'nestedExpand', attrs: { title: 'x' }, content: [{ type: 'paragraph', content: [{ type: 'text', text: 'in panel' }] }] }, { type: 'blockCard' }] };
+    expect(unsupportedTypes(doc)).toEqual(['nestedExpand', 'blockCard']);
     expect(toAdf(fromAdf(doc)).content).toEqual([
       { type: 'paragraph', content: [{ type: 'text', text: 'in panel' }] },
-      { type: 'paragraph', content: [{ type: 'text', text: '[mediaSingle]' }] },
+      { type: 'paragraph', content: [{ type: 'text', text: '[blockCard]' }] },
     ]);
   });
 

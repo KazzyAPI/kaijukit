@@ -17,17 +17,45 @@ export interface AdfDoc extends AdfNode {
 
 export const emptyDoc = (): AdfDoc => ({ version: 1, type: 'doc', content: [{ type: 'paragraph' }] });
 
-const markToAdf: Record<string, string> = { bold: 'strong', italic: 'em', underline: 'underline', strike: 'strike', code: 'code', link: 'link' };
+const markToAdf: Record<string, string> = { bold: 'strong', italic: 'em', underline: 'underline', strike: 'strike', code: 'code', link: 'link', textColor: 'textColor', backgroundColor: 'backgroundColor', annotation: 'annotation' };
 const markFromAdf = Object.fromEntries(Object.entries(markToAdf).map(([a, b]) => [b, a]));
+const markAttrs: Record<string, string[]> = { link: ['href'], textColor: ['color'], backgroundColor: ['color'], annotation: ['id', 'annotationType'] };
 const nodeToAdf: Record<string, string> = { horizontalRule: 'rule' };
 const nodeFromAdf: Record<string, string> = { rule: 'horizontalRule' };
-const KNOWN = new Set(['doc', 'paragraph', 'heading', 'text', 'bulletList', 'orderedList', 'listItem', 'codeBlock', 'blockquote', 'rule', 'hardBreak', 'table', 'tableRow', 'tableHeader', 'tableCell']);
+// Nodes whose editor type and attributes carry the same names as ADF.
+const PASS: Record<string, string[]> = {
+  taskList: ['localId'],
+  taskItem: ['localId', 'state'],
+  decisionList: ['localId'],
+  decisionItem: ['localId', 'state'],
+  panel: ['panelType'],
+  expand: ['title'],
+  layoutColumn: ['width'],
+  mediaSingle: ['layout'],
+  media: ['id', 'type', 'collection', 'alt', 'width', 'height', '__fileName', '__fileMimeType', '__fileSize'],
+  mention: ['id', 'text', 'accessLevel'],
+  emoji: ['shortName', 'id', 'text'],
+  status: ['text', 'color', 'localId'],
+  date: ['timestamp'],
+  extension: ['extensionType', 'extensionKey', 'parameters', 'layout'],
+};
+const ITEMS = new Set(['taskItem', 'decisionItem']);
+const KNOWN = new Set(['doc', 'paragraph', 'heading', 'text', 'bulletList', 'orderedList', 'listItem', 'codeBlock', 'blockquote', 'rule', 'hardBreak', 'table', 'tableRow', 'tableHeader', 'tableCell', 'layoutSection', 'mediaGroup', ...Object.keys(PASS)]);
+const known = (n: AdfNode) => KNOWN.has(n.type) && (n.type !== 'extension' || n.attrs?.extensionKey === 'toc');
 const INLINE_TEXT_ATTRS = ['text', 'shortName', 'title', 'url'];
 
 type PM = { type: string; attrs?: Record<string, unknown>; content?: PM[]; marks?: PM[]; text?: string };
 
+const pick = (a: Record<string, unknown>, keys: string[]) => {
+  const o: Record<string, unknown> = {};
+  for (const k of keys) if (a[k] !== undefined && a[k] !== null) o[k] = a[k];
+  return o;
+};
+
 function convertAttrs(pm: PM): Record<string, unknown> | undefined {
   const a = pm.attrs ?? {};
+  const pass = PASS[pm.type];
+  if (pass) return pick(a, pass);
   switch (pm.type) {
     case 'heading': return { level: a.level };
     case 'orderedList': return typeof a.start === 'number' && a.start !== 1 ? { order: a.start } : undefined;
@@ -42,14 +70,29 @@ function convertAttrs(pm: PM): Record<string, unknown> | undefined {
   }
 }
 
+function blockMarks(pm: PM): AdfMark[] | undefined {
+  const a = pm.attrs ?? {};
+  const marks: AdfMark[] = [];
+  if (a.align) marks.push({ type: 'alignment', attrs: { align: a.align } });
+  if (Number(a.indent) > 0) marks.push({ type: 'indentation', attrs: { level: a.indent } });
+  return marks.length ? marks : undefined;
+}
+
 function nodeToAdfNode(pm: PM): AdfNode {
   const out: AdfNode = { type: nodeToAdf[pm.type] ?? pm.type };
   const attrs = convertAttrs(pm);
   if (attrs) out.attrs = attrs;
   if (pm.type === 'text') {
     out.text = pm.text ?? '';
-    if (pm.marks?.length) out.marks = pm.marks.map((m) => (m.type === 'link' ? { type: 'link', attrs: { href: m.attrs?.href } } : { type: markToAdf[m.type] ?? m.type }));
-  } else if (pm.content?.length) out.content = pm.content.map(nodeToAdfNode);
+    if (pm.marks?.length) out.marks = pm.marks.map((m) => ({ type: markToAdf[m.type] ?? m.type, ...(markAttrs[m.type] ? { attrs: pick(m.attrs ?? {}, markAttrs[m.type]!) } : {}) }));
+    return out;
+  }
+  if (pm.type === 'paragraph' || pm.type === 'heading') {
+    const marks = blockMarks(pm);
+    if (marks) out.marks = marks;
+  }
+  const kids = ITEMS.has(pm.type) ? pm.content?.[0]?.content : pm.content;
+  if (kids?.length) out.content = kids.map(nodeToAdfNode);
   return out;
 }
 
@@ -64,11 +107,13 @@ function nodeFromAdfNode(n: AdfNode): PM[] {
   if (n.type === 'text') {
     const marks = (n.marks ?? []).flatMap((m): PM[] => {
       const t = markFromAdf[m.type];
-      return t ? [t === 'link' ? { type: t, attrs: { href: m.attrs?.href } } : { type: t }] : [];
+      if (!t) return [];
+      const attrs = markAttrs[t] ? pick(m.attrs ?? {}, markAttrs[t]!) : undefined;
+      return [attrs ? { type: t, attrs } : { type: t }];
     });
     return n.text ? [{ type: 'text', text: n.text, ...(marks.length ? { marks } : {}) }] : [];
   }
-  if (!KNOWN.has(n.type)) {
+  if (!known(n)) {
     const kids = (n.content ?? []).flatMap(nodeFromAdfNode);
     if (kids.length) return kids;
     const label = INLINE_TEXT_ATTRS.map((k) => n.attrs?.[k]).find((v) => typeof v === 'string') as string | undefined;
@@ -78,11 +123,20 @@ function nodeFromAdfNode(n: AdfNode): PM[] {
   }
   const out: PM = { type: nodeFromAdf[n.type] ?? n.type };
   const a = n.attrs ?? {};
+  if (PASS[n.type]) out.attrs = pick(a, PASS[n.type]!);
   if (n.type === 'heading') out.attrs = { level: a.level };
   if (n.type === 'orderedList') out.attrs = { start: a.order ?? 1 };
   if (n.type === 'codeBlock') out.attrs = { language: a.language ?? null };
   if (n.type === 'tableHeader' || n.type === 'tableCell') out.attrs = { colspan: a.colspan ?? 1, rowspan: a.rowspan ?? 1 };
-  if (n.content?.length) out.content = n.content.flatMap(nodeFromAdfNode);
+  if (n.type === 'paragraph' || n.type === 'heading') {
+    for (const m of n.marks ?? []) {
+      if (m.type === 'alignment' && m.attrs?.align) out.attrs = { ...out.attrs, align: m.attrs.align };
+      if (m.type === 'indentation' && m.attrs?.level) out.attrs = { ...out.attrs, indent: m.attrs.level };
+    }
+  }
+  const kids = (n.type === 'taskList' ? (n.content ?? []).flatMap((c) => (c.type === 'taskList' ? (c.content ?? []) : [c])) : n.content ?? []).flatMap(nodeFromAdfNode);
+  if (ITEMS.has(n.type)) out.content = [{ type: 'paragraph', ...(kids.length ? { content: kids } : {}) }];
+  else if (kids.length) out.content = kids;
   return [out];
 }
 
@@ -95,7 +149,7 @@ export function fromAdf(doc: AdfNode | null | undefined): PM {
 export function unsupportedTypes(doc: AdfNode | null | undefined): string[] {
   const seen = new Set<string>();
   const walk = (n: AdfNode) => {
-    if (!KNOWN.has(n.type) && n.type !== 'rule') seen.add(n.type);
+    if (!known(n)) seen.add(n.type);
     n.content?.forEach(walk);
   };
   doc?.content?.forEach(walk);

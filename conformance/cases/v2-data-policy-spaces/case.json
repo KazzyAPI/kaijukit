@@ -1,0 +1,14 @@
+{
+  "id": "v2-data-policy-spaces",
+  "ops": [
+    "getDataPolicySpaces"
+  ],
+  "setup": [],
+  "request": {
+    "method": "GET",
+    "path": "/wiki/api/v2/data-policies/spaces"
+  },
+  "expect": {
+    "status": 200
+  }
+}

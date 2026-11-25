@@ -1,0 +1,23 @@
+{
+  "id": "v2-admin-key-disable",
+  "ops": [
+    "disableAdminKey"
+  ],
+  "setup": [
+    {
+      "as": "k",
+      "method": "POST",
+      "path": "/wiki/api/v2/admin-key",
+      "body": {
+        "durationInMinutes": 5
+      }
+    }
+  ],
+  "request": {
+    "method": "DELETE",
+    "path": "/wiki/api/v2/admin-key"
+  },
+  "expect": {
+    "status": 204
+  }
+}

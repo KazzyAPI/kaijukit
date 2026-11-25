@@ -1,0 +1,17 @@
+{
+  "id": "v2-admin-key-enable",
+  "ops": [
+    "enableAdminKey"
+  ],
+  "setup": [],
+  "request": {
+    "method": "POST",
+    "path": "/wiki/api/v2/admin-key",
+    "body": {
+      "durationInMinutes": 5
+    }
+  },
+  "expect": {
+    "status": 200
+  }
+}

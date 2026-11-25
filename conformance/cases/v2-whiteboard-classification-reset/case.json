@@ -1,0 +1,36 @@
+{
+  "id": "v2-whiteboard-classification-reset",
+  "ops": [
+    "postWhiteboardClassificationLevel"
+  ],
+  "setup": [
+    {
+      "as": "space",
+      "method": "POST",
+      "path": "/wiki/api/v2/spaces",
+      "body": {
+        "name": "Conf {{run}}",
+        "key": "K{{run}}"
+      }
+    },
+    {
+      "as": "x",
+      "method": "POST",
+      "path": "/wiki/api/v2/whiteboards",
+      "body": {
+        "spaceId": "{{space.id}}",
+        "title": "x {{run}}"
+      }
+    }
+  ],
+  "request": {
+    "method": "POST",
+    "path": "/wiki/api/v2/whiteboards/{{x.id}}/classification-level/reset",
+    "body": {
+      "status": "current"
+    }
+  },
+  "expect": {
+    "status": 204
+  }
+}

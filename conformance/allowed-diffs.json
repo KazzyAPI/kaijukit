@@ -3,5 +3,10 @@
   "keyword": "type",
   "path": "^/(results/\\d+/)?parentId$",
   "reason": "pinned spec marks parentId as a non-null string while its own description says null when there is no parent; reference capture pending"
+ },
+ {
+  "keyword": "type",
+  "path": "^/(\\d+/)?status$",
+  "reason": "pinned spec declares ClassificationLevel.status as both type object and a string enum $ref; the enum is the intent"
  }
 ]

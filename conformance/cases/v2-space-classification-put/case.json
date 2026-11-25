@@ -1,0 +1,27 @@
+{
+  "id": "v2-space-classification-put",
+  "ops": [
+    "putSpaceDefaultClassificationLevel"
+  ],
+  "setup": [
+    {
+      "as": "space",
+      "method": "POST",
+      "path": "/wiki/api/v2/spaces",
+      "body": {
+        "name": "Conf {{run}}",
+        "key": "K{{run}}"
+      }
+    }
+  ],
+  "request": {
+    "method": "PUT",
+    "path": "/wiki/api/v2/spaces/{{space.id}}/classification-level/default",
+    "body": {
+      "id": "kk-level-internal"
+    }
+  },
+  "expect": {
+    "status": 204
+  }
+}

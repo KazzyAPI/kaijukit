@@ -1,0 +1,33 @@
+{
+  "id": "v2-whiteboard-classification-get",
+  "ops": [
+    "getWhiteboardClassificationLevel"
+  ],
+  "setup": [
+    {
+      "as": "space",
+      "method": "POST",
+      "path": "/wiki/api/v2/spaces",
+      "body": {
+        "name": "Conf {{run}}",
+        "key": "K{{run}}"
+      }
+    },
+    {
+      "as": "x",
+      "method": "POST",
+      "path": "/wiki/api/v2/whiteboards",
+      "body": {
+        "spaceId": "{{space.id}}",
+        "title": "x {{run}}"
+      }
+    }
+  ],
+  "request": {
+    "method": "GET",
+    "path": "/wiki/api/v2/whiteboards/{{x.id}}/classification-level"
+  },
+  "expect": {
+    "status": 200
+  }
+}

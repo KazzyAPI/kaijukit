@@ -10,9 +10,9 @@ Status: `not started` | `partial` | `done`. `done` requires a conformance case. 
 
 | Method | Path | operationId | Summary | Status | Case |
 |---|---|---|---|---|---|
-| DELETE | `/admin-key` | `disableAdminKey` | Disable Admin Key | not started | - |
-| GET | `/admin-key` | `getAdminKey` | Get Admin Key | not started | - |
-| POST | `/admin-key` | `enableAdminKey` | Enable Admin Key | not started | - |
+| DELETE | `/admin-key` | `disableAdminKey` | Disable Admin Key | partial (schema) | v2-admin-key-disable |
+| GET | `/admin-key` | `getAdminKey` | Get Admin Key | partial (schema) | v2-admin-key-get |
+| POST | `/admin-key` | `enableAdminKey` | Enable Admin Key | partial (schema) | v2-admin-key-enable |
 
 ## Ancestors
 
@@ -74,22 +74,22 @@ Status: `not started` | `partial` | `done`. `done` requires a conformance case. 
 
 | Method | Path | operationId | Summary | Status | Case |
 |---|---|---|---|---|---|
-| GET | `/blogposts/{id}/classification-level` | `getBlogPostClassificationLevel` | Get blog post classification level | not started | - |
-| PUT | `/blogposts/{id}/classification-level` | `putBlogPostClassificationLevel` | Update blog post classification level | not started | - |
-| POST | `/blogposts/{id}/classification-level/reset` | `postBlogPostClassificationLevel` | Reset blog post classification level | not started | - |
-| GET | `/classification-levels` | `getClassificationLevels` | Get list of classification levels | not started | - |
-| GET | `/databases/{id}/classification-level` | `getDatabaseClassificationLevel` | Get database classification level | not started | - |
-| PUT | `/databases/{id}/classification-level` | `putDatabaseClassificationLevel` | Update database classification level | not started | - |
-| POST | `/databases/{id}/classification-level/reset` | `postDatabaseClassificationLevel` | Reset database classification level | not started | - |
-| GET | `/pages/{id}/classification-level` | `getPageClassificationLevel` | Get page classification level | not started | - |
-| PUT | `/pages/{id}/classification-level` | `putPageClassificationLevel` | Update page classification level | not started | - |
-| POST | `/pages/{id}/classification-level/reset` | `postPageClassificationLevel` | Reset page classification level | not started | - |
-| DELETE | `/spaces/{id}/classification-level/default` | `deleteSpaceDefaultClassificationLevel` | Delete space default classification level | not started | - |
-| GET | `/spaces/{id}/classification-level/default` | `getSpaceDefaultClassificationLevel` | Get space default classification level | not started | - |
-| PUT | `/spaces/{id}/classification-level/default` | `putSpaceDefaultClassificationLevel` | Update space default classification level | not started | - |
-| GET | `/whiteboards/{id}/classification-level` | `getWhiteboardClassificationLevel` | Get whiteboard classification level | not started | - |
-| PUT | `/whiteboards/{id}/classification-level` | `putWhiteboardClassificationLevel` | Update whiteboard classification level | not started | - |
-| POST | `/whiteboards/{id}/classification-level/reset` | `postWhiteboardClassificationLevel` | Reset whiteboard classification level | not started | - |
+| GET | `/blogposts/{id}/classification-level` | `getBlogPostClassificationLevel` | Get blog post classification level | partial (schema) | v2-blogpost-classification-get |
+| PUT | `/blogposts/{id}/classification-level` | `putBlogPostClassificationLevel` | Update blog post classification level | partial (schema) | v2-blogpost-classification-put |
+| POST | `/blogposts/{id}/classification-level/reset` | `postBlogPostClassificationLevel` | Reset blog post classification level | partial (schema) | v2-blogpost-classification-reset |
+| GET | `/classification-levels` | `getClassificationLevels` | Get list of classification levels | partial (schema) | v2-classification-levels |
+| GET | `/databases/{id}/classification-level` | `getDatabaseClassificationLevel` | Get database classification level | partial (schema) | v2-database-classification-get |
+| PUT | `/databases/{id}/classification-level` | `putDatabaseClassificationLevel` | Update database classification level | partial (schema) | v2-database-classification-put |
+| POST | `/databases/{id}/classification-level/reset` | `postDatabaseClassificationLevel` | Reset database classification level | partial (schema) | v2-database-classification-reset |
+| GET | `/pages/{id}/classification-level` | `getPageClassificationLevel` | Get page classification level | partial (schema) | v2-page-classification-get |
+| PUT | `/pages/{id}/classification-level` | `putPageClassificationLevel` | Update page classification level | partial (schema) | v2-page-classification-put |
+| POST | `/pages/{id}/classification-level/reset` | `postPageClassificationLevel` | Reset page classification level | partial (schema) | v2-page-classification-reset |
+| DELETE | `/spaces/{id}/classification-level/default` | `deleteSpaceDefaultClassificationLevel` | Delete space default classification level | partial (schema) | v2-space-classification-delete |
+| GET | `/spaces/{id}/classification-level/default` | `getSpaceDefaultClassificationLevel` | Get space default classification level | partial (schema) | v2-space-classification-get |
+| PUT | `/spaces/{id}/classification-level/default` | `putSpaceDefaultClassificationLevel` | Update space default classification level | partial (schema) | v2-space-classification-put |
+| GET | `/whiteboards/{id}/classification-level` | `getWhiteboardClassificationLevel` | Get whiteboard classification level | partial (schema) | v2-whiteboard-classification-get |
+| PUT | `/whiteboards/{id}/classification-level` | `putWhiteboardClassificationLevel` | Update whiteboard classification level | partial (schema) | v2-whiteboard-classification-put |
+| POST | `/whiteboards/{id}/classification-level/reset` | `postWhiteboardClassificationLevel` | Reset whiteboard classification level | partial (schema) | v2-whiteboard-classification-reset |
 
 ## Comment
 
@@ -222,8 +222,8 @@ Status: `not started` | `partial` | `done`. `done` requires a conformance case. 
 
 | Method | Path | operationId | Summary | Status | Case |
 |---|---|---|---|---|---|
-| GET | `/data-policies/metadata` | `getDataPolicyMetadata` | Get data policy metadata for the workspace | not started | - |
-| GET | `/data-policies/spaces` | `getDataPolicySpaces` | Get spaces with data policies | not started | - |
+| GET | `/data-policies/metadata` | `getDataPolicyMetadata` | Get data policy metadata for the workspace | partial (schema) | v2-data-policy-metadata |
+| GET | `/data-policies/spaces` | `getDataPolicySpaces` | Get spaces with data policies | partial (schema) | v2-data-policy-spaces |
 
 ## Database
 

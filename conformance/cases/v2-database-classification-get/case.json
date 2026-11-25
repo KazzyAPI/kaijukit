@@ -1,0 +1,33 @@
+{
+  "id": "v2-database-classification-get",
+  "ops": [
+    "getDatabaseClassificationLevel"
+  ],
+  "setup": [
+    {
+      "as": "space",
+      "method": "POST",
+      "path": "/wiki/api/v2/spaces",
+      "body": {
+        "name": "Conf {{run}}",
+        "key": "K{{run}}"
+      }
+    },
+    {
+      "as": "x",
+      "method": "POST",
+      "path": "/wiki/api/v2/databases",
+      "body": {
+        "spaceId": "{{space.id}}",
+        "title": "x {{run}}"
+      }
+    }
+  ],
+  "request": {
+    "method": "GET",
+    "path": "/wiki/api/v2/databases/{{x.id}}/classification-level"
+  },
+  "expect": {
+    "status": 200
+  }
+}

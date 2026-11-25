@@ -1,8 +1,10 @@
+mod admin;
 mod attachments;
 mod auth;
 mod authz;
 mod blob;
 mod body;
+mod classification;
 mod comments;
 mod content;
 mod descendants;
@@ -88,6 +90,53 @@ pub fn app(state: AppState) -> Router {
             get(pages::get).put(pages::update).delete(pages::delete),
         )
         .route("/users-bulk", post(users::bulk))
+        .route("/classification-levels", get(classification::list))
+        .route(
+            "/spaces/{id}/classification-level/default",
+            get(classification::space_get)
+                .put(classification::space_put)
+                .delete(classification::space_delete),
+        )
+        .route(
+            "/admin-key",
+            get(admin::get_key)
+                .post(admin::enable_key)
+                .delete(admin::disable_key),
+        )
+        .route("/data-policies/metadata", get(admin::policy_metadata))
+        .route("/data-policies/spaces", get(admin::policy_spaces))
+        .route(
+            "/pages/{id}/classification-level",
+            get(classification::get::<0>).put(classification::put::<0>),
+        )
+        .route(
+            "/pages/{id}/classification-level/reset",
+            post(classification::reset::<0>),
+        )
+        .route(
+            "/blogposts/{id}/classification-level",
+            get(classification::get::<4>).put(classification::put::<4>),
+        )
+        .route(
+            "/blogposts/{id}/classification-level/reset",
+            post(classification::reset::<4>),
+        )
+        .route(
+            "/whiteboards/{id}/classification-level",
+            get(classification::get::<6>).put(classification::put::<6>),
+        )
+        .route(
+            "/whiteboards/{id}/classification-level/reset",
+            post(classification::reset::<6>),
+        )
+        .route(
+            "/databases/{id}/classification-level",
+            get(classification::get::<7>).put(classification::put::<7>),
+        )
+        .route(
+            "/databases/{id}/classification-level/reset",
+            post(classification::reset::<7>),
+        )
         .route("/space-permissions", get(space_perms::available))
         .route("/spaces/{id}/permissions", get(space_perms::assignments))
         .route(

@@ -3700,3 +3700,121 @@ async fn attachment_download_ranges_validators_and_thumbnails() {
         StatusCode::BAD_REQUEST
     );
 }
+
+#[tokio::test]
+async fn classification_levels_admin_key_and_data_policies() {
+    let app = start().await;
+    let sp = space(&app, "CLS").await;
+    let pg = page(&app, &sp["id"], "P", None).await;
+    let pid = pg["id"].as_str().unwrap();
+    let levels = get(&app, "/classification-levels").await;
+    let all = levels.json.as_array().unwrap();
+    assert!(all.len() >= 2);
+    let (first, second) = (
+        all[0]["id"].as_str().unwrap(),
+        all[1]["id"].as_str().unwrap(),
+    );
+    // unset: the site default, then the space default, then the page's own level
+    assert_eq!(
+        get(&app, &format!("/pages/{pid}/classification-level"))
+            .await
+            .json["id"],
+        first
+    );
+    let sid = sp["id"].as_str().unwrap();
+    let r = call(
+        &app,
+        Method::PUT,
+        &format!("/spaces/{sid}/classification-level/default"),
+        Some(json!({"id": second})),
+    )
+    .await;
+    assert_eq!(r.status, StatusCode::NO_CONTENT);
+    assert_eq!(
+        get(&app, &format!("/pages/{pid}/classification-level"))
+            .await
+            .json["id"],
+        second
+    );
+    let r = call(
+        &app,
+        Method::PUT,
+        &format!("/pages/{pid}/classification-level"),
+        Some(json!({"id": first, "status": "current"})),
+    )
+    .await;
+    assert_eq!(r.status, StatusCode::NO_CONTENT);
+    assert_eq!(
+        get(&app, &format!("/pages/{pid}/classification-level"))
+            .await
+            .json["id"],
+        first
+    );
+    let r = call(
+        &app,
+        Method::POST,
+        &format!("/pages/{pid}/classification-level/reset"),
+        Some(json!({"status": "current"})),
+    )
+    .await;
+    assert_eq!(r.status, StatusCode::NO_CONTENT);
+    assert_eq!(
+        get(&app, &format!("/pages/{pid}/classification-level"))
+            .await
+            .json["id"],
+        second
+    );
+    let r = call(
+        &app,
+        Method::PUT,
+        &format!("/pages/{pid}/classification-level"),
+        Some(json!({"id": "nope", "status": "current"})),
+    )
+    .await;
+    assert_eq!(r.status, StatusCode::BAD_REQUEST);
+    assert_eq!(
+        get(&app, &format!("/folders/{pid}/classification-level"))
+            .await
+            .status,
+        StatusCode::NOT_FOUND
+    );
+
+    assert_eq!(get(&app, "/admin-key").await.status, StatusCode::NOT_FOUND);
+    let k = call(
+        &app,
+        Method::POST,
+        "/admin-key",
+        Some(json!({"durationInMinutes": 5})),
+    )
+    .await;
+    assert_eq!(k.status, StatusCode::OK, "{}", k.json);
+    assert!(k.json["expirationTime"].is_string());
+    assert_eq!(get(&app, "/admin-key").await.status, StatusCode::OK);
+    assert_eq!(
+        call(
+            &app,
+            Method::POST,
+            "/admin-key",
+            Some(json!({"durationInMinutes": 0}))
+        )
+        .await
+        .status,
+        StatusCode::BAD_REQUEST
+    );
+    assert_eq!(
+        call(&app, Method::DELETE, "/admin-key", None).await.status,
+        StatusCode::NO_CONTENT
+    );
+    assert_eq!(
+        call(&app, Method::DELETE, "/admin-key", None).await.status,
+        StatusCode::NOT_FOUND
+    );
+    assert_eq!(
+        get(&app, "/data-policies/metadata").await.json["anyContentBlocked"],
+        false
+    );
+    assert_eq!(
+        get(&app, "/data-policies/spaces").await.json["results"],
+        json!([])
+    );
+}

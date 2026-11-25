@@ -1,0 +1,42 @@
+{
+  "id": "v2-blogpost-classification-put",
+  "ops": [
+    "putBlogPostClassificationLevel"
+  ],
+  "setup": [
+    {
+      "as": "space",
+      "method": "POST",
+      "path": "/wiki/api/v2/spaces",
+      "body": {
+        "name": "Conf {{run}}",
+        "key": "K{{run}}"
+      }
+    },
+    {
+      "as": "x",
+      "method": "POST",
+      "path": "/wiki/api/v2/blogposts",
+      "body": {
+        "spaceId": "{{space.id}}",
+        "title": "x {{run}}",
+        "status": "current",
+        "body": {
+          "representation": "storage",
+          "value": "<p>hello</p>"
+        }
+      }
+    }
+  ],
+  "request": {
+    "method": "PUT",
+    "path": "/wiki/api/v2/blogposts/{{x.id}}/classification-level",
+    "body": {
+      "id": "kk-level-internal",
+      "status": "current"
+    }
+  },
+  "expect": {
+    "status": 204
+  }
+}

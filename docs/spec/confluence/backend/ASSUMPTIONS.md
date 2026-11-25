@@ -150,3 +150,13 @@ All `[V]`: shapes from the pinned spec, rules from our own v1 restriction model.
 - POST adds principals. PUT replaces every row of each operation named in the body (operations not named are untouched). DELETE removes rows matching the optional `operation`, `principal-type`, `principal-id` filters (none = all) and answers 204. One entry per operation; unknown principals are 400.
 - `allow-self-lockout=true` skips the check that rejects a change taking the caller's own view or update access away.
 - `PUT restriction-state`: `OPEN` clears every row; `EDIT_RESTRICTED` leaves the caller alone on `update`; `VIEW_RESTRICTED` leaves the caller alone on `read` and `update`. The caller needs the right to restrict content.
+
+## M4b: classification levels, admin key, data policies
+
+All `[V]`.
+
+- Migration 0011 seeds three levels (Public default, Internal, Confidential); there is no write API for the list (the spec has none). A content row reports its own level, else its space default, else the site default. `status` in GET/PUT/reset bodies and queries is validated by shape only: one level per row, no draft/current split. Unknown level id is 400; a row of another kind is 404. Applies to pages, blog posts, whiteboards and databases (the kinds the spec lists).
+- `ClassificationLevel.status` is declared as both `object` and a string enum in the pinned spec; `allowed-diffs.json` skips the `type` complaint for it.
+- Admin key: site administrators only (403 otherwise). POST stores an expiry of 1 to 60 minutes (default 10) for the caller; GET/DELETE are 404 without an active key. It grants nothing extra because administrators already pass every check.
+- Data policies are not built: metadata says `anyContentBlocked: false`, the space list is empty.
+- Not built: redactions (`postRedactPage`, `postRedactBlog`), space roles and role assignments, space permission transition, `convertContentIdsToContentTypes`, `inviteByEmail`.

@@ -1,0 +1,24 @@
+{
+  "id": "v2-space-classification-get",
+  "ops": [
+    "getSpaceDefaultClassificationLevel"
+  ],
+  "setup": [
+    {
+      "as": "space",
+      "method": "POST",
+      "path": "/wiki/api/v2/spaces",
+      "body": {
+        "name": "Conf {{run}}",
+        "key": "K{{run}}"
+      }
+    }
+  ],
+  "request": {
+    "method": "GET",
+    "path": "/wiki/api/v2/spaces/{{space.id}}/classification-level/default"
+  },
+  "expect": {
+    "status": 200
+  }
+}

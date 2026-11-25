@@ -1,0 +1,24 @@
+{
+  "id": "v2-space-classification-delete",
+  "ops": [
+    "deleteSpaceDefaultClassificationLevel"
+  ],
+  "setup": [
+    {
+      "as": "space",
+      "method": "POST",
+      "path": "/wiki/api/v2/spaces",
+      "body": {
+        "name": "Conf {{run}}",
+        "key": "K{{run}}"
+      }
+    }
+  ],
+  "request": {
+    "method": "DELETE",
+    "path": "/wiki/api/v2/spaces/{{space.id}}/classification-level/default"
+  },
+  "expect": {
+    "status": 204
+  }
+}

@@ -4,7 +4,8 @@ import { Editor, type EditorHandle } from '@kaijukit/editor';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useOutletContext, useParams, useSearchParams } from 'react-router-dom';
-import { ApiError, createDraft, deletePage, getPage, lookupUsers, resolveMedia, savePage, uploadAttachment, type Page, type Space } from '../api';
+import { ApiError, createDraft, deletePage, getPage, resolveMedia, savePage, uploadAttachment, type Page, type Space } from '../api';
+import { searchPeople } from '../contentApi';
 import { pageUrl } from '../format';
 import { PageHeaderBar } from '../PageHeader';
 import { QueryState } from '../QueryState';
@@ -64,15 +65,7 @@ function EditorScreen({ space, page }: { space: Space; page: Page }) {
   const toast = useToast();
   const doc = useMemo<AdfDoc>(() => parseAdf(page.body?.atlas_doc_format?.value) ?? emptyDoc(), [page]);
   const unsupported = useMemo(() => unsupportedTypes(doc), [doc]);
-  // No user search endpoint exists yet, so the picker offers the people already tied to this page.
-  const people = useMemo(() => {
-    const ids = [...new Set([page.authorId, page.version.authorId].filter((i): i is string => !!i))];
-    return ids.length ? lookupUsers(ids).catch(() => []) : Promise.resolve([]);
-  }, [page]);
-  const searchUsers = useCallback(
-    async (q: string) => (await people).map((u) => ({ id: u.accountId, name: u.displayName || u.publicName || `User ${u.accountId.slice(0, 8)}` })).filter((u) => u.name.toLowerCase().includes(q.toLowerCase())),
-    [people],
-  );
+  const searchUsers = useCallback(async (q: string) => (await searchPeople(q)).map((u) => ({ id: u.accountId, name: u.displayName || `User ${u.accountId.slice(0, 8)}` })), []);
   const upload = useCallback((f: File) => uploadAttachment(page.id, f), [page.id]);
   const [title, setTitle] = useState(page.title);
   const [state, setState] = useState<SaveState>('idle');

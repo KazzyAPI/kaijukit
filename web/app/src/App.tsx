@@ -6,6 +6,7 @@ import { Chrome } from './Chrome';
 import { ErrorPage, NotFound } from './screens/Errors';
 import { History } from './screens/History';
 import { Home } from './screens/Home';
+import { LabelPages } from './screens/LabelPages';
 import { Login } from './screens/Login';
 import { Overview, PageRoute } from './screens/PageView';
 import { Search } from './screens/Search';
@@ -49,6 +50,7 @@ export function App() {
           <Route path="/wiki/spaces" element={<Spaces />} />
           <Route path="/wiki/tasks" element={<Tasks />} />
           <Route path="/wiki/search" element={<Search />} />
+          <Route path="/wiki/labels/:id" element={<LabelPages />} />
           <Route path="/wiki/spaces/:key" element={<SpaceShell />}>
             <Route index element={<Navigate to="overview" replace />} />
             <Route path="overview" element={<Overview />} />

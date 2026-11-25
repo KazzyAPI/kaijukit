@@ -1,6 +1,7 @@
 import { Button, Icon, Skeleton, useToast } from '@kaijukit/ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useId, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { addLabel, knownLabels, pageLabels, removeLabel } from './contentApi';
 
 export function Labels({ pageId }: { pageId: string }) {
@@ -44,7 +45,7 @@ export function Labels({ pageId }: { pageId: string }) {
         <ul className="kk-chips" aria-label="Labels">
           {labels.data.map((l) => (
             <li key={l.id} className="kk-chip">
-              {l.name}
+              <Link className="kk-chip__link" to={`/wiki/labels/${l.id}?name=${encodeURIComponent(l.name)}`}>{l.name}</Link>
               <button type="button" className="kk-chip__x" aria-label={`Remove label ${l.name}`} onClick={() => remove.mutate(l.name)}>
                 <Icon name="close" size={12} />
               </button>

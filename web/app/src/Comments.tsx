@@ -85,7 +85,7 @@ export function Thread({ kind, comment, pageId, depth = 0, focusedId }: { kind: 
   const refresh = useCommentRefresh(pageId);
   const toast = useToast();
   const me = useMyId();
-  const authorId = comment.version.authorId;
+  const authorId = comment.authorId ?? comment.version.authorId;
   const name = useUserNames([authorId]);
   const replies = useQuery({ queryKey: ['replies', kind, comment.id], queryFn: () => commentReplies(kind, comment.id) });
   const [mode, setMode] = useState<'view' | 'edit' | 'reply'>('view');

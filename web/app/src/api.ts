@@ -160,3 +160,6 @@ export function resolveMedia(a: MediaAttrs): Promise<string> {
   }
   return p;
 }
+
+/** Toast title for a failed action: a 403 says so plainly instead of a generic failure. */
+export const errorTitle = (e: unknown, fallback: string) => (e instanceof ApiError && e.status === 403 ? "You don't have permission to do that" : fallback);

@@ -118,6 +118,7 @@ function EditorScreen({ space, page }: { space: Space; page: Page }) {
         setDirty(rev.current !== savedRev.current);
       } catch (e) {
         if (e instanceof ApiError && e.status === 409) toast({ title: 'This page changed elsewhere', description: 'Your draft could not be saved. Copy your text, reload, and reapply it.', appearance: 'error' });
+        else if (e instanceof ApiError && e.status === 403) toast({ title: "You don't have permission to edit this page", description: e.message, appearance: 'error' });
         setState(navigator.onLine ? 'error' : 'offline');
       }
     });

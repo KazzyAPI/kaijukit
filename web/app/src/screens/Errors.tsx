@@ -19,6 +19,12 @@ export function NotFound() {
 
 export function ErrorPanel({ error, onRetry }: { error: unknown; onRetry?: () => void }) {
   if (error instanceof ApiError && error.status === 404) return <NotFound />;
+  if (error instanceof ApiError && error.status === 403)
+    return (
+      <div role="alert">
+        <EmptyState title="You don't have permission" description={error.message || 'Ask a space administrator for access.'} action={<Link className="kk-btn" to="/wiki/home">Go to home</Link>} />
+      </div>
+    );
   const msg = error instanceof Error ? error.message : 'Something went wrong.';
   return (
     <div role="alert">
@@ -28,7 +34,7 @@ export function ErrorPanel({ error, onRetry }: { error: unknown; onRetry?: () =>
 }
 
 export function ErrorPage({ code }: { code?: string }) {
-  return code === '404' ? <NotFound /> : <ErrorPanel error={new Error(`Error ${code ?? ''}`.trim())} onRetry={() => location.reload()} />;
+  return code === '404' ? <NotFound /> : code === '403' ? <ErrorPanel error={new ApiError(403, '')} /> : <ErrorPanel error={new Error(`Error ${code ?? ''}`.trim())} onRetry={() => location.reload()} />;
 }
 
 export class ErrorBoundary extends Component<{ children: ReactNode }, { error: unknown }> {

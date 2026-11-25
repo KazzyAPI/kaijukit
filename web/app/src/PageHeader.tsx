@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { restrictionState } from './contentApi';
+import { RestrictionsEditor } from './Restrictions';
 import { ContentIcon } from './ContentIcon';
 import { exactTime, shortDate } from './format';
 import { getJson, store } from './storage';
@@ -54,13 +55,7 @@ export function Collaborators({ ids }: { ids: (string | undefined)[] }) {
   );
 }
 
-const RESTRICTION_TEXT = {
-  OPEN: 'Anyone who can see this space can open this page.',
-  VIEW_RESTRICTED: 'Viewing is restricted: only specific people and groups can open this page.',
-  EDIT_RESTRICTED: 'Anyone who can see this space can view this page, but only specific people and groups can edit it.',
-};
-
-// The lock shows the page's restriction state; changing restrictions and inviting people aren't built yet.
+// The lock shows the page's restriction state; the dialog edits it. Inviting people by email isn't built.
 export function ShareControl({ pageId, title, url }: { pageId: string; title: string; url: string }) {
   const [open, setOpen] = useState(false);
   const copy = useCopyLink(url);
@@ -80,9 +75,7 @@ export function ShareControl({ pageId, title, url }: { pageId: string; title: st
         <Button onClick={copy}>
           <Icon name="copy" /> Copy link
         </Button>
-        <p className="kk-muted" style={{ margin: 0 }}>
-          <Icon name={locked ? 'lock' : 'unlock'} size={14} /> {RESTRICTION_TEXT[state]} Inviting people and editing restrictions aren't built yet.
-        </p>
+        <RestrictionsEditor pageId={pageId} />
       </Dialog>
     </>
   );

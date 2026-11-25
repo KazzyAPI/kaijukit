@@ -1,0 +1,57 @@
+{
+  "id": "v2-page-property-update",
+  "ops": [
+    "updatePagePropertyById"
+  ],
+  "setup": [
+    {
+      "as": "space",
+      "method": "POST",
+      "path": "/wiki/api/v2/spaces",
+      "body": {
+        "name": "Conf {{run}}",
+        "key": "K{{run}}"
+      }
+    },
+    {
+      "as": "page1",
+      "method": "POST",
+      "path": "/wiki/api/v2/pages",
+      "body": {
+        "spaceId": "{{space.id}}",
+        "status": "current",
+        "title": "page1 {{run}}",
+        "body": {
+          "representation": "storage",
+          "value": "<p>alpha beta alpha</p>"
+        }
+      }
+    },
+    {
+      "as": "prop",
+      "method": "POST",
+      "path": "/wiki/api/v2/pages/{{page1.id}}/properties",
+      "body": {
+        "key": "color",
+        "value": {
+          "a": 1
+        }
+      }
+    }
+  ],
+  "request": {
+    "method": "PUT",
+    "path": "/wiki/api/v2/pages/{{page1.id}}/properties/{{prop.id}}",
+    "body": {
+      "key": "color",
+      "value": "blue",
+      "version": {
+        "number": 2,
+        "message": "m"
+      }
+    }
+  },
+  "expect": {
+    "status": 200
+  }
+}

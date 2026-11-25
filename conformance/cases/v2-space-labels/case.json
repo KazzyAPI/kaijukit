@@ -1,0 +1,46 @@
+{
+  "id": "v2-space-labels",
+  "ops": [
+    "getSpaceLabels"
+  ],
+  "setup": [
+    {
+      "as": "space",
+      "method": "POST",
+      "path": "/wiki/api/v2/spaces",
+      "body": {
+        "name": "Conf {{run}}",
+        "key": "K{{run}}"
+      }
+    },
+    {
+      "as": "page1",
+      "method": "POST",
+      "path": "/wiki/api/v2/pages",
+      "body": {
+        "spaceId": "{{space.id}}",
+        "status": "current",
+        "title": "page1 {{run}}",
+        "body": {
+          "representation": "storage",
+          "value": "<p>alpha beta alpha</p>"
+        }
+      }
+    },
+    {
+      "as": "slbl",
+      "method": "POST",
+      "path": "/wiki/rest/api/space/{{space.key}}/label",
+      "body": {
+        "name": "team-x"
+      }
+    }
+  ],
+  "request": {
+    "method": "GET",
+    "path": "/wiki/api/v2/spaces/{{space.id}}/labels"
+  },
+  "expect": {
+    "status": 200
+  }
+}

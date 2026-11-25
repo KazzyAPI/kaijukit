@@ -1,0 +1,43 @@
+{
+  "id": "v2-page-like-count",
+  "ops": [
+    "getPageLikeCount"
+  ],
+  "setup": [
+    {
+      "as": "space",
+      "method": "POST",
+      "path": "/wiki/api/v2/spaces",
+      "body": {
+        "name": "Conf {{run}}",
+        "key": "K{{run}}"
+      }
+    },
+    {
+      "as": "page1",
+      "method": "POST",
+      "path": "/wiki/api/v2/pages",
+      "body": {
+        "spaceId": "{{space.id}}",
+        "status": "current",
+        "title": "page1 {{run}}",
+        "body": {
+          "representation": "storage",
+          "value": "<p>alpha beta alpha</p>"
+        }
+      }
+    },
+    {
+      "as": "like",
+      "method": "PUT",
+      "path": "/wiki/rest/api/content/{{page1.id}}/like"
+    }
+  ],
+  "request": {
+    "method": "GET",
+    "path": "/wiki/api/v2/pages/{{page1.id}}/likes/count"
+  },
+  "expect": {
+    "status": 200
+  }
+}

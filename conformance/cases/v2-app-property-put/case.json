@@ -1,0 +1,17 @@
+{
+  "id": "v2-app-property-put",
+  "ops": [
+    "putForgeAppProperty"
+  ],
+  "setup": [],
+  "request": {
+    "method": "PUT",
+    "path": "/wiki/api/v2/app/properties/k{{run}}",
+    "body": {
+      "on": true
+    }
+  },
+  "expect": {
+    "status": 201
+  }
+}

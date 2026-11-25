@@ -1150,3 +1150,430 @@ async fn inline_comments_anchor_resolve_and_dangle() {
     .await;
     assert_eq!(reopen.status, StatusCode::BAD_REQUEST);
 }
+
+async fn v1(app: &Router, method: Method, path: &str, body: Option<Value>) -> Res {
+    send(
+        app,
+        method,
+        &format!("/wiki/rest/api{path}"),
+        body,
+        Some(ADMIN),
+    )
+    .await
+}
+
+fn names(r: &Res) -> Vec<&str> {
+    r.json["results"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|l| l["name"].as_str().unwrap())
+        .collect()
+}
+
+#[tokio::test]
+async fn labels_on_pages_spaces_and_content() {
+    let app = start().await;
+    let sp = space(&app, "LB").await;
+    let pg = page(&app, &sp["id"], "Tagged", None).await;
+    let pid = pg["id"].as_str().unwrap();
+
+    let add = v1(
+        &app,
+        Method::POST,
+        &format!("/content/{pid}/label"),
+        Some(json!([{"prefix": "global", "name": "Alpha"}, {"prefix": "my", "name": "beta"}])),
+    )
+    .await;
+    assert_eq!(add.status, StatusCode::OK, "{}", add.json);
+    assert_eq!(add.json["size"], 2);
+    assert_eq!(add.json["results"][0]["name"], "alpha");
+    assert_eq!(add.json["results"][0]["label"], "alpha");
+    assert_eq!(add.json["results"][0]["prefix"], "global");
+    let again = v1(
+        &app,
+        Method::POST,
+        &format!("/content/{pid}/label"),
+        Some(json!({"name": "alpha"})),
+    )
+    .await;
+    assert_eq!(again.json["size"], 2);
+    let bad = v1(
+        &app,
+        Method::POST,
+        &format!("/content/{pid}/label"),
+        Some(json!({"name": "has space"})),
+    )
+    .await;
+    assert_eq!(bad.status, StatusCode::BAD_REQUEST);
+
+    let list = get(&app, &format!("/pages/{pid}/labels")).await;
+    assert_eq!(names(&list), ["alpha", "beta"]);
+    assert_eq!(list.json["results"][1]["prefix"], "my");
+    assert_eq!(
+        names(&get(&app, &format!("/pages/{pid}/labels?prefix=my")).await),
+        ["beta"]
+    );
+    assert_eq!(
+        names(&get(&app, &format!("/pages/{pid}/labels?sort=-name")).await),
+        ["beta", "alpha"]
+    );
+    assert_eq!(
+        get(&app, &format!("/pages/{pid}/labels?prefix=bogus"))
+            .await
+            .status,
+        StatusCode::BAD_REQUEST
+    );
+
+    let sl = v1(
+        &app,
+        Method::POST,
+        "/space/LB/label",
+        Some(json!({"name": "team-x"})),
+    )
+    .await;
+    assert_eq!(sl.json["results"][0]["prefix"], "team");
+    let sid = sp["id"].as_str().unwrap();
+    assert_eq!(
+        names(&get(&app, &format!("/spaces/{sid}/labels")).await),
+        ["team-x"]
+    );
+    assert_eq!(
+        names(&get(&app, &format!("/spaces/{sid}/content/labels")).await),
+        ["alpha", "beta"]
+    );
+    assert_eq!(
+        get(&app, "/labels").await.json["results"]
+            .as_array()
+            .unwrap()
+            .len(),
+        3
+    );
+
+    let del = v1(
+        &app,
+        Method::DELETE,
+        &format!("/content/{pid}/label/alpha"),
+        None,
+    )
+    .await;
+    assert_eq!(del.status, StatusCode::NO_CONTENT);
+    let q = v1(
+        &app,
+        Method::DELETE,
+        &format!("/content/{pid}/label?name=beta"),
+        None,
+    )
+    .await;
+    assert_eq!(q.status, StatusCode::NO_CONTENT);
+    assert_eq!(
+        v1(
+            &app,
+            Method::DELETE,
+            &format!("/content/{pid}/label/beta"),
+            None
+        )
+        .await
+        .status,
+        StatusCode::NOT_FOUND
+    );
+    assert_eq!(
+        get(&app, &format!("/pages/{pid}/labels")).await.json["results"],
+        json!([])
+    );
+    assert_eq!(
+        get(&app, "/pages/999999/labels").await.status,
+        StatusCode::NOT_FOUND
+    );
+}
+
+#[tokio::test]
+async fn properties_versions_and_app_properties() {
+    let app = start().await;
+    let sp = space(&app, "PR").await;
+    let pg = page(&app, &sp["id"], "Props", None).await;
+    let pid = pg["id"].as_str().unwrap();
+    let admin = pg["authorId"].as_str().unwrap();
+
+    let c = call(
+        &app,
+        Method::POST,
+        &format!("/pages/{pid}/properties"),
+        Some(json!({"key": "color", "value": {"a": [1, 2]}})),
+    )
+    .await;
+    assert_eq!(c.status, StatusCode::OK, "{}", c.json);
+    assert_eq!(c.json["key"], "color");
+    assert_eq!(c.json["value"], json!({"a": [1, 2]}));
+    assert_eq!(c.json["version"]["number"], 1);
+    assert_eq!(c.json["version"]["authorId"], admin);
+    let id = c.json["id"].as_str().unwrap().to_string();
+    let dup = call(
+        &app,
+        Method::POST,
+        &format!("/pages/{pid}/properties"),
+        Some(json!({"key": "color", "value": 1})),
+    )
+    .await;
+    assert_eq!(dup.status, StatusCode::CONFLICT);
+
+    let up = |n: i64, key: &str| json!({"key": key, "value": "blue", "version": {"number": n, "message": "m"}});
+    let stale = call(
+        &app,
+        Method::PUT,
+        &format!("/pages/{pid}/properties/{id}"),
+        Some(up(1, "color")),
+    )
+    .await;
+    assert_eq!(stale.status, StatusCode::CONFLICT);
+    let rename = call(
+        &app,
+        Method::PUT,
+        &format!("/pages/{pid}/properties/{id}"),
+        Some(up(2, "other")),
+    )
+    .await;
+    assert_eq!(rename.status, StatusCode::BAD_REQUEST);
+    let ok = call(
+        &app,
+        Method::PUT,
+        &format!("/pages/{pid}/properties/{id}"),
+        Some(up(2, "color")),
+    )
+    .await;
+    assert_eq!(ok.status, StatusCode::OK, "{}", ok.json);
+    assert_eq!(ok.json["value"], "blue");
+    assert_eq!(ok.json["version"]["number"], 2);
+    assert_eq!(ok.json["version"]["message"], "m");
+
+    call(
+        &app,
+        Method::POST,
+        &format!("/pages/{pid}/properties"),
+        Some(json!({"key": "a", "value": true})),
+    )
+    .await;
+    let keys = |r: &Res| {
+        r.json["results"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|p| p["key"].as_str().unwrap().to_string())
+            .collect::<Vec<_>>()
+    };
+    assert_eq!(
+        keys(&get(&app, &format!("/pages/{pid}/properties?sort=key")).await),
+        ["a", "color"]
+    );
+    assert_eq!(
+        keys(&get(&app, &format!("/pages/{pid}/properties?key=color")).await),
+        ["color"]
+    );
+    let big = "x".repeat(40_000);
+    let too = call(
+        &app,
+        Method::POST,
+        &format!("/pages/{pid}/properties"),
+        Some(json!({"key": "big", "value": big})),
+    )
+    .await;
+    assert_eq!(too.status, StatusCode::PAYLOAD_TOO_LARGE);
+
+    assert_eq!(
+        call(
+            &app,
+            Method::DELETE,
+            &format!("/pages/{pid}/properties/{id}"),
+            None
+        )
+        .await
+        .status,
+        StatusCode::NO_CONTENT
+    );
+    assert_eq!(
+        get(&app, &format!("/pages/{pid}/properties/{id}"))
+            .await
+            .status,
+        StatusCode::NOT_FOUND
+    );
+
+    let cm = call(
+        &app,
+        Method::POST,
+        "/footer-comments",
+        Some(json!({"pageId": pid, "body": storage("<p>c</p>")})),
+    )
+    .await;
+    let cid = cm.json["id"].as_str().unwrap();
+    let cp = call(
+        &app,
+        Method::POST,
+        &format!("/comments/{cid}/properties"),
+        Some(json!({"key": "k", "value": 1})),
+    )
+    .await;
+    assert_eq!(cp.status, StatusCode::OK);
+    assert_eq!(
+        get(&app, &format!("/comments/{cid}/properties")).await.json["results"][0]["value"],
+        1
+    );
+
+    let sid = sp["id"].as_str().unwrap();
+    let sc = call(
+        &app,
+        Method::POST,
+        &format!("/spaces/{sid}/properties"),
+        Some(json!({"key": "theme", "value": {"d": 1}})),
+    )
+    .await;
+    assert_eq!(sc.status, StatusCode::CREATED, "{}", sc.json);
+    assert_eq!(sc.json["createdBy"], admin);
+    assert_eq!(sc.json["version"]["number"], 1);
+    let spid = sc.json["id"].as_str().unwrap();
+    let su = call(
+        &app,
+        Method::PUT,
+        &format!("/spaces/{sid}/properties/{spid}"),
+        Some(up(2, "theme")),
+    )
+    .await;
+    assert_eq!(su.json["version"]["number"], 2);
+    assert_eq!(
+        get(&app, &format!("/spaces/{sid}/properties/{spid}"))
+            .await
+            .json["value"],
+        "blue"
+    );
+    assert_eq!(
+        call(
+            &app,
+            Method::DELETE,
+            &format!("/spaces/{sid}/properties/{spid}"),
+            None
+        )
+        .await
+        .status,
+        StatusCode::NO_CONTENT
+    );
+
+    let put = call(
+        &app,
+        Method::PUT,
+        "/app/properties/flag",
+        Some(json!({"on": true})),
+    )
+    .await;
+    assert_eq!(put.status, StatusCode::CREATED);
+    let put = call(
+        &app,
+        Method::PUT,
+        "/app/properties/flag",
+        Some(json!({"on": false})),
+    )
+    .await;
+    assert_eq!(put.status, StatusCode::OK);
+    assert_eq!(
+        get(&app, "/app/properties/flag").await.json,
+        json!({"key": "flag", "value": {"on": false}})
+    );
+    assert_eq!(
+        get(&app, "/app/properties").await.json["results"],
+        json!([{"key": "flag", "value": {"on": false}}])
+    );
+    assert_eq!(
+        call(&app, Method::DELETE, "/app/properties/flag", None)
+            .await
+            .status,
+        StatusCode::NO_CONTENT
+    );
+    assert_eq!(
+        get(&app, "/app/properties/flag").await.status,
+        StatusCode::NOT_FOUND
+    );
+}
+
+#[tokio::test]
+async fn likes_and_operations() {
+    let app = start().await;
+    let sp = space(&app, "LK").await;
+    let pg = page(&app, &sp["id"], "Liked", None).await;
+    let pid = pg["id"].as_str().unwrap();
+    assert_eq!(
+        get(&app, &format!("/pages/{pid}/likes/count")).await.json,
+        json!({"count": 0})
+    );
+    assert_eq!(
+        v1(&app, Method::PUT, &format!("/content/{pid}/like"), None)
+            .await
+            .status,
+        StatusCode::NO_CONTENT
+    );
+    assert_eq!(
+        v1(&app, Method::PUT, &format!("/content/{pid}/like"), None)
+            .await
+            .status,
+        StatusCode::NO_CONTENT
+    );
+    assert_eq!(
+        get(&app, &format!("/pages/{pid}/likes/count")).await.json,
+        json!({"count": 1})
+    );
+    assert_eq!(
+        get(&app, &format!("/pages/{pid}/likes/users")).await.json["results"],
+        json!([{"accountId": pg["authorId"]}])
+    );
+
+    let cm = call(
+        &app,
+        Method::POST,
+        "/footer-comments",
+        Some(json!({"pageId": pid, "body": storage("<p>c</p>")})),
+    )
+    .await;
+    let cid = cm.json["id"].as_str().unwrap();
+    v1(&app, Method::PUT, &format!("/content/{cid}/like"), None).await;
+    assert_eq!(
+        get(&app, &format!("/footer-comments/{cid}/likes/count"))
+            .await
+            .json["count"],
+        1
+    );
+    assert_eq!(
+        get(&app, &format!("/inline-comments/{cid}/likes/count"))
+            .await
+            .status,
+        StatusCode::NOT_FOUND
+    );
+    v1(&app, Method::DELETE, &format!("/content/{cid}/like"), None).await;
+    assert_eq!(
+        get(&app, &format!("/footer-comments/{cid}/likes/count"))
+            .await
+            .json["count"],
+        0
+    );
+
+    let ops = get(&app, &format!("/pages/{pid}/operations")).await;
+    assert_eq!(
+        ops.json["operations"][0],
+        json!({"operation": "read", "targetType": "page"})
+    );
+    assert_eq!(ops.json["operations"].as_array().unwrap().len(), 9);
+    let sid = sp["id"].as_str().unwrap();
+    assert_eq!(
+        get(&app, &format!("/spaces/{sid}/operations")).await.json["operations"][7],
+        json!({"operation": "administer", "targetType": "space"})
+    );
+    assert_eq!(
+        get(&app, &format!("/footer-comments/{cid}/operations"))
+            .await
+            .json["operations"]
+            .as_array()
+            .unwrap()
+            .len(),
+        3
+    );
+    assert_eq!(
+        get(&app, "/pages/999999/operations").await.status,
+        StatusCode::NOT_FOUND
+    );
+}

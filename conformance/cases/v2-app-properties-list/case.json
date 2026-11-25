@@ -1,0 +1,23 @@
+{
+  "id": "v2-app-properties-list",
+  "ops": [
+    "getForgeAppProperties"
+  ],
+  "setup": [
+    {
+      "as": "ap",
+      "method": "PUT",
+      "path": "/wiki/api/v2/app/properties/k{{run}}",
+      "body": {
+        "on": true
+      }
+    }
+  ],
+  "request": {
+    "method": "GET",
+    "path": "/wiki/api/v2/app/properties"
+  },
+  "expect": {
+    "status": 200
+  }
+}

@@ -63,3 +63,14 @@ Choices made where the reference gives no visible signal or is marked `[V]`. Eac
 - Attachment comments are exposed with the `att` id prefix; both prefixed and bare ids are accepted. Blog post and custom-content comments return 400.
 - Comment `_links.webui` is `/spaces/<key>/pages/<pageId>/<Title+With+Plus>?focusedCommentId=<id>`.
 - `KK_PORT` in the compose file only overrides the published host port and base URL for side-by-side stacks.
+
+## Labels, properties, likes, operations (M2)
+
+- Label names are trimmed, lowercased, 1 to 255 characters, no whitespace. Content labels default to prefix `global`, space labels to `team`. `GET` label lists apply no default prefix filter, including the space lists where the reference defaults to `my, team`.
+- Label writes use the v1 endpoints (`POST/DELETE /wiki/rest/api/content/{id}/label`, `DELETE .../label/{name}`, `POST/DELETE /wiki/rest/api/space/{key}/label`) because v2 has only reads. Adding an existing label is a no-op that returns the full list.
+- Not built: `getLabelPages`, `getLabelAttachments`, blog post and custom content labels, `include-labels` and `include-properties` expansions on page and comment reads.
+- Property keys are 1 to 255 characters; serialized values are capped at 32 KiB (413 above). Duplicate key is 409. Update needs `version.number` equal to current plus one (409 otherwise) and an unchanged key (400). Content property create returns 200 and space property create 201, as the spec lists.
+- Properties exist for pages, attachments, comments and spaces only.
+- App properties are global per instance, accept any authenticated user, store the request body as the value; PUT returns 201 on create, 200 on update. The 403 case is not produced.
+- Likes have no v2 write. `PUT/DELETE /wiki/rest/api/content/{id}/like` is a KaijuKit extension, idempotent, on pages and comments. `limit=0` on like users is rejected (minimum 1 enforced).
+- Operations lists are static (every authenticated user holds every operation) until permissions land in M3. The operation and target pairs follow the permission model in 04.

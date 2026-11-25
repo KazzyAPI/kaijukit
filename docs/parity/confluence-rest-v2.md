@@ -28,10 +28,10 @@ Status: `not started` | `partial` | `done`. `done` requires a conformance case. 
 
 | Method | Path | operationId | Summary | Status | Case |
 |---|---|---|---|---|---|
-| GET | `/app/properties` | `getForgeAppProperties` | Get Forge app properties. | not started | - |
-| DELETE | `/app/properties/{propertyKey}` | `deleteForgeAppProperty` | Deletes a Forge app property. | not started | - |
-| GET | `/app/properties/{propertyKey}` | `getForgeAppProperty` | Get a Forge app property by key. | not started | - |
-| PUT | `/app/properties/{propertyKey}` | `putForgeAppProperty` | Create or update a Forge app property. | not started | - |
+| GET | `/app/properties` | `getForgeAppProperties` | Get Forge app properties. | partial (schema) | v2-app-properties-list |
+| DELETE | `/app/properties/{propertyKey}` | `deleteForgeAppProperty` | Deletes a Forge app property. | partial (schema) | v2-app-property-delete |
+| GET | `/app/properties/{propertyKey}` | `getForgeAppProperty` | Get a Forge app property by key. | partial (schema) | v2-app-property-get |
+| PUT | `/app/properties/{propertyKey}` | `putForgeAppProperty` | Create or update a Forge app property. | partial (schema) | v2-app-property-put |
 
 ## Attachment
 
@@ -169,11 +169,11 @@ Status: `not started` | `partial` | `done`. `done` requires a conformance case. 
 | DELETE | `/blogposts/{blogpost-id}/properties/{property-id}` | `deleteBlogpostPropertyById` | Delete content property for blogpost by id | not started | - |
 | GET | `/blogposts/{blogpost-id}/properties/{property-id}` | `getBlogpostContentPropertiesById` | Get content property for blog post by id | not started | - |
 | PUT | `/blogposts/{blogpost-id}/properties/{property-id}` | `updateBlogpostPropertyById` | Update content property for blog post by id | not started | - |
-| GET | `/comments/{comment-id}/properties` | `getCommentContentProperties` | Get content properties for comment | not started | - |
-| POST | `/comments/{comment-id}/properties` | `createCommentProperty` | Create content property for comment | not started | - |
-| DELETE | `/comments/{comment-id}/properties/{property-id}` | `deleteCommentPropertyById` | Delete content property for comment by id | not started | - |
-| GET | `/comments/{comment-id}/properties/{property-id}` | `getCommentContentPropertiesById` | Get content property for comment by id | not started | - |
-| PUT | `/comments/{comment-id}/properties/{property-id}` | `updateCommentPropertyById` | Update content property for comment by id | not started | - |
+| GET | `/comments/{comment-id}/properties` | `getCommentContentProperties` | Get content properties for comment | partial (schema) | v2-comment-properties-list |
+| POST | `/comments/{comment-id}/properties` | `createCommentProperty` | Create content property for comment | partial (schema) | v2-comment-property-create |
+| DELETE | `/comments/{comment-id}/properties/{property-id}` | `deleteCommentPropertyById` | Delete content property for comment by id | partial (schema) | v2-comment-property-delete |
+| GET | `/comments/{comment-id}/properties/{property-id}` | `getCommentContentPropertiesById` | Get content property for comment by id | partial (schema) | v2-comment-property-get |
+| PUT | `/comments/{comment-id}/properties/{property-id}` | `updateCommentPropertyById` | Update content property for comment by id | partial (schema) | v2-comment-property-update |
 | GET | `/custom-content/{custom-content-id}/properties` | `getCustomContentContentProperties` | Get content properties for custom content | not started | - |
 | POST | `/custom-content/{custom-content-id}/properties` | `createCustomContentProperty` | Create content property for custom content | not started | - |
 | DELETE | `/custom-content/{custom-content-id}/properties/{property-id}` | `deleteCustomContentPropertyById` | Delete content property for custom content by id | not started | - |
@@ -194,11 +194,11 @@ Status: `not started` | `partial` | `done`. `done` requires a conformance case. 
 | PUT | `/folders/{folder-id}/properties/{property-id}` | `updateFolderPropertyById` | Update content property for folder by id | not started | - |
 | GET | `/folders/{id}/properties` | `getFolderContentProperties` | Get content properties for folder | not started | - |
 | POST | `/folders/{id}/properties` | `createFolderProperty` | Create content property for folder | not started | - |
-| GET | `/pages/{page-id}/properties` | `getPageContentProperties` | Get content properties for page | not started | - |
-| POST | `/pages/{page-id}/properties` | `createPageProperty` | Create content property for page | not started | - |
-| DELETE | `/pages/{page-id}/properties/{property-id}` | `deletePagePropertyById` | Delete content property for page by id | not started | - |
-| GET | `/pages/{page-id}/properties/{property-id}` | `getPageContentPropertiesById` | Get content property for page by id | not started | - |
-| PUT | `/pages/{page-id}/properties/{property-id}` | `updatePagePropertyById` | Update content property for page by id | not started | - |
+| GET | `/pages/{page-id}/properties` | `getPageContentProperties` | Get content properties for page | partial (schema) | v2-page-properties-list |
+| POST | `/pages/{page-id}/properties` | `createPageProperty` | Create content property for page | partial (schema) | v2-page-property-create |
+| DELETE | `/pages/{page-id}/properties/{property-id}` | `deletePagePropertyById` | Delete content property for page by id | partial (schema) | v2-page-property-delete |
+| GET | `/pages/{page-id}/properties/{property-id}` | `getPageContentPropertiesById` | Get content property for page by id | partial (schema) | v2-page-property-get |
+| PUT | `/pages/{page-id}/properties/{property-id}` | `updatePagePropertyById` | Update content property for page by id | partial (schema) | v2-page-property-update |
 | GET | `/whiteboards/{id}/properties` | `getWhiteboardContentProperties` | Get content properties for whiteboard | not started | - |
 | POST | `/whiteboards/{id}/properties` | `createWhiteboardProperty` | Create content property for whiteboard | not started | - |
 | DELETE | `/whiteboards/{whiteboard-id}/properties/{property-id}` | `deleteWhiteboardPropertyById` | Delete content property for whiteboard by id | not started | - |
@@ -262,10 +262,10 @@ Status: `not started` | `partial` | `done`. `done` requires a conformance case. 
 | GET | `/attachments/{id}/labels` | `getAttachmentLabels` | Get labels for attachment | not started | - |
 | GET | `/blogposts/{id}/labels` | `getBlogPostLabels` | Get labels for blog post | not started | - |
 | GET | `/custom-content/{id}/labels` | `getCustomContentLabels` | Get labels for custom content | not started | - |
-| GET | `/labels` | `getLabels` | Get labels | not started | - |
-| GET | `/pages/{id}/labels` | `getPageLabels` | Get labels for page | not started | - |
-| GET | `/spaces/{id}/content/labels` | `getSpaceContentLabels` | Get labels for space content | not started | - |
-| GET | `/spaces/{id}/labels` | `getSpaceLabels` | Get labels for space | not started | - |
+| GET | `/labels` | `getLabels` | Get labels | partial (schema) | v2-labels-list |
+| GET | `/pages/{id}/labels` | `getPageLabels` | Get labels for page | partial (schema) | v2-page-labels |
+| GET | `/spaces/{id}/content/labels` | `getSpaceContentLabels` | Get labels for space content | partial (schema) | v2-space-content-labels |
+| GET | `/spaces/{id}/labels` | `getSpaceLabels` | Get labels for space | partial (schema) | v2-space-labels |
 
 ## Like
 
@@ -273,12 +273,12 @@ Status: `not started` | `partial` | `done`. `done` requires a conformance case. 
 |---|---|---|---|---|---|
 | GET | `/blogposts/{id}/likes/count` | `getBlogPostLikeCount` | Get like count for blog post | not started | - |
 | GET | `/blogposts/{id}/likes/users` | `getBlogPostLikeUsers` | Get account IDs of likes for blog post | not started | - |
-| GET | `/footer-comments/{id}/likes/count` | `getFooterLikeCount` | Get like count for footer comment | not started | - |
-| GET | `/footer-comments/{id}/likes/users` | `getFooterLikeUsers` | Get account IDs of likes for footer comment | not started | - |
-| GET | `/inline-comments/{id}/likes/count` | `getInlineLikeCount` | Get like count for inline comment | not started | - |
-| GET | `/inline-comments/{id}/likes/users` | `getInlineLikeUsers` | Get account IDs of likes for inline comment | not started | - |
-| GET | `/pages/{id}/likes/count` | `getPageLikeCount` | Get like count for page | not started | - |
-| GET | `/pages/{id}/likes/users` | `getPageLikeUsers` | Get account IDs of likes for page | not started | - |
+| GET | `/footer-comments/{id}/likes/count` | `getFooterLikeCount` | Get like count for footer comment | partial (schema) | v2-footer-like-count |
+| GET | `/footer-comments/{id}/likes/users` | `getFooterLikeUsers` | Get account IDs of likes for footer comment | partial (schema) | v2-footer-like-users |
+| GET | `/inline-comments/{id}/likes/count` | `getInlineLikeCount` | Get like count for inline comment | partial (schema) | v2-inline-like-count |
+| GET | `/inline-comments/{id}/likes/users` | `getInlineLikeUsers` | Get account IDs of likes for inline comment | partial (schema) | v2-inline-like-users |
+| GET | `/pages/{id}/likes/count` | `getPageLikeCount` | Get like count for page | partial (schema) | v2-page-like-count |
+| GET | `/pages/{id}/likes/users` | `getPageLikeUsers` | Get account IDs of likes for page | partial (schema) | v2-page-like-users |
 
 ## Operation
 
@@ -290,10 +290,10 @@ Status: `not started` | `partial` | `done`. `done` requires a conformance case. 
 | GET | `/databases/{id}/operations` | `getDatabaseOperations` | Get permitted operations for a database | not started | - |
 | GET | `/embeds/{id}/operations` | `getSmartLinkOperations` | Get permitted operations for a Smart Link in the content tree | not started | - |
 | GET | `/folders/{id}/operations` | `getFolderOperations` | Get permitted operations for a folder | not started | - |
-| GET | `/footer-comments/{id}/operations` | `getFooterCommentOperations` | Get permitted operations for footer comment | not started | - |
-| GET | `/inline-comments/{id}/operations` | `getInlineCommentOperations` | Get permitted operations for inline comment | not started | - |
-| GET | `/pages/{id}/operations` | `getPageOperations` | Get permitted operations for page | not started | - |
-| GET | `/spaces/{id}/operations` | `getSpaceOperations` | Get permitted operations for space | not started | - |
+| GET | `/footer-comments/{id}/operations` | `getFooterCommentOperations` | Get permitted operations for footer comment | partial (schema) | v2-footer-comment-operations |
+| GET | `/inline-comments/{id}/operations` | `getInlineCommentOperations` | Get permitted operations for inline comment | partial (schema) | v2-inline-comment-operations |
+| GET | `/pages/{id}/operations` | `getPageOperations` | Get permitted operations for page | partial (schema) | v2-page-operations |
+| GET | `/spaces/{id}/operations` | `getSpaceOperations` | Get permitted operations for space | partial (schema) | v2-space-operations |
 | GET | `/whiteboards/{id}/operations` | `getWhiteboardOperations` | Get permitted operations for a whiteboard | not started | - |
 
 ## Page
@@ -353,11 +353,11 @@ Status: `not started` | `partial` | `done`. `done` requires a conformance case. 
 
 | Method | Path | operationId | Summary | Status | Case |
 |---|---|---|---|---|---|
-| GET | `/spaces/{space-id}/properties` | `getSpaceProperties` | Get space properties in space | not started | - |
-| POST | `/spaces/{space-id}/properties` | `createSpaceProperty` | Create space property in space | not started | - |
-| DELETE | `/spaces/{space-id}/properties/{property-id}` | `deleteSpacePropertyById` | Delete space property by id | not started | - |
-| GET | `/spaces/{space-id}/properties/{property-id}` | `getSpacePropertyById` | Get space property by id | not started | - |
-| PUT | `/spaces/{space-id}/properties/{property-id}` | `updateSpacePropertyById` | Update space property by id | not started | - |
+| GET | `/spaces/{space-id}/properties` | `getSpaceProperties` | Get space properties in space | partial (schema) | v2-space-properties-list |
+| POST | `/spaces/{space-id}/properties` | `createSpaceProperty` | Create space property in space | partial (schema) | v2-space-property-create |
+| DELETE | `/spaces/{space-id}/properties/{property-id}` | `deleteSpacePropertyById` | Delete space property by id | partial (schema) | v2-space-property-delete |
+| GET | `/spaces/{space-id}/properties/{property-id}` | `getSpacePropertyById` | Get space property by id | partial (schema) | v2-space-property-get |
+| PUT | `/spaces/{space-id}/properties/{property-id}` | `updateSpacePropertyById` | Update space property by id | partial (schema) | v2-space-property-update |
 
 ## Space Roles
 

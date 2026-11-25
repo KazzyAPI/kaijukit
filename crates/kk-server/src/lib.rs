@@ -3,7 +3,10 @@ mod body;
 mod comments;
 mod error;
 mod http;
+mod labels;
+mod likes;
 mod pages;
+mod props;
 mod spaces;
 mod target;
 mod tree;
@@ -14,7 +17,7 @@ use axum::{
     extract::{DefaultBodyLimit, Request, State},
     middleware,
     response::IntoResponse,
-    routing::{get, post, put},
+    routing::{delete, get, post, put},
     Router,
 };
 use error::{E, R};
@@ -129,6 +132,90 @@ pub fn app(state: AppState) -> Router {
             "/attachments/{id}/footer-comments",
             get(comments::list_attachment),
         )
+        .route("/labels", get(labels::all))
+        .route("/pages/{id}/labels", get(labels::of_content::<0>))
+        .route("/attachments/{id}/labels", get(labels::of_content::<1>))
+        .route("/spaces/{id}/labels", get(labels::of_space))
+        .route("/spaces/{id}/content/labels", get(labels::of_space_content))
+        .route(
+            "/pages/{id}/properties",
+            get(props::list::<0>).post(props::create::<0>),
+        )
+        .route(
+            "/attachments/{id}/properties",
+            get(props::list::<1>).post(props::create::<1>),
+        )
+        .route(
+            "/comments/{id}/properties",
+            get(props::list::<2>).post(props::create::<2>),
+        )
+        .route(
+            "/spaces/{id}/properties",
+            get(props::list::<3>).post(props::create::<3>),
+        )
+        .route(
+            "/pages/{id}/properties/{pid}",
+            get(props::get::<0>)
+                .put(props::update::<0>)
+                .delete(props::delete::<0>),
+        )
+        .route(
+            "/attachments/{id}/properties/{pid}",
+            get(props::get::<1>)
+                .put(props::update::<1>)
+                .delete(props::delete::<1>),
+        )
+        .route(
+            "/comments/{id}/properties/{pid}",
+            get(props::get::<2>)
+                .put(props::update::<2>)
+                .delete(props::delete::<2>),
+        )
+        .route(
+            "/spaces/{id}/properties/{pid}",
+            get(props::get::<3>)
+                .put(props::update::<3>)
+                .delete(props::delete::<3>),
+        )
+        .route("/app/properties", get(props::app_list))
+        .route(
+            "/app/properties/{key}",
+            get(props::app_get)
+                .put(props::app_put)
+                .delete(props::app_delete),
+        )
+        .route("/pages/{id}/likes/count", get(likes::count::<0>))
+        .route("/footer-comments/{id}/likes/count", get(likes::count::<1>))
+        .route("/inline-comments/{id}/likes/count", get(likes::count::<2>))
+        .route("/pages/{id}/likes/users", get(likes::users::<0>))
+        .route("/footer-comments/{id}/likes/users", get(likes::users::<1>))
+        .route("/inline-comments/{id}/likes/users", get(likes::users::<2>))
+        .route("/pages/{id}/operations", get(likes::page_ops))
+        .route("/spaces/{id}/operations", get(likes::space_ops))
+        .route("/attachments/{id}/operations", get(likes::attachment_ops))
+        .route(
+            "/footer-comments/{id}/operations",
+            get(likes::comment_ops::<1>),
+        )
+        .route(
+            "/inline-comments/{id}/operations",
+            get(likes::comment_ops::<2>),
+        )
+        .route_layer(middleware::from_fn_with_state(
+            state.clone(),
+            auth::require_auth,
+        ));
+    let v1 = Router::new()
+        .route(
+            "/content/{id}/label",
+            post(labels::add_content).delete(labels::remove_content_by_query),
+        )
+        .route("/content/{id}/label/{name}", delete(labels::remove_content))
+        .route(
+            "/space/{key}/label",
+            post(labels::add_space).delete(labels::remove_space),
+        )
+        .route("/content/{id}/like", put(likes::set).delete(likes::set))
         .route_layer(middleware::from_fn_with_state(
             state.clone(),
             auth::require_auth,
@@ -137,6 +224,7 @@ pub fn app(state: AppState) -> Router {
         .route("/healthz", get(|| async { "ok" }))
         .route("/readyz", get(ready))
         .nest("/wiki/api/v2", v2)
+        .nest("/wiki/rest/api", v1)
         .fallback(|| async { E(ApiError::NotFound("no such route".into())) })
         .layer(DefaultBodyLimit::max(http::MAX_BODY))
         .layer(TraceLayer::new_for_http())

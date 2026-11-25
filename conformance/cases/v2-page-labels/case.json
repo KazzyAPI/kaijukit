@@ -1,0 +1,49 @@
+{
+  "id": "v2-page-labels",
+  "ops": [
+    "getPageLabels"
+  ],
+  "setup": [
+    {
+      "as": "space",
+      "method": "POST",
+      "path": "/wiki/api/v2/spaces",
+      "body": {
+        "name": "Conf {{run}}",
+        "key": "K{{run}}"
+      }
+    },
+    {
+      "as": "page1",
+      "method": "POST",
+      "path": "/wiki/api/v2/pages",
+      "body": {
+        "spaceId": "{{space.id}}",
+        "status": "current",
+        "title": "page1 {{run}}",
+        "body": {
+          "representation": "storage",
+          "value": "<p>alpha beta alpha</p>"
+        }
+      }
+    },
+    {
+      "as": "lbl",
+      "method": "POST",
+      "path": "/wiki/rest/api/content/{{page1.id}}/label",
+      "body": [
+        {
+          "prefix": "global",
+          "name": "alpha"
+        }
+      ]
+    }
+  ],
+  "request": {
+    "method": "GET",
+    "path": "/wiki/api/v2/pages/{{page1.id}}/labels"
+  },
+  "expect": {
+    "status": 200
+  }
+}

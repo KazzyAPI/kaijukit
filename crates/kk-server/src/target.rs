@@ -23,3 +23,24 @@ pub async fn live<'e>(
     .map_err(|e| db_err(e, ""))?
     .ok_or_else(|| ApiError::NotFound(format!("{ty} not found")))
 }
+
+/// Parses `raw` (attachment ids may carry the `att` prefix) and checks the live row exists.
+pub async fn owner<'e>(ex: impl PgExecutor<'e>, raw: &str, ty: &str) -> Result<i64, ApiError> {
+    let id = if ty == "attachment" {
+        crate::http::parse_attachment_id(raw)?
+    } else {
+        crate::http::parse_id(raw)?
+    };
+    live(ex, id, ty).await?;
+    Ok(id)
+}
+
+pub async fn space<'e>(ex: impl PgExecutor<'e>, raw: &str) -> Result<i64, ApiError> {
+    let id = crate::http::parse_id(raw)?;
+    sqlx::query_scalar("SELECT id FROM spaces WHERE id = $1 AND status = 'current'")
+        .bind(id)
+        .fetch_optional(ex)
+        .await
+        .map_err(|e| db_err(e, ""))?
+        .ok_or_else(|| ApiError::NotFound("space not found".into()))
+}

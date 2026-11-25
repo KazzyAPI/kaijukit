@@ -1,0 +1,23 @@
+{
+  "id": "v2-app-property-delete",
+  "ops": [
+    "deleteForgeAppProperty"
+  ],
+  "setup": [
+    {
+      "as": "ap",
+      "method": "PUT",
+      "path": "/wiki/api/v2/app/properties/k{{run}}",
+      "body": {
+        "on": true
+      }
+    }
+  ],
+  "request": {
+    "method": "DELETE",
+    "path": "/wiki/api/v2/app/properties/k{{run}}"
+  },
+  "expect": {
+    "status": 204
+  }
+}

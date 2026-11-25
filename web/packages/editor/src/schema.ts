@@ -7,7 +7,7 @@ import TableHeader from '@tiptap/extension-table-header';
 import TableRow from '@tiptap/extension-table-row';
 import Underline from '@tiptap/extension-underline';
 import StarterKit from '@tiptap/starter-kit';
-import { Annotation, BackgroundColor, BlockFormat, DateNode, DecisionItem, DecisionList, Emoji, Expand, LayoutColumn, LayoutSection, LocalIds, Media, MediaGroup, MediaSingle, Mention, Panel, Status, TaskItem, TaskList, TextColor, TocExtension, type MediaOptions } from './extensions';
+import { Annotation, BackgroundColor, BlockFormat, DateNode, DecisionItem, DecisionList, Emoji, Expand, LayoutColumn, LayoutSection, LocalIds, Media, MediaGroup, MediaSingle, Mention, Panel, Status, TaskItem, TaskList, TextColor, TocExtension, TrailingParagraph, type MediaOptions } from './extensions';
 
 const MarkdownLink = Link.extend({
   addInputRules() {
@@ -37,6 +37,7 @@ export function kkExtensions(media: MediaOptions['resolve'] = () => Promise.reso
     Annotation,
     BlockFormat,
     LocalIds,
+    TrailingParagraph,
     TaskList,
     TaskItem,
     DecisionList,

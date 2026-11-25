@@ -1,3 +1,4 @@
+import type { MediaAttrs } from '@kaijukit/editor';
 const BASE = '/wiki/api/v2';
 
 export class ApiError extends Error {
@@ -120,3 +121,41 @@ export const deletePage = (id: string, draft = false) => request<void>('DELETE',
 export const pagesByTitle = (title: string, spaceId?: string) =>
   request<Paged<Page>>('GET', '/pages', { query: { title, limit: 250, 'space-id': spaceId } }).then((r) => r.results);
 export const lookupUsers = (accountIds: string[]) => request<{ results: User[] }>('POST', '/users-bulk', { body: { accountIds } }).then((r) => r.results);
+
+const V1 = '/wiki/rest/api';
+const authed = (url: string, init: RequestInit = {}) => fetch(url, { ...init, headers: { ...init.headers, Authorization: authHeader ?? '' } });
+const mediaCache = new Map<string, Promise<string>>();
+const downloadUrl = (a: MediaAttrs) => `${V1}/content/${a.collection.replace(/^contentId-/, '')}/child/attachment/${a.id}/download`;
+
+export async function uploadAttachment(pageId: string, file: File): Promise<MediaAttrs> {
+  const body = new FormData();
+  body.append('file', file);
+  body.append('minorEdit', 'true');
+  let res: Response;
+  try {
+    res = await authed(`${V1}/content/${pageId}/child/attachment`, { method: 'POST', body });
+  } catch {
+    throw new ApiError(0, 'Cannot reach the server.');
+  }
+  if (!res.ok) throw new ApiError(res.status, res.status === 404 ? 'Uploads are not supported by this server yet.' : `Request failed (${res.status})`);
+  const a = ((await res.json()) as { results: { id: string; title: string; extensions?: { mediaType?: string; fileSize?: number } }[] }).results[0];
+  if (!a) throw new ApiError(500, 'The server returned no attachment.');
+  const attrs: MediaAttrs = { id: a.id, type: 'file', collection: `contentId-${pageId}`, __fileName: a.title };
+  mediaCache.set(downloadUrl(attrs), Promise.resolve(URL.createObjectURL(file)));
+  return attrs;
+}
+
+// Images need the Authorization header, which an img tag cannot send, so they are fetched and shown from a blob URL.
+export function resolveMedia(a: MediaAttrs): Promise<string> {
+  const url = downloadUrl(a);
+  let p = mediaCache.get(url);
+  if (!p) {
+    p = authed(url).then(async (r) => {
+      if (!r.ok) throw new ApiError(r.status, 'Could not load the file.');
+      return URL.createObjectURL(await r.blob());
+    });
+    p.catch(() => mediaCache.delete(url));
+    mediaCache.set(url, p);
+  }
+  return p;
+}

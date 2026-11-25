@@ -7,6 +7,6 @@ const backend = process.env.KK_BACKEND;
 
 export default defineConfig({
   plugins: [react(), ...(backend ? [] : [mockApi()])],
-  server: { port: 5173, proxy: backend ? { '/wiki/api': backend } : undefined },
+  server: { port: 5173, proxy: backend ? { '/wiki/api': backend, '/wiki/rest': backend } : undefined },
   test: { environment: 'jsdom' },
 });

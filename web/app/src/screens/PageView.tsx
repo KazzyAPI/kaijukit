@@ -4,7 +4,7 @@ import { AdfView } from '@kaijukit/editor/render';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useNavigate, useOutletContext, useParams } from 'react-router-dom';
-import { deletePage, getAncestors, getPage, type Space } from '../api';
+import { deletePage, getAncestors, getPage, resolveMedia, type Space } from '../api';
 import { ContentIcon } from '../ContentIcon';
 import { pageUrl, readingMinutes } from '../format';
 import { Collaborators, EditedAt, NotBuilt, PageHeaderBar, ShareControl, useCopyLink } from '../PageHeader';
@@ -117,7 +117,7 @@ function PageView({ id }: { id: string }) {
                   <span className="kk-byline__item">Version {p.version.number}</span>
                   {p.status === 'draft' && <Lozenge appearance="warning">Draft</Lozenge>}
                 </div>
-                <AdfView doc={doc} />
+                <AdfView doc={doc} resolveMedia={resolveMedia} />
                 <section className="kk-labels" aria-labelledby="labels-h">
                   <h2 id="labels-h" className="kk-labels__title">Labels</h2>
                   <span className="kk-muted">No labels</span>

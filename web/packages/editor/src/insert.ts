@@ -1,4 +1,4 @@
-import { TOC_ATTRS, type MediaAttrs } from './extensions';
+import { isImage, TOC_ATTRS, type MediaAttrs } from './extensions';
 
 type J = { type: string; attrs?: Record<string, unknown>; content?: J[]; text?: string };
 const p = (): J => ({ type: 'paragraph' });
@@ -16,7 +16,7 @@ export const mention = (id: string, name: string): J => ({ type: 'mention', attr
 export const emoji = (shortName: string, text: string): J => ({ type: 'emoji', attrs: { shortName: `:${shortName}:`, id: [...text].map((c) => c.codePointAt(0)!.toString(16)).join('-'), text } });
 export const decisionList = (): J => ({ type: 'decisionList', content: [{ type: 'decisionItem', content: [p()] }] });
 export const media = (a: MediaAttrs): J => ({ type: 'media', attrs: { ...a } });
-export const mediaBlock = (a: MediaAttrs): J => (a.__fileMimeType?.startsWith('image/') ? { type: 'mediaSingle', attrs: { layout: 'center' }, content: [media(a)] } : { type: 'mediaGroup', content: [media(a)] });
+export const mediaBlock = (a: MediaAttrs): J => (isImage(a) ? { type: 'mediaSingle', attrs: { layout: 'center' }, content: [media(a)] } : { type: 'mediaGroup', content: [media(a)] });
 
 export const EMOJIS: [string, string][] = [
   ['smile', '😄'], ['grin', '😁'], ['joy', '😂'], ['wink', '😉'], ['heart_eyes', '😍'], ['thinking', '🤔'], ['sunglasses', '😎'], ['cry', '😢'],

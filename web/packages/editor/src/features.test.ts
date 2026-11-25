@@ -115,25 +115,25 @@ describe('inserts', () => {
   it('expand', () => {
     const e = open(doc({ type: 'paragraph' }));
     run('expand', e);
-    expect(adf(e)).toEqual([{ type: 'expand', attrs: { title: '' }, content: [{ type: 'paragraph' }] }]);
+    expect(adf(e)).toEqual([{ type: 'expand', attrs: { title: '' }, content: [{ type: 'paragraph' }] }, { type: 'paragraph' }]);
   });
 
   it('two and three column layouts', () => {
     const col = (width: number) => ({ type: 'layoutColumn', attrs: { width }, content: [{ type: 'paragraph' }] });
     const e = open(doc({ type: 'paragraph' }));
     run('layout2', e);
-    expect(adf(e)).toEqual([{ type: 'layoutSection', content: [col(50), col(50)] }]);
+    expect(adf(e)).toEqual([{ type: 'layoutSection', content: [col(50), col(50)] }, { type: 'paragraph' }]);
     const f = open(doc({ type: 'paragraph' }));
     f.chain().insertContent(layoutSection(3)).run();
-    expect(adf(f)).toEqual([{ type: 'layoutSection', content: [col(33.33), col(33.33), col(33.33)] }]);
+    expect(adf(f)).toEqual([{ type: 'layoutSection', content: [col(33.33), col(33.33), col(33.33)] }, { type: 'paragraph' }]);
   });
 
   it('table of contents is an extension node', () => {
     const e = open(doc({ type: 'paragraph' }));
     run('toc', e);
-    expect(adf(e)).toEqual([{ type: 'extension', attrs: { extensionType: 'com.atlassian.confluence.macro.core', extensionKey: 'toc', parameters: { macroParams: {} }, layout: 'default' } }, { type: 'paragraph' }]);
+    expect(adf(e)).toEqual([{ type: 'extension', attrs: { extensionType: 'kk.macro', extensionKey: 'toc', parameters: { macroParams: {} }, layout: 'default' } }, { type: 'paragraph' }]);
     expect(unsupportedTypes(doc(...adf(e)))).toEqual([]);
-    expect(unsupportedTypes(doc({ type: 'extension', attrs: { extensionKey: 'jira' } }))).toEqual(['extension']);
+    expect(unsupportedTypes(doc({ type: 'extension', attrs: { extensionKey: 'other' } }))).toEqual(['extension']);
   });
 
   it('status, date, mention and emoji are inline nodes', () => {
@@ -153,13 +153,13 @@ describe('inserts', () => {
   });
 
   it('image becomes mediaSingle and other files become mediaGroup', () => {
-    const img = { id: 'att1', type: 'file' as const, collection: 'contentId-12', __fileName: 'a.png', __fileMimeType: 'image/png', __fileSize: 10 };
-    const pdf = { id: 'att2', type: 'file' as const, collection: 'contentId-12', __fileName: 'b.pdf', __fileMimeType: 'application/pdf', __fileSize: 20 };
+    const img = { id: 'att1', type: 'file' as const, collection: 'contentId-12', __fileName: 'a.png' };
+    const pdf = { id: 'att2', type: 'file' as const, collection: 'contentId-12', __fileName: 'b.pdf' };
     const e = open(doc({ type: 'paragraph' }));
     e.chain().insertContent([mediaBlock(img), mediaBlock(pdf)]).run();
     expect(adf(e).slice(0, 2)).toEqual([
-      { type: 'mediaSingle', attrs: { layout: 'center' }, content: [{ type: 'media', attrs: { id: 'att1', type: 'file', collection: 'contentId-12', __fileName: 'a.png', __fileMimeType: 'image/png', __fileSize: 10 } }] },
-      { type: 'mediaGroup', content: [{ type: 'media', attrs: { id: 'att2', type: 'file', collection: 'contentId-12', __fileName: 'b.pdf', __fileMimeType: 'application/pdf', __fileSize: 20 } }] },
+      { type: 'mediaSingle', attrs: { layout: 'center' }, content: [{ type: 'media', attrs: { id: 'att1', type: 'file', collection: 'contentId-12', __fileName: 'a.png' } }] },
+      { type: 'mediaGroup', content: [{ type: 'media', attrs: { id: 'att2', type: 'file', collection: 'contentId-12', __fileName: 'b.pdf' } }] },
     ]);
   });
 
@@ -170,6 +170,13 @@ describe('inserts', () => {
 });
 
 describe('storage round trips', () => {
+  it('keeps overlapping inline comment annotations and their attributes through load and save', () => {
+    const a = (id: string) => ({ type: 'annotation', attrs: { id, annotationType: 'inlineComment' } });
+    const d = doc({ type: 'paragraph', content: [text('plain '), text('one', [a('c-1')]), text('both', [a('c-1'), a('c-2')]), text('two', [{ type: 'strong' }, a('c-2')])] });
+    expect(roundTrip(d)).toEqual(d.content);
+    const e = open(d);
+    expect(adf(e)).toEqual(d.content);
+  });
   it('keeps panels, expands, layouts and inline nodes unchanged', () => {
     const d = doc(
       { type: 'panel', attrs: { panelType: 'warning' }, content: [para('careful')] },

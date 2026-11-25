@@ -32,7 +32,7 @@ const PASS: Record<string, string[]> = {
   expand: ['title'],
   layoutColumn: ['width'],
   mediaSingle: ['layout'],
-  media: ['id', 'type', 'collection', 'alt', 'width', 'height', '__fileName', '__fileMimeType', '__fileSize'],
+  media: ['id', 'type', 'collection', 'alt', 'width', 'height', '__fileName'],
   mention: ['id', 'text', 'accessLevel'],
   emoji: ['shortName', 'id', 'text'],
   status: ['text', 'color', 'localId'],

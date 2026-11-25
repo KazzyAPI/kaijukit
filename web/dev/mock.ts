@@ -199,12 +199,61 @@ function send(res: ServerResponse, status: number, data?: unknown) {
   res.end(JSON.stringify(data));
 }
 
+const V1 = '/wiki/rest/api';
+const files = new Map<string, { name: string; type: string; data: Buffer }>();
+
+function readRaw(req: IncomingMessage): Promise<Buffer> {
+  return new Promise((resolve) => {
+    const chunks: Buffer[] = [];
+    req.on('data', (c) => chunks.push(c));
+    req.on('end', () => resolve(Buffer.concat(chunks)));
+  });
+}
+
+// Mirrors the attachment upload and download endpoints in docs/parity until the real endpoint exists; the multipart parse only handles the single `file` part the UI sends.
+function parseFilePart(raw: Buffer, contentType: string) {
+  const boundary = /boundary=(.+)$/.exec(contentType)?.[1];
+  if (!boundary) return null;
+  for (const part of raw.toString('latin1').split(`--${boundary}`)) {
+    const head = /content-disposition: form-data; name="file"; filename="([^"]*)"\r\ncontent-type: ([^\r]*)\r\n\r\n/i.exec(part);
+    if (!head) continue;
+    const start = raw.indexOf(Buffer.from(part, 'latin1')) + head.index + head[0].length;
+    return { name: Buffer.from(head[1]!, 'latin1').toString('utf8'), type: head[2]!, data: raw.subarray(start, start + part.length - head.index - head[0].length - 2) };
+  }
+  return null;
+}
+
+async function attachments(req: IncomingMessage, res: ServerResponse, path: string): Promise<boolean> {
+  const m = path.match(/^\/content\/(\d+)\/child\/attachment(?:\/(\w+)\/download)?$/);
+  if (!m) return false;
+  const auth = req.headers.authorization ?? '';
+  const [email, token] = Buffer.from(auth.replace(/^Basic /, ''), 'base64').toString().split(':');
+  if (email !== USER.email || token !== USER.token) return send(res, 401, { message: 'Authentication failed.' }), true;
+  if (m[2] && req.method === 'GET') {
+    const f = files.get(`${m[1]}/${m[2]}`);
+    if (!f) return send(res, 404, { message: 'Not found.' }), true;
+    res.setHeader('content-type', f.type);
+    res.end(f.data);
+    return true;
+  }
+  if (req.method === 'POST') {
+    const f = parseFilePart(await readRaw(req), req.headers['content-type'] ?? '');
+    if (!f) return send(res, 400, { message: 'file is required.' }), true;
+    const id = `att${nid()}`;
+    files.set(`${m[1]}/${id}`, f);
+    send(res, 200, { results: [{ id, type: 'attachment', status: 'current', title: f.name, extensions: { mediaType: f.type, fileSize: f.data.length } }], size: 1 });
+    return true;
+  }
+  return false;
+}
+
 export function mockApi(): Plugin {
   return {
     name: 'kk-mock-api',
     configureServer(server) {
       server.middlewares.use(async (req, res, next) => {
         const url = new URL(req.url ?? '/', 'http://x');
+        if (url.pathname.startsWith(V1 + '/') && (await attachments(req, res, url.pathname.slice(V1.length)))) return;
         if (!url.pathname.startsWith(BASE + '/')) return next();
         if (url.pathname === BASE + '/__reset') {
           spaces.length = 0;

@@ -90,10 +90,8 @@ test('shell: byline, quick search, flyouts, share, toolbar', async ({ page }) =>
   await page.getByRole('button', { name: 'Text style' }).click();
   await page.getByRole('menuitem', { name: 'Heading 2' }).click();
   await expect(page.locator('.kk-doc h2')).toHaveText('Intro');
-  const image = page.getByRole('button', { name: 'Image', exact: true });
-  await expect(image).toHaveAttribute('aria-disabled', 'true');
-  await image.hover();
-  await expect(page.getByRole('tooltip')).toHaveText('Image is not built yet');
+  await page.getByRole('button', { name: 'Image', exact: true }).hover();
+  await expect(page.getByRole('tooltip')).toHaveText('Image');
   await page.getByRole('button', { name: 'Pin toolbar' }).click();
   await expect(page.getByRole('button', { name: 'Pin toolbar' })).toHaveAttribute('aria-pressed', 'false');
   await page.getByRole('button', { name: 'Publish', exact: true }).click();
@@ -116,12 +114,12 @@ test('shell: byline, quick search, flyouts, share, toolbar', async ({ page }) =>
 
   await page.goto('/wiki/home');
   await page.getByRole('button', { name: 'Search', exact: true }).click();
-  await page.getByLabel('Search pages by title').fill(title.slice(2, 14).toLowerCase());
+  await page.getByLabel('Search pages by title').fill(title);
   await page.getByRole('dialog').getByRole('link', { name: title }).click();
   await expect(page.getByRole('heading', { level: 1, name: title })).toBeVisible();
 
   await page.getByLabel('Search by title').fill('no-such-page-xyz');
-  await expect(page.getByText('No pages match "no-such-page-xyz".')).toBeVisible();
-  await page.getByLabel('Search by title').fill(title.slice(2, 14).toLowerCase());
+  await expect(page.getByText('No page is titled "no-such-page-xyz".')).toBeVisible();
+  await page.getByLabel('Search by title').fill(title);
   await expect(page.getByRole('link', { name: title })).toBeVisible();
 });

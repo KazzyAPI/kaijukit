@@ -89,6 +89,22 @@ export const LocalIds = Extension.create({
   ],
 });
 
+const NEEDS_TAIL = new Set(['extension', 'mediaSingle', 'mediaGroup', 'layoutSection', 'expand', 'table', 'horizontalRule']);
+
+// Blocks the cursor cannot leave by typing need a paragraph after them.
+export const TrailingParagraph = Extension.create({
+  name: 'trailingParagraph',
+  addProseMirrorPlugins: () => [
+    new Plugin({
+      appendTransaction: (trs, _old, state) => {
+        const last = state.doc.lastChild;
+        if (!trs.some((t) => t.docChanged) || !last || !NEEDS_TAIL.has(last.type.name)) return null;
+        return state.tr.insert(state.doc.content.size, state.schema.nodes.paragraph!.create());
+      },
+    }),
+  ],
+});
+
 const localId = { localId: { default: null } };
 
 const itemList = (name: string, item: string, marker: string) =>
@@ -293,7 +309,7 @@ export const Emoji = TNode.create({
   renderHTML: ({ node }) => ['span', { class: 'kk-emoji', 'data-emoji': node.attrs.shortName, role: 'img', 'aria-label': String(node.attrs.shortName).replace(/:/g, '') }, node.attrs.text ?? node.attrs.shortName],
 });
 
-export const TOC_ATTRS = { extensionType: 'com.atlassian.confluence.macro.core', extensionKey: 'toc', parameters: { macroParams: {} }, layout: 'default' };
+export const TOC_ATTRS = { extensionType: 'kk.macro', extensionKey: 'toc', parameters: { macroParams: {} }, layout: 'default' };
 
 export const TocExtension = TNode.create({
   name: 'extension',
@@ -310,13 +326,11 @@ export interface MediaAttrs {
   type: 'file';
   collection: string;
   __fileName?: string;
-  __fileMimeType?: string;
-  __fileSize?: number;
   alt?: string;
   width?: number;
   height?: number;
 }
-export const isImage = (a: Partial<MediaAttrs>) => !!a.__fileMimeType?.startsWith('image/');
+export const isImage = (a: Partial<MediaAttrs>) => /\.(png|jpe?g|gif|webp|svg|avif|bmp)$/i.test(a.__fileName ?? '');
 
 export interface MediaOptions {
   resolve: (a: MediaAttrs) => Promise<string>;
@@ -345,7 +359,7 @@ export const Media = TNode.create<MediaOptions>({
   atom: true,
   selectable: true,
   addOptions: () => ({ resolve: () => Promise.resolve('') }),
-  addAttributes: () => ({ id: { default: null }, type: { default: 'file' }, collection: { default: '' }, alt: { default: null }, width: { default: null }, height: { default: null }, __fileName: { default: null }, __fileMimeType: { default: null }, __fileSize: { default: null } }),
+  addAttributes: () => ({ id: { default: null }, type: { default: 'file' }, collection: { default: '' }, alt: { default: null }, width: { default: null }, height: { default: null }, __fileName: { default: null } }),
   parseHTML: () => [{ tag: 'div[data-media-id]' }],
   renderHTML: ({ node }) => ['div', { 'data-media-id': node.attrs.id }, node.attrs.__fileName ?? 'File'],
   addNodeView() {

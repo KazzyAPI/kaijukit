@@ -136,7 +136,7 @@ for (const scheme of ['light', 'dark'] as const) {
       await page.getByRole('button', { name: /^Notifications/ }).click();
       await shot('notifications-menu');
       await page.keyboard.press('Escape');
-      if (vpName === 'wide') {
+      {
         await page.getByRole('button', { name: 'Help' }).click();
         await page.getByRole('menuitem', { name: 'Keyboard shortcuts' }).click();
         await shot('shortcuts-dialog');
@@ -147,11 +147,11 @@ for (const scheme of ['light', 'dark'] as const) {
       }
       await page.getByRole('button', { name: 'Search', exact: true }).click();
       await shot('quick-search-empty');
-      await page.getByLabel('Search pages by title').fill('runb');
+      await page.getByLabel('Search pages by title').fill('Runbooks');
       await expect(page.getByRole('link', { name: 'Runbooks' })).toBeVisible();
       await shot('quick-search-results');
       await page.getByLabel('Search pages by title').fill('zzzz');
-      await expect(page.getByText('No pages with "zzzz" in the title.')).toBeVisible();
+      await expect(page.getByText('No page is titled "zzzz".')).toBeVisible();
       await shot('quick-search-none');
       await page.keyboard.press('Escape');
       if (vpName === 'narrow') await page.getByRole('button', { name: 'Show sidebar' }).click();
@@ -162,11 +162,11 @@ for (const scheme of ['light', 'dark'] as const) {
       await page.getByRole('button', { name: 'Starred' }).click();
       await shot('flyout-starred');
       await page.keyboard.press('Escape');
-      await page.getByLabel('Search by title').fill('tool');
+      await page.getByLabel('Search by title').fill('Tooling');
       await expect(page.getByRole('link', { name: 'Tooling' })).toBeVisible();
       await shot('tree-search-hit');
       await page.getByLabel('Search by title').fill('nope');
-      await expect(page.getByText('No pages match "nope".')).toBeVisible();
+      await expect(page.getByText('No page is titled "nope".')).toBeVisible();
       await shot('tree-search-none');
       await page.getByLabel('Search by title').fill('');
       await page.getByRole('button', { name: 'More actions for Runbooks' }).click();
@@ -203,7 +203,7 @@ for (const scheme of ['light', 'dark'] as const) {
       await shot('editor-insert-menu');
       await page.keyboard.press('Escape');
       await page.getByRole('button', { name: 'Image' }).hover();
-      await shot('editor-todo-tooltip');
+      await shot('editor-image-tooltip');
       await page.getByRole('button', { name: 'Link', exact: true }).click();
       await page.getByLabel('Address').fill('javascript:alert(1)');
       await page.getByRole('dialog').getByRole('button', { name: 'Apply' }).click();

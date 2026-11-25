@@ -48,7 +48,7 @@ export function buildCommands(a: Actions): Command[] {
     { id: 'layout3', title: 'Three columns', hint: 'Layout', keywords: 'layout section columns three', run: (e) => insert(e, layoutSection(3)) },
     { id: 'status', title: 'Status', hint: 'Colored lozenge', keywords: 'status lozenge label', run: a.status },
     { id: 'date', title: 'Date', hint: 'Pick a date', keywords: 'date calendar', run: a.date },
-    { id: 'toc', title: 'Table of contents', hint: 'Heading list', keywords: 'toc table of contents macro', run: (e) => insert(e, [toc(), { type: 'paragraph' }]) },
+    { id: 'toc', title: 'Table of contents', hint: 'Heading list', keywords: 'toc table of contents macro', run: (e) => insert(e, toc()) },
     { id: 'image', title: 'Image', hint: 'Upload', keywords: 'image picture photo upload', run: () => a.file('image'), available: a.canUpload },
     { id: 'file', title: 'File', hint: 'Upload', keywords: 'file attachment upload', run: () => a.file('file'), available: a.canUpload },
   ];

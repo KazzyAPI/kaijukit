@@ -112,7 +112,7 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor({ va
     for (const f of files) {
       setUploading((u) => [...u, f.name]);
       try {
-        e.chain().focus().insertContent([mediaBlock(await up(f)), { type: 'paragraph' }]).run();
+        e.chain().focus().insertContent(mediaBlock(await up(f))).run();
       } catch (err) {
         live.current.onError?.(`Couldn't upload ${f.name}. ${err instanceof Error ? err.message : ''}`.trim());
       } finally {
@@ -308,7 +308,7 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor({ va
       <div className="kk-editor__content" onClick={(e) => e.target === e.currentTarget && editor.commands.focus('end')}>
         <EditorContent editor={editor} />
       </div>
-      <div role="status" className="kk-editor__uploads">
+      <div aria-live="polite" className="kk-editor__uploads">
         {uploading.map((n) => <span key={n}>Uploading {n}...</span>)}
       </div>
       <input

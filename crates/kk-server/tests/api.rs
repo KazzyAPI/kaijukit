@@ -3971,3 +3971,158 @@ async fn created_users_and_notification_reads() {
         StatusCode::UNAUTHORIZED
     );
 }
+
+fn tpl(name: &str, space: Option<&str>, html: &str) -> Value {
+    let mut v = json!({"name": name, "templateType": "page", "labels": [{"name": "how-to"}],
+        "body": {"storage": {"representation": "storage", "value": html}}});
+    if let Some(k) = space {
+        v["space"] = json!({"key": k});
+    }
+    v
+}
+
+#[tokio::test]
+async fn content_templates_global_and_space() {
+    let (app, db) = start_db().await;
+    let (eve, _) = user(&db, "eve").await;
+    space(&app, "TPL").await;
+    // global: administrators only; readable by everyone
+    assert_eq!(
+        as_user_v1(
+            &app,
+            &eve,
+            Method::POST,
+            "/template",
+            Some(tpl("g", None, "<p>x</p>"))
+        )
+        .await
+        .status,
+        StatusCode::FORBIDDEN
+    );
+    let g = v1(
+        &app,
+        Method::POST,
+        "/template",
+        Some(tpl("Global", None, "<p>hello</p>")),
+    )
+    .await;
+    assert_eq!(g.status, StatusCode::OK);
+    assert_eq!(g.json["templateType"], "page");
+    assert_eq!(g.json["labels"][0]["name"], "how-to");
+    assert!(g.json["body"]["storage"]["value"]
+        .as_str()
+        .unwrap()
+        .contains("hello"));
+    let gid = g.json["templateId"].as_str().unwrap().to_string();
+    let seen = as_user_v1(
+        &app,
+        &eve,
+        Method::GET,
+        &format!("/template/{gid}?templateExpand=body"),
+        None,
+    )
+    .await;
+    assert_eq!(seen.status, StatusCode::OK);
+    assert!(seen.json["body"]["storage"]["value"]
+        .as_str()
+        .unwrap()
+        .contains("hello"));
+    assert!(v1(&app, Method::GET, &format!("/template/{gid}"), None)
+        .await
+        .json
+        .get("body")
+        .is_none());
+    // space templates stay out of the global list and need space admin
+    let s = v1(
+        &app,
+        Method::POST,
+        "/template",
+        Some(tpl("Mine", Some("TPL"), "<p>s</p>")),
+    )
+    .await;
+    assert_eq!(s.json["space"]["key"], "TPL");
+    let sid = s.json["templateId"].as_str().unwrap().to_string();
+    assert_eq!(
+        as_user_v1(
+            &app,
+            &eve,
+            Method::DELETE,
+            &format!("/template/{sid}"),
+            None
+        )
+        .await
+        .status,
+        StatusCode::FORBIDDEN
+    );
+    let all = v1(&app, Method::GET, "/template/page", None).await;
+    assert_eq!(names_of(&all), ["Global"]);
+    let sp = v1(&app, Method::GET, "/template/page?spaceKey=TPL", None).await;
+    assert_eq!(names_of(&sp), ["Mine"]);
+    assert_eq!(
+        v1(&app, Method::GET, "/template/page?spaceKey=NOPE", None)
+            .await
+            .status,
+        StatusCode::NOT_FOUND
+    );
+    assert_eq!(
+        v1(&app, Method::GET, "/template/blueprint", None)
+            .await
+            .json["size"],
+        0
+    );
+    // update keeps the space; a different space or type is 400
+    let mut up = tpl("Renamed", Some("TPL"), "<p>new</p>");
+    up["templateId"] = json!(sid);
+    let r = v1(&app, Method::PUT, "/template", Some(up.clone())).await;
+    assert_eq!(r.json["name"], "Renamed");
+    assert!(r.json["body"]["storage"]["value"]
+        .as_str()
+        .unwrap()
+        .contains("new"));
+    up["space"] = Value::Null;
+    assert_eq!(
+        v1(&app, Method::PUT, "/template", Some(up.clone()))
+            .await
+            .status,
+        StatusCode::BAD_REQUEST
+    );
+    up["space"] = json!({"key": "TPL"});
+    up["templateType"] = json!("blueprint");
+    assert_eq!(
+        v1(&app, Method::PUT, "/template", Some(up)).await.status,
+        StatusCode::BAD_REQUEST
+    );
+    assert_eq!(
+        v1(
+            &app,
+            Method::POST,
+            "/template",
+            Some(json!({"name": "", "templateType": "page", "body": {}}))
+        )
+        .await
+        .status,
+        StatusCode::BAD_REQUEST
+    );
+    // delete, then 404
+    assert_eq!(
+        v1(&app, Method::DELETE, &format!("/template/{sid}"), None)
+            .await
+            .status,
+        StatusCode::NO_CONTENT
+    );
+    assert_eq!(
+        v1(&app, Method::GET, &format!("/template/{sid}"), None)
+            .await
+            .status,
+        StatusCode::NOT_FOUND
+    );
+}
+
+fn names_of(r: &Res) -> Vec<&str> {
+    r.json["results"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|t| t["name"].as_str().unwrap())
+        .collect()
+}

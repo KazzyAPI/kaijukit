@@ -1,0 +1,35 @@
+{
+  "id": "v1-template-delete",
+  "ops": [
+    "removeTemplate"
+  ],
+  "setup": [
+    {
+      "as": "tpl",
+      "method": "POST",
+      "path": "/wiki/rest/api/template",
+      "body": {
+        "name": "tpl {{run}}",
+        "templateType": "page",
+        "body": {
+          "storage": {
+            "representation": "storage",
+            "value": "<p>hello</p>"
+          }
+        },
+        "labels": [
+          {
+            "name": "docs"
+          }
+        ]
+      }
+    }
+  ],
+  "request": {
+    "method": "DELETE",
+    "path": "/wiki/rest/api/template/{{tpl.templateId}}"
+  },
+  "expect": {
+    "status": 204
+  }
+}

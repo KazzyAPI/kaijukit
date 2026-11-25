@@ -26,6 +26,7 @@ mod space_perms;
 mod spaces;
 mod target;
 mod tasks;
+mod templates;
 mod tree;
 mod users;
 mod v1;
@@ -615,6 +616,13 @@ pub fn app(state: AppState) -> Router {
             delete(v1_content::delete_version),
         )
         .route("/content/{id}/version", post(v1_content::restore_version))
+        .route("/template", post(templates::create).put(templates::update))
+        .route("/template/page", get(templates::list))
+        .route("/template/blueprint", get(templates::blueprints))
+        .route(
+            "/template/{contentTemplateId}",
+            get(templates::get).delete(templates::remove),
+        )
         .route("/user/current", get(users::current))
         .route(
             "/user/watch/content/{contentId}",

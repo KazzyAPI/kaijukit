@@ -170,3 +170,13 @@ Everything under `/wiki/rest/kk/v1` is ours: the pinned specs have no such opera
   - `GET /notifications/unread-count` -> `{count}`: unread rows on non-trashed content. It does not re-check restrictions, so it can exceed what the list shows.
   - `POST /notifications/{id}/read` -> 204; another user's or an unknown id is 404. `POST /notifications/read-all` -> 204.
 - Users: `POST /users` `{email, displayName?, admin?}` (site administrators only, else 403) creates a user and an API token, returned once as `token` with `accountId`, `email`, `displayName`, `admin` (201). The email must have one `@` and a dotted domain, unique case-insensitively (400). Generated tokens are `kk_` plus 64 hex characters from the database's `gen_random_uuid()`; only the sha256 is stored. This is how a second, non-admin user is made without SQL.
+
+## M4c: content templates (v1)
+
+All `[V]`: shapes from the pinned v1 spec; rules ours. The spec has no "create page from template" operation, so none is built: a client reads the template with `templateExpand=body` and sends the body in an ordinary create-page call.
+
+- Table `templates` (migration 0012): global (no space) or per space; body stored as ADF, accepted as `storage` or `atlas_doc_format`, returned as `storage` only with `templateExpand=body`. `templateId` is a numeric id string, `templateType` is always `page` (anything else is 400), `editorVersion` is `v2`.
+- Global templates are created, updated and deleted by site administrators; space templates need `administer/space`. Reads: any user for global, `read/space` for space templates (else 404).
+- `GET /template/page` without `spaceKey` lists the global templates only, with `spaceKey` that space's, ordered by name. `GET /template/blueprint` is always empty (no blueprints). `originalTemplate` and `referencingBlueprint` never appear.
+- Update replaces name, description, labels and body; `space.key` must match the stored space (400). Labels are stored as names (prefix reported as `global`, `id` empty). Description over 255 characters is 400 (the update schema says 100; we use the create limit for both).
+- Not built: template labels as real label rows, template versions, instantiating a blueprint.

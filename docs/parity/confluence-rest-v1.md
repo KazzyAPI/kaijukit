@@ -236,12 +236,12 @@ Status: `not started` | `partial` | `done`. `done` requires a conformance case. 
 
 | Method | Path | operationId | Summary | Status | Case |
 |---|---|---|---|---|---|
-| POST | `/wiki/rest/api/template` | `createContentTemplate` | Create content template | not started | - |
-| PUT | `/wiki/rest/api/template` | `updateContentTemplate` | Update content template | not started | - |
-| GET | `/wiki/rest/api/template/blueprint` | `getBlueprintTemplates` | Get blueprint templates | not started | - |
-| GET | `/wiki/rest/api/template/page` | `getContentTemplates` | Get content templates | not started | - |
-| DELETE | `/wiki/rest/api/template/{contentTemplateId}` | `removeTemplate` | Remove template | not started | - |
-| GET | `/wiki/rest/api/template/{contentTemplateId}` | `getContentTemplate` | Get content template | not started | - |
+| POST | `/wiki/rest/api/template` | `createContentTemplate` | Create content template | partial (schema) | v1-template-create |
+| PUT | `/wiki/rest/api/template` | `updateContentTemplate` | Update content template | partial (schema) | v1-template-update |
+| GET | `/wiki/rest/api/template/blueprint` | `getBlueprintTemplates` | Get blueprint templates | partial (schema) | v1-template-blueprints |
+| GET | `/wiki/rest/api/template/page` | `getContentTemplates` | Get content templates | partial (schema) | v1-template-list |
+| DELETE | `/wiki/rest/api/template/{contentTemplateId}` | `removeTemplate` | Remove template | partial (schema) | v1-template-delete |
+| GET | `/wiki/rest/api/template/{contentTemplateId}` | `getContentTemplate` | Get content template | partial (schema) | v1-template-get |
 
 ## Themes
 

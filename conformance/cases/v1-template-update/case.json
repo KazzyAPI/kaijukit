@@ -1,0 +1,46 @@
+{
+  "id": "v1-template-update",
+  "ops": [
+    "updateContentTemplate"
+  ],
+  "setup": [
+    {
+      "as": "tpl",
+      "method": "POST",
+      "path": "/wiki/rest/api/template",
+      "body": {
+        "name": "tpl {{run}}",
+        "templateType": "page",
+        "body": {
+          "storage": {
+            "representation": "storage",
+            "value": "<p>hello</p>"
+          }
+        },
+        "labels": [
+          {
+            "name": "docs"
+          }
+        ]
+      }
+    }
+  ],
+  "request": {
+    "method": "PUT",
+    "path": "/wiki/rest/api/template",
+    "body": {
+      "templateId": "{{tpl.templateId}}",
+      "name": "renamed {{run}}",
+      "templateType": "page",
+      "body": {
+        "storage": {
+          "representation": "storage",
+          "value": "<p>hello</p>"
+        }
+      }
+    }
+  },
+  "expect": {
+    "status": 200
+  }
+}

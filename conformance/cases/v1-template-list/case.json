@@ -1,0 +1,38 @@
+{
+  "id": "v1-template-list",
+  "ops": [
+    "getContentTemplates"
+  ],
+  "setup": [
+    {
+      "as": "tpl",
+      "method": "POST",
+      "path": "/wiki/rest/api/template",
+      "body": {
+        "name": "tpl {{run}}",
+        "templateType": "page",
+        "body": {
+          "storage": {
+            "representation": "storage",
+            "value": "<p>hello</p>"
+          }
+        },
+        "labels": [
+          {
+            "name": "docs"
+          }
+        ]
+      }
+    }
+  ],
+  "request": {
+    "method": "GET",
+    "path": "/wiki/rest/api/template/page",
+    "query": {
+      "limit": "5"
+    }
+  },
+  "expect": {
+    "status": 200
+  }
+}

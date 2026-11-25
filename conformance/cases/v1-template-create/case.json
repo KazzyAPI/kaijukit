@@ -1,0 +1,30 @@
+{
+  "id": "v1-template-create",
+  "ops": [
+    "createContentTemplate"
+  ],
+  "setup": [],
+  "request": {
+    "method": "POST",
+    "path": "/wiki/rest/api/template",
+    "body": {
+      "name": "tpl {{run}}",
+      "templateType": "page",
+      "body": {
+        "storage": {
+          "representation": "storage",
+          "value": "<p>hello</p>"
+        }
+      },
+      "description": "d",
+      "labels": [
+        {
+          "name": "docs"
+        }
+      ]
+    }
+  },
+  "expect": {
+    "status": 200
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "id": "v1-template-blueprints",
+  "ops": [
+    "getBlueprintTemplates"
+  ],
+  "setup": [],
+  "request": {
+    "method": "GET",
+    "path": "/wiki/rest/api/template/blueprint"
+  },
+  "expect": {
+    "status": 200
+  }
+}

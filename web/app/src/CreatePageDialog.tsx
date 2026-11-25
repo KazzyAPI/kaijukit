@@ -44,6 +44,7 @@ export function CreatePageDialog({ open, onClose }: { open: boolean; onClose: ()
           </select>
         </div>
       )}
+      <p className="kk-muted" style={{ margin: 0 }}>Page templates aren't available yet, so new pages start blank.</p>
     </Dialog>
   );
 }

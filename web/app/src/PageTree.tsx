@@ -1,8 +1,8 @@
-import { Icon, IconButton, Menu, MenuItem, Skeleton, Tree, useToast, type TreeItem } from '@kaijukit/ui';
-import { useQueries, useQuery } from '@tanstack/react-query';
+import { Button, Dialog, Icon, IconButton, Menu, MenuItem, Skeleton, Tree, useToast, type TreeItem } from '@kaijukit/ui';
+import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { childPages, getAncestors, pagesByTitle, rootPages, type ChildPage, type Space } from './api';
+import { childPages, deleteFolder, errorTitle, getAncestors, pagesByTitle, rootPages, type ChildPage, type Space } from './api';
 import { ContentIcon } from './ContentIcon';
 import { MoveDialog, useMove } from './MovePage';
 import { useDebounced } from './hooks';
@@ -64,7 +64,18 @@ function TreeRows({ space, currentId }: { space: Space; currentId?: string }) {
   const navigate = useNavigate();
   const toast = useToast();
   const move = useMove();
+  const qc = useQueryClient();
   const [moving, setMoving] = useState<ChildPage | null>(null);
+  const [deleting, setDeleting] = useState<ChildPage | null>(null);
+  const del = useMutation({
+    mutationFn: (f: ChildPage) => deleteFolder(f.id),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['tree'] });
+      setDeleting(null);
+      toast({ title: 'Folder moved to trash', appearance: 'success' });
+    },
+    onError: (e) => toast({ title: errorTitle(e, "Couldn't delete the folder"), description: e.message, appearance: 'error' }),
+  });
   const storeKey = `kk.tree.${space.key}`;
   const [expanded, setExpanded] = useState<string[]>(() => getJson(storeKey, []));
   useEffect(() => store.set(storeKey, JSON.stringify(expanded)), [storeKey, expanded]);
@@ -102,7 +113,10 @@ function TreeRows({ space, currentId }: { space: Space; currentId?: string }) {
       <IconButton label={`Create child page under ${p.title || 'Untitled'}`} icon={<Icon name="plus" />} tabIndex={-1} onClick={() => navigate(`/wiki/spaces/${space.key}/pages/create?parentPageId=${p.id}`)} />
       <Menu label={`Actions for ${p.title || 'Untitled'}`} align="end" renderTrigger={(t) => <IconButton label={`More actions for ${p.title || 'Untitled'}`} icon={<Icon name="more" />} tabIndex={-1} {...t} />}>
         {p.type === 'folder' ? (
-          <MenuItem onSelect={() => navigate(`/wiki/spaces/${space.key}/pages/create?parentPageId=${p.id}`)}>Add page</MenuItem>
+          <>
+            <MenuItem onSelect={() => navigate(`/wiki/spaces/${space.key}/pages/create?parentPageId=${p.id}`)}>Add page</MenuItem>
+            <MenuItem danger onSelect={() => setDeleting(p)}>Move to trash</MenuItem>
+          </>
         ) : (
           <>
             <MenuItem onSelect={() => navigate(`/wiki/spaces/${space.key}/pages/edit-v2/${p.id}`)}>Edit</MenuItem>
@@ -130,6 +144,19 @@ function TreeRows({ space, currentId }: { space: Space; currentId?: string }) {
   return (
     <>
     <MoveDialog page={moving} onClose={() => setMoving(null)} />
+    <Dialog
+      open={!!deleting}
+      onClose={() => setDeleting(null)}
+      title="Move folder to trash?"
+      footer={
+        <>
+          <Button onClick={() => setDeleting(null)}>Cancel</Button>
+          <Button appearance="danger" loading={del.isPending} onClick={() => deleting && del.mutate(deleting)}>Move to trash</Button>
+        </>
+      }
+    >
+      <p style={{ margin: 0 }}>"{deleting?.title || 'Untitled'}" and everything inside it go to the trash.</p>
+    </Dialog>
     <Tree
       label="Pages"
       items={items}
@@ -137,7 +164,8 @@ function TreeRows({ space, currentId }: { space: Space; currentId?: string }) {
       // A folder has no page of its own: selecting it opens or closes it.
       onSelect={(id) => (folders.has(id) ? setExpanded((e) => (e.includes(id) ? e.filter((x) => x !== id) : [...e, id])) : navigate(pageUrl(space.key, id, titles[id] ?? '')))}
       onToggle={(id, open) => setExpanded((e) => (open ? [...new Set([...e, id])] : e.filter((x) => x !== id)))}
-      onDrop={(id, target, position) => move.mutate({ id, target, position })}
+      // The server moves pages only; a dragged folder would answer "content not found".
+      onDrop={(id, target, position) => (folders.has(id) ? toast({ title: "Folders can't be moved yet", appearance: 'warning' }) : move.mutate({ id, target, position }))}
     />
     </>
   );

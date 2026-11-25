@@ -111,7 +111,23 @@ Method: `web/e2e/tests/kinds.spec.ts` on the real stack (four configurations, ax
 | 1 | Tree | The children probe used `/pages/{id}/direct-children`, which answers 404 for a folder, so folder contents never loaded. | A 404 falls through to the folders endpoint. |
 | 2 | e2e | Folder seeded under a collapsed page was not visible, and the nav link is hidden after navigation at 390 wide (sidebar overlay closes). | Spec parents the folder to the home page and checks the nav link on wide only. |
 
-Limits: root-level folders are not listed by any endpoint (so none are created at the root); folders cannot be deleted or moved from the UI; blog posts cannot be edited, commented or labelled yet.
+Limits: root-level folders are not listed by any endpoint (so none are created at the root). (Blog editing, comments and labels, and folder delete came in M5, below.)
+
+## Blog posts, folders, restore, overview (M5), 2026-11-26
+
+Method: `web/e2e/tests/blogs.spec.ts` on the real stack (`COMPOSE_PROJECT_NAME=kk-web5`, port 8888, Vite proxy on 5174): three behaviour tests (edit over a published blog post, publish with a comment, history and restore, like, label, footer and inline comment, trash; draft create and discard; folder menu and trash) and four review configurations (light and dark, 1280 and 390 wide) with axe and an overflow check; screenshots `bg-{light,dark}-{wide,narrow}-{view,overview,editor,history}.png` read by eye. `kinds.spec.ts` was rerun (blog now created through the editor) and `access.spec.ts` against the backend at 2701e9f.
+
+| # | Where | Bug found by looking or running | Fix |
+|---|-------|---------------------------------|-----|
+| 1 | Folder move | `PUT /content/{id}/move/...` answers "content not found" for a folder: the server's move locks `type = page` only. The row menu and drag both failed with that toast. | No Move in a folder's menu; dragging a folder says "Folders can't be moved yet". Backend gap, reported. |
+| 2 | Delete dialog | Said "Child pages stay where they are", but `DELETE /pages/{id}` trashes the whole subtree. | Text now says child pages go to the trash with it (same for folders). |
+| 3 | Editor chip | A published blog post opened in the editor showed a "Draft" chip before any edit. | "Editing" until the first change. |
+| 4 | Page view | The decorative icon tile showed the page icon on a blog post. | It follows the content type. |
+| 5 | e2e | Menus and buttons named "Edit", "More actions", "Move" matched row actions and comment buttons (strict mode). | Exact names. |
+
+Notes: the blog route set is `blog/:id`, `blog/edit/:id`, `blog/history/:id`, `blog/create`. Restore now uses the v1 restore operation, so no body round trip. One review run hit a 90 s screenshot timeout in the first full run (machine load, did not repeat). The recent-activity list showed "5 minutes ago" for just-created content in one run: the Docker VM clock drifts from the host; not an app bug.
+
+Not built (and why): notifications bell on the real API and the templates picker, because neither endpoint exists on main; inherited-restriction display, because no restriction response carries inheritance; folder move (above); a live table of contents in the editor (needs a node view that tracks document changes); tree "load more", virtualization and per-row child probes (need a `hasChildren` or paging contract from the API); search filters, sorting and highlighting; layout column widths.
 
 ## Known, not fixed
 

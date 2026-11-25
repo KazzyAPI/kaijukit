@@ -254,3 +254,8 @@ mark.kk-annotation { color: inherit; }
 .kk-groups__row { display: flex; align-items: center; gap: var(--kk-space-2); width: 100%; min-height: 36px; padding: 0 var(--kk-space-2); border: 0; border-radius: var(--kk-radius-sm); background: transparent; color: var(--kk-text); font: inherit; text-align: left; cursor: pointer; overflow-wrap: anywhere; }
 .kk-groups__row:hover { background: var(--kk-surface-hover); }
 .kk-groups__row[aria-pressed='true'] { background: var(--kk-brand-subtle); color: var(--kk-brand); font-weight: 600; }
+
+.kk-activity { list-style: none; margin: 0; padding: 0; }
+.kk-activity__row { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--kk-border); flex-wrap: wrap; }
+.kk-activity__row > a { flex: 1 1 160px; min-width: 0; overflow-wrap: anywhere; }
+.kk-activity__who { display: inline-flex; align-items: center; gap: 6px; }

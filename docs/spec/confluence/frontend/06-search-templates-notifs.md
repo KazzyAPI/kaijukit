@@ -2,6 +2,8 @@
 
 Last reviewed: 2026-11-24 · backend: [05 search](../backend/05-search-cql.md), [12 admin](../backend/12-admin-export.md), [11 events](../backend/11-events-jobs.md)
 
+> **Status, search and tasks (web app, 2026-11-25):** `/wiki/search` lists pages by exact title (no full-text, filters, sorting or CQL: the server has no search endpoint) and says so; quick search links to it. `/wiki/tasks` lists tasks across pages (all, assigned to me, created by me; incomplete or complete) grouped by page, with an optimistic complete toggle (`PUT /tasks/{id}`). "Assigned to me" needs the current account id, found by scanning `users-bulk`; a `GET /user/current` endpoint is needed.
+
 ## Quick search (overlay)
 - Focus search box -> dropdown: **recent** pages/spaces (before typing), then typed results grouped (Pages & blog posts, Spaces, People `[V]`) updated with debounce ~250ms `[V]`; each row: type icon, title with highlighted match, space name, last-updated; arrow keys navigate, Enter opens, Shift+Enter or "Search for X" opens full results; Esc closes; no-result and error states.
 

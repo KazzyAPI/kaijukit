@@ -58,6 +58,22 @@ Driven with Playwright (`web/e2e/tests/editor-features.spec.ts`): every feature 
 
 Title search: `GET /pages?title=` is an exact (case-insensitive) match on the title, not a prefix or substring search. Quick search and the tree filter now say "Exact page title" and, when nothing matches, "No page is titled ...". Prefix or full-text search needs a backend endpoint.
 
+## Page features (comments, labels, likes, history, attachments, tasks, search), 2026-11-25
+
+Driven with Playwright (`web/e2e/tests/page-features.spec.ts` for behaviour, `page-features-review.spec.ts` for screenshots, axe and horizontal-overflow checks, light and dark at 1280 and 390). Both need the real stack (`E2E_BASE_URL`).
+
+| # | Found by looking or running | Fix |
+|---|-----------------------------|-----|
+| 1 | The focused inline comment was highlighted as two disjoint stripes (head and body only). | The whole comment gets the highlight. |
+| 2 | Side panel and history list backgrounds stopped at their content height, leaving a hole in the column. | Fixed height with scroll. |
+| 3 | At 390px the attachment row pushed Download onto its own line. | Under 520px the button is icon-only. |
+| 4 | The panel scrolled back to the focused comment on every refetch, fighting resolve and the Open/Resolved toggle. | It follows a focused comment once. |
+| 5 | Typing a comma in the label box committed the previous text. | Commit takes the value being typed. |
+| 6 | On mobile the bottom sheet covers the footer comments. | By design: close it first (kept). |
+| 7 | The floating Comment button can cover the heading above a selection at 390px. | Kept: it follows the selection and never hides it. |
+
+Limits found while building: no comment-author field (the last editor is shown), footer comments cannot be resolved, restore drops annotations that are not in the old body, and the Vite dev proxy needed `/wiki/download`.
+
 ## Known, not fixed
 
 - Page byline shows `User <short id>` until the server implements `POST /users-bulk`; the UI already uses it when present.
@@ -66,5 +82,5 @@ Title search: `GET /pages?title=` is an exact (case-insensitive) match on the ti
 - Chevrons appear only for pages with children (the tree probes children of every visible row), which costs one request per visible row.
 - Mention picker offers only the page author and last editor (there is no user search endpoint yet).
 - The table of contents is a static placeholder while editing; it lists headings when the page is viewed.
-- Inline-comment annotation marks survive load and save and `Editor.annotate` / `removeAnnotation` exist, but no comment UI is built on them yet.
+- Inline comments are built on published bodies (the server anchors them), so `Editor.annotate` / `removeAnnotation` are unused by the comment UI.
 - Layout sections have no per-column width controls (2 and 3 equal columns only).

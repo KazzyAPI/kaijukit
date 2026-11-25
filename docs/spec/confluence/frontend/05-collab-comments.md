@@ -2,6 +2,8 @@
 
 Last reviewed: 2026-11-24 · backend: [13 realtime](../backend/13-realtime.md), [08 metadata](../backend/08-metadata.md)
 
+> **Status, comments (web app, 2026-11-25):** footer comments with reply threads (depth capped at 2), edit and delete with confirm; resolve is inline-only because the server rejects it for footer comments. Inline comments: select text then Comment button or Ctrl/Cmd+Alt+M, highlight on the page, side panel (bottom sheet under 768px), Open/Resolved toggle, resolve and reopen. The server anchors a comment by occurrence inside one stored text node, so a selection across formatting or inside a mention, emoji, status etc. is refused with an explanation. Not built: rich-text and mention comments (plain text only), comment likes, discard-draft confirm, panel aligned to highlights, original-author display (the API only exposes the last editor).
+
 ## Realtime editing UI
 
 - **Presence**: avatars in editor header (max ~5 then "+N"), each with a stable color; hover shows name; same colors for remote cursor (caret + name flag that fades after a few seconds idle) and selection overlay `[V]`. In **view mode** a "N people editing" indicator appears with link to join `[V]`.

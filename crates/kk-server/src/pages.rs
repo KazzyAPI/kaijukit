@@ -442,7 +442,7 @@ pub struct VersionReq {
     message: Option<String>,
 }
 
-async fn lock(tx: &mut PgConnection, id: i64) -> Result<(String, i32), ApiError> {
+pub(crate) async fn lock(tx: &mut PgConnection, id: i64) -> Result<(String, i32), ApiError> {
     sqlx::query_as::<_, (String, i32)>(
         "SELECT status, version_number FROM content WHERE id = $1 AND type = 'page' \
          AND status NOT IN ('deleted', 'historical') FOR UPDATE",
@@ -454,17 +454,17 @@ async fn lock(tx: &mut PgConnection, id: i64) -> Result<(String, i32), ApiError>
     .ok_or_else(not_found)
 }
 
-struct NewVersion<'a> {
-    number: i32,
-    status: &'a str,
-    title: &'a str,
-    adf: &'a Value,
-    user: i64,
-    message: &'a str,
+pub(crate) struct NewVersion<'a> {
+    pub number: i32,
+    pub status: &'a str,
+    pub title: &'a str,
+    pub adf: &'a Value,
+    pub user: i64,
+    pub message: &'a str,
 }
 
 /// Appends a version, restoring the page and its trashed subtree when it was trashed.
-async fn put_version(
+pub(crate) async fn put_version(
     tx: &mut PgConnection,
     id: i64,
     was: &str,

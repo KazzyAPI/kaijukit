@@ -3249,3 +3249,103 @@ async fn restriction_filters_agree_with_the_core_rules() {
         "generator is too tame: {hidden_total} hidden, {shown_total} shown"
     );
 }
+
+#[tokio::test]
+async fn move_pages_and_manage_versions() {
+    let app = start().await;
+    let sp = space(&app, "MV").await;
+    let other = space(&app, "MW").await;
+    let a = page(&app, &sp["id"], "A", None).await;
+    let b = page(&app, &sp["id"], "B", None).await;
+    let c = page(&app, &sp["id"], "C", Some(&a["id"])).await;
+    let (aid, bid, cid) = (
+        a["id"].as_str().unwrap(),
+        b["id"].as_str().unwrap(),
+        c["id"].as_str().unwrap(),
+    );
+    let mv = |id: &str, pos: &str, to: &str| {
+        let path = format!("/content/{id}/move/{pos}/{to}");
+        let app = &app;
+        async move { v1(app, Method::PUT, &path, None).await }
+    };
+    let r = mv(cid, "append", bid).await;
+    assert_eq!(r.status, StatusCode::OK, "{}", r.json);
+    assert_eq!(r.json["pageId"], cid);
+    let kids = |id: &str| {
+        let id = id.to_string();
+        let app = &app;
+        async move { ids(&get(app, &format!("/pages/{id}/direct-children")).await) }
+    };
+    assert_eq!(kids(bid).await, [cid]);
+    assert!(kids(aid).await.is_empty());
+    // sibling placement
+    let d = page(&app, &sp["id"], "D", Some(&b["id"])).await;
+    let did = d["id"].as_str().unwrap();
+    assert_eq!(kids(bid).await, [cid, did]);
+    assert_eq!(mv(did, "before", cid).await.status, StatusCode::OK);
+    assert_eq!(kids(bid).await, [did, cid]);
+    assert_eq!(mv(did, "after", cid).await.status, StatusCode::OK);
+    assert_eq!(kids(bid).await, [cid, did]);
+    // cycles, self, bad position, homepage
+    assert_eq!(mv(bid, "append", cid).await.status, StatusCode::BAD_REQUEST);
+    assert_eq!(mv(bid, "append", bid).await.status, StatusCode::BAD_REQUEST);
+    assert_eq!(mv(bid, "inside", aid).await.status, StatusCode::BAD_REQUEST);
+    let home = sp["homepageId"].as_str().unwrap();
+    assert_eq!(
+        mv(home, "append", aid).await.status,
+        StatusCode::BAD_REQUEST
+    );
+    // across spaces the subtree follows
+    let target = other["homepageId"].as_str().unwrap();
+    assert_eq!(mv(bid, "append", target).await.status, StatusCode::OK);
+    let moved = get(&app, &format!("/pages/{did}")).await;
+    assert_eq!(moved.json["spaceId"], other["id"]);
+
+    // versions: delete a historical one, never the current one; restore appends
+    let p = page(&app, &sp["id"], "V", None).await;
+    let pid = p["id"].as_str().unwrap();
+    assert_eq!(
+        put_page(&app, pid, "V", 2, "<p>two</p>").await.status,
+        StatusCode::OK
+    );
+    assert_eq!(
+        put_page(&app, pid, "V", 3, "<p>three</p>").await.status,
+        StatusCode::OK
+    );
+    let del = |n: i32| {
+        let path = format!("/content/{pid}/version/{n}");
+        let app = &app;
+        async move { v1(app, Method::DELETE, &path, None).await }
+    };
+    assert_eq!(del(3).await.status, StatusCode::BAD_REQUEST);
+    assert_eq!(del(9).await.status, StatusCode::NOT_FOUND);
+    assert_eq!(del(2).await.status, StatusCode::NO_CONTENT);
+    let numbers: Vec<i64> = get(&app, &format!("/pages/{pid}/versions")).await.json["results"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|v| v["number"].as_i64().unwrap())
+        .collect();
+    assert_eq!(numbers, [1, 3]);
+    let r = v1(
+        &app,
+        Method::POST,
+        &format!("/content/{pid}/version"),
+        Some(json!({"operationKey": "restore", "params": {"versionNumber": 1, "message": "back"}})),
+    )
+    .await;
+    assert_eq!(r.status, StatusCode::OK, "{}", r.json);
+    assert_eq!(r.json["number"], 4);
+    let now = call(
+        &app,
+        Method::GET,
+        &format!("/pages/{pid}?body-format=storage"),
+        None,
+    )
+    .await;
+    assert!(now.json["body"]["storage"]["value"]
+        .as_str()
+        .unwrap()
+        .contains("<p>V</p>"));
+    assert_eq!(now.json["version"]["message"], "back");
+}

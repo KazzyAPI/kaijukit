@@ -23,6 +23,7 @@ mod tasks;
 mod tree;
 mod users;
 mod v1;
+mod v1_content;
 mod versions;
 mod watches;
 
@@ -314,6 +315,15 @@ pub fn app(state: AppState) -> Router {
         .route("/content/{id}/permission/check", post(restrictions::check))
         .route("/space/{key}/permission", post(space_perms::add))
         .route("/space/{key}/permission/{id}", delete(space_perms::remove))
+        .route(
+            "/content/{id}/move/{position}/{target}",
+            put(v1_content::move_page),
+        )
+        .route(
+            "/content/{id}/version/{number}",
+            delete(v1_content::delete_version),
+        )
+        .route("/content/{id}/version", post(v1_content::restore_version))
         .route("/user/current", get(users::current))
         .route(
             "/user/watch/content/{contentId}",

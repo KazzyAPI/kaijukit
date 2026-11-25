@@ -93,7 +93,7 @@ fn render(r: &Row) -> Value {
     })
 }
 
-async fn blocking<T: Send + 'static>(
+pub(crate) async fn blocking<T: Send + 'static>(
     blobs: &Arc<dyn BlobStore>,
     f: impl FnOnce(&dyn BlobStore) -> std::io::Result<T> + Send + 'static,
 ) -> Result<T, ApiError> {

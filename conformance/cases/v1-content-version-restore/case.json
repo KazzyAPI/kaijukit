@@ -1,0 +1,63 @@
+{
+  "id": "v1-content-version-restore",
+  "ops": [
+    "restoreContentVersion"
+  ],
+  "setup": [
+    {
+      "as": "space",
+      "method": "POST",
+      "path": "/wiki/api/v2/spaces",
+      "body": {
+        "name": "Conf {{run}}",
+        "key": "K{{run}}"
+      }
+    },
+    {
+      "as": "page1",
+      "method": "POST",
+      "path": "/wiki/api/v2/pages",
+      "body": {
+        "spaceId": "{{space.id}}",
+        "status": "current",
+        "title": "page1 {{run}}",
+        "body": {
+          "representation": "storage",
+          "value": "<p>hello</p>"
+        }
+      }
+    },
+    {
+      "as": "u2",
+      "method": "PUT",
+      "path": "/wiki/api/v2/pages/{{page1.id}}",
+      "body": {
+        "id": "{{page1.id}}",
+        "status": "current",
+        "title": "page1 {{run}}",
+        "body": {
+          "representation": "storage",
+          "value": "<p>two</p>"
+        },
+        "version": {
+          "number": 2
+        }
+      }
+    }
+  ],
+  "request": {
+    "method": "POST",
+    "path": "/wiki/rest/api/content/{{page1.id}}/version",
+    "body": {
+      "operationKey": "restore",
+      "params": {
+        "versionNumber": 1,
+        "message": "restore",
+        "restoreTitle": false
+      }
+    }
+  },
+  "expect": {
+    "status": 200
+  }
+}

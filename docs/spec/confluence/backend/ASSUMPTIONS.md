@@ -119,3 +119,12 @@ All `[V]`: no reference capture exists for any of this; the public spec gives sh
 - `getCurrentUser` returns the same shape as `/users-bulk` entries plus `type: known`. `getLabelPages` honours the same visibility filters as `getPages`.
 - Jobs: table `jobs` (queued, done, failed), polled every 2 seconds by the server process; backoff is 5 s times 2^attempts. Notifications are stored in `notifications` and have no read API yet.
 - v1 `getContentDescendants` returns `page`, `comment` and `attachment` arrays of 25. `depth` counts page levels; comments and attachments of the pages inside the depth are included.
+
+## M4: page tree and version history (v1)
+
+All `[V]`: the spec gives shapes only.
+
+- `PUT /content/{id}/move/{position}/{target}`: `append` makes the page the last child of the target, `before`/`after` make it a sibling of the target (same parent, or root level). Positions of the new siblings are renumbered 0..n. The caller needs the same rights as updating the page, plus `create/page` and visibility of the target when the target is in another space. A page cannot move below itself or onto itself, and a space homepage cannot move (400). Moving across spaces takes the subtree, its comments and attachments along; a title clash in the target space is 400. Response `{"pageId"}`.
+- `DELETE /content/{id}/version/{n}`: removes a historical version (page, blog post, comment or attachment, `att` ids accepted); the current version is 400, a missing one 404. Numbers are not reused or renumbered. A blob no remaining attachment version references is deleted. The reference rolls the change into the next version; we keep the later versions' bodies as stored.
+- `POST /content/{id}/version` with `operationKey: restore`: appends a new version copying `params.versionNumber` (title only when `restoreTitle` is true; attachments always restore the old file name). Response is the new `Version` with `by`, `when`, `message`, `number`, `minorEdit` (no embedded `content`).
+- v1 `updateAttachmentData` returns the single updated attachment (the spec says `Content`, not a list); v1 attachment download answers 302 as the spec lists.

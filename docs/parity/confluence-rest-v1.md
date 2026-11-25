@@ -51,7 +51,7 @@ Status: `not started` | `partial` | `done`. `done` requires a conformance case. 
 | GET | `/wiki/rest/api/content/{id}/descendant` | `getContentDescendants` | Get content descendants | partial (schema) | v1-content-descendants |
 | GET | `/wiki/rest/api/content/{id}/descendant/{type}` | `getDescendantsOfType` | Get content descendants by type | partial (schema) | v1-content-descendants-of-type |
 | POST | `/wiki/rest/api/content/{id}/pagehierarchy/copy` | `copyPageHierarchy` | Copy page hierarchy | not started | - |
-| PUT | `/wiki/rest/api/content/{pageId}/move/{position}/{targetId}` | `movePage` | Move a page to a new location relative to a target page | not started | - |
+| PUT | `/wiki/rest/api/content/{pageId}/move/{position}/{targetId}` | `movePage` | Move a page to a new location relative to a target page | partial (schema) | v1-page-move |
 
 ## Content - macro body
 
@@ -118,8 +118,8 @@ Status: `not started` | `partial` | `done`. `done` requires a conformance case. 
 
 | Method | Path | operationId | Summary | Status | Case |
 |---|---|---|---|---|---|
-| POST | `/wiki/rest/api/content/{id}/version` | `restoreContentVersion` | Restore content version | not started | - |
-| DELETE | `/wiki/rest/api/content/{id}/version/{versionNumber}` | `deleteContentVersion` | Delete content version | not started | - |
+| POST | `/wiki/rest/api/content/{id}/version` | `restoreContentVersion` | Restore content version | partial (schema) | v1-content-version-restore, v1-attachment-version-restore |
+| DELETE | `/wiki/rest/api/content/{id}/version/{versionNumber}` | `deleteContentVersion` | Delete content version | partial (schema) | v1-content-version-delete, v1-attachment-version-delete |
 
 ## Content watches
 

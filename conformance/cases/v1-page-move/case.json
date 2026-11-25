@@ -1,0 +1,52 @@
+{
+  "id": "v1-page-move",
+  "ops": [
+    "movePage"
+  ],
+  "setup": [
+    {
+      "as": "space",
+      "method": "POST",
+      "path": "/wiki/api/v2/spaces",
+      "body": {
+        "name": "Conf {{run}}",
+        "key": "K{{run}}"
+      }
+    },
+    {
+      "as": "page1",
+      "method": "POST",
+      "path": "/wiki/api/v2/pages",
+      "body": {
+        "spaceId": "{{space.id}}",
+        "status": "current",
+        "title": "page1 {{run}}",
+        "body": {
+          "representation": "storage",
+          "value": "<p>hello</p>"
+        }
+      }
+    },
+    {
+      "as": "page2",
+      "method": "POST",
+      "path": "/wiki/api/v2/pages",
+      "body": {
+        "spaceId": "{{space.id}}",
+        "status": "current",
+        "title": "page2 {{run}}",
+        "body": {
+          "representation": "storage",
+          "value": "<p>hello</p>"
+        }
+      }
+    }
+  ],
+  "request": {
+    "method": "PUT",
+    "path": "/wiki/rest/api/content/{{page1.id}}/move/append/{{page2.id}}"
+  },
+  "expect": {
+    "status": 200
+  }
+}

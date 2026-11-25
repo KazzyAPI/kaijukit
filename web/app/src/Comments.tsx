@@ -1,3 +1,4 @@
+import { type Kind } from './api';
 import { parseAdf } from '@kaijukit/editor/adf';
 import { AdfView } from '@kaijukit/editor/render';
 import { Avatar, Button, Dialog, type ButtonProps, Icon, Lozenge, Skeleton, useToast } from '@kaijukit/ui';
@@ -185,9 +186,9 @@ export function Thread({ kind, comment, pageId, depth = 0, focusedId }: { kind: 
   );
 }
 
-export function FooterComments({ pageId }: { pageId: string }) {
+export function FooterComments({ pageId, of = 'page' }: { pageId: string; of?: Kind }) {
   const refresh = useCommentRefresh(pageId);
-  const q = useQuery({ queryKey: ['comments', pageId, 'footer'], queryFn: () => pageComments(pageId, 'footer') });
+  const q = useQuery({ queryKey: ['comments', pageId, 'footer'], queryFn: () => pageComments(pageId, 'footer', of) });
   const [open, setOpen] = useState(false);
   const focus = useSearchParams()[0].get('focusedCommentId');
   useEffect(() => {
@@ -215,7 +216,7 @@ export function FooterComments({ pageId }: { pageId: string }) {
           submitLabel="Save"
           onCancel={() => setOpen(false)}
           submit={async (t) => {
-            await createComment('footer', { pageId, body: toCommentAdf(t) });
+            await createComment('footer', { pageId, of, body: toCommentAdf(t) });
             await refresh('footer');
             setOpen(false);
           }}

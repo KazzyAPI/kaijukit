@@ -4,9 +4,9 @@ import { Editor, type EditorHandle } from '@kaijukit/editor';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useOutletContext, useParams, useSearchParams } from 'react-router-dom';
-import { ApiError, createDraft, deletePage, getPage, resolveMedia, savePage, uploadAttachment, type Page, type Space } from '../api';
+import { ApiError, createDraft, deletePage, getPage, resolveMedia, savePage, uploadAttachment, type Kind, type Page, type Space } from '../api';
 import { searchPeople } from '../contentApi';
-import { pageUrl } from '../format';
+import { routes } from '../format';
 import { PageHeaderBar } from '../PageHeader';
 import { QueryState } from '../QueryState';
 import { getJson, store } from '../storage';
@@ -24,7 +24,7 @@ const CHIP: Record<SaveState, [string, 'default' | 'info' | 'success' | 'danger'
   unsaved: ['Unpublished changes', 'warning'],
 };
 
-export function CreateRoute() {
+export function CreateRoute({ of = 'page' }: { of?: Kind }) {
   const [params] = useSearchParams();
   const s = useOutletContext<Space>();
   const navigate = useNavigate();
@@ -36,30 +36,32 @@ export function CreateRoute() {
   useEffect(() => {
     if (started.current) return;
     started.current = true;
-    createDraft(s.id, parent ?? s.homepageId, JSON.stringify(emptyDoc()))
-      .then((p) => navigate(`/wiki/spaces/${s.key}/pages/edit-v2/${p.id}`, { replace: true }))
+    createDraft(s.id, of === 'page' ? (parent ?? s.homepageId) : undefined, JSON.stringify(emptyDoc()), of)
+      .then((p) => navigate(routes(of, s.key).edit(p.id), { replace: true }))
       .catch((e) => {
         started.current = false;
         setError(e);
       });
-  }, [s, parent, navigate, attempt]);
+  }, [s, parent, navigate, attempt, of]);
 
   if (error) return <div className="kk-container"><ErrorPanel error={error} onRetry={() => { setError(null); setAttempt((a) => a + 1); }} /></div>;
   return <div className="kk-container" aria-busy="true"><Skeleton height={36} width="50%" /><Skeleton height={200} style={{ marginTop: 16 }} /></div>;
 }
 
-export function EditorRoute() {
+export function EditorRoute({ of = 'page' }: { of?: Kind }) {
   const { id } = useParams();
   const space = useOutletContext<Space>();
-  const page = useQuery({ queryKey: ['page', id, 'draft'], queryFn: () => getPage(id!, true), staleTime: 0, gcTime: 0, refetchOnWindowFocus: false });
+  const page = useQuery({ queryKey: ['page', id, 'draft'], queryFn: () => getPage(id!, true, undefined, of), staleTime: 0, gcTime: 0, refetchOnWindowFocus: false });
   return (
     <QueryState query={page} skeleton={<div className="kk-canvas"><Skeleton height={40} width="60%" /><Skeleton height={300} style={{ marginTop: 16 }} /></div>}>
-      {(p) => (p.spaceId !== space.id ? <ErrorPanel error={new ApiError(404, '')} /> : <EditorScreen key={p.id} space={space} page={p} />)}
+      {(p) => (p.spaceId !== space.id ? <ErrorPanel error={new ApiError(404, '')} /> : <EditorScreen key={p.id} space={space} page={p} of={of} />)}
     </QueryState>
   );
 }
 
-function EditorScreen({ space, page }: { space: Space; page: Page }) {
+function EditorScreen({ space, page, of }: { space: Space; page: Page; of: Kind }) {
+  const go = routes(of, space.key);
+  const noun = of === 'page' ? 'page' : 'blog post';
   const navigate = useNavigate();
   const qc = useQueryClient();
   const toast = useToast();
@@ -81,7 +83,8 @@ function EditorScreen({ space, page }: { space: Space; page: Page }) {
   const latest = useRef({ title: page.title, body: JSON.stringify(doc) });
   const rev = useRef(0);
   const savedRev = useRef(0);
-  const autosave = page.status === 'draft';
+  // The server holds a draft over a published blog post, but not over a published page.
+  const autosave = page.status === 'draft' || of === 'blogpost';
   const baseVersion = useRef(page.version.number);
   const timer = useRef<ReturnType<typeof setTimeout>>();
   const chain = useRef<Promise<void>>(Promise.resolve());
@@ -90,19 +93,19 @@ function EditorScreen({ space, page }: { space: Space; page: Page }) {
   // A 409 means someone else wrote in between: adopt the server's number once and retry.
   const put = useCallback(
     async (status: 'draft' | 'current', title: string, body: string, message?: string) => {
-      const send = () => savePage({ id: page.id, status, title, body, version: baseVersion.current + 1, message });
+      const send = () => savePage({ id: page.id, status, title, body, version: baseVersion.current + 1, message, of });
       let p: Page;
       try {
         p = await send();
       } catch (e) {
         if (!(e instanceof ApiError && e.status === 409)) throw e;
-        baseVersion.current = (await getPage(page.id, true)).version.number;
+        baseVersion.current = (await getPage(page.id, true, undefined, of)).version.number;
         p = await send();
       }
       baseVersion.current = p.version.number;
       return p;
     },
-    [page.id],
+    [page.id, of],
   );
 
   const flush = useCallback((): Promise<void> => {
@@ -161,8 +164,7 @@ function EditorScreen({ space, page }: { space: Space; page: Page }) {
 
   const done = () => {
     void qc.invalidateQueries({ queryKey: ['page'] });
-    void qc.invalidateQueries({ queryKey: ['tree'] });
-    void qc.invalidateQueries({ queryKey: ['recent'] });
+    for (const k of ['tree', 'blogs', 'recent']) void qc.invalidateQueries({ queryKey: [k] });
   };
 
   const publish = useMutation({
@@ -174,8 +176,8 @@ function EditorScreen({ space, page }: { space: Space; page: Page }) {
     onSuccess: (p) => {
       savedRev.current = rev.current;
       done();
-      toast({ title: 'Page published', appearance: 'success' });
-      navigate(pageUrl(space.key, p.id, p.title), { replace: true });
+      toast({ title: `${of === 'page' ? 'Page' : 'Blog post'} published`, appearance: 'success' });
+      navigate(go.view(p.id, p.title), { replace: true });
     },
   });
 
@@ -183,7 +185,7 @@ function EditorScreen({ space, page }: { space: Space; page: Page }) {
     mutationFn: async () => {
       clearTimeout(timer.current);
       await chain.current;
-      await deletePage(page.id, true);
+      await deletePage(page.id, true, of);
     },
     onSuccess: () => {
       savedRev.current = rev.current;
@@ -198,15 +200,15 @@ function EditorScreen({ space, page }: { space: Space; page: Page }) {
     if (!autosave && dirty && !force) return setLeaveOpen(true);
     await flush();
     done();
-    navigate(page.status === 'draft' && page.version.number === 1 ? pageUrl(space.key, page.id, latest.current.title) : pageUrl(space.key, page.id, page.title));
+    navigate(go.view(page.id, page.status === 'draft' && page.version.number === 1 ? latest.current.title : page.title));
   };
 
-  const [chipText, chipTone] = CHIP[state];
+  const [chipText, chipTone] = state === 'idle' && page.status === 'current' ? ['Editing', 'default' as const] : CHIP[state];
   const canPublish = title.trim().length > 0 && (dirty || page.status === 'draft' || state !== 'idle');
 
   return (
     <div className="kk-pane">
-      <PageHeaderBar type="page" crumbs={[{ label: space.name, href: `/wiki/spaces/${space.key}/overview` }, { label: title.trim() || 'New page' }]}>
+      <PageHeaderBar type={of} crumbs={[{ label: space.name, href: `/wiki/spaces/${space.key}/overview` }, { label: title.trim() || `New ${noun}` }]}>
         <span role="status" aria-live="polite" className="kk-edit__chip">
           <Lozenge appearance={chipTone}>{chipText}</Lozenge>
         </span>
@@ -226,7 +228,7 @@ function EditorScreen({ space, page }: { space: Space; page: Page }) {
           ref={titleEl}
           className="kk-canvas__title kk-canvas__title--input"
           aria-label="Title"
-          placeholder="Give this page a title"
+          placeholder={`Give this ${noun} a title`}
           rows={1}
           value={title}
           autoFocus={!page.title}
@@ -270,7 +272,7 @@ function EditorScreen({ space, page }: { space: Space; page: Page }) {
       <Dialog
         open={publishOpen}
         onClose={() => setPublishOpen(false)}
-        title="Publish page"
+        title={`Publish ${noun}`}
         onSubmit={() => publish.mutate()}
         footer={
           <>

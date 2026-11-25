@@ -1,3 +1,4 @@
+import { type Kind } from './api';
 import { Button, EmptyState, IconButton, Icon, Skeleton, useToast } from '@kaijukit/ui';
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useRef, useState, type RefObject } from 'react';
@@ -6,7 +7,7 @@ import { toCommentAdf } from './commentText';
 import { createComment, pageComments, type Comment, type InlineAnchor } from './contentApi';
 
 export const isOpen = (c: Comment) => c.resolutionStatus !== 'resolved';
-export const useInlineComments = (pageId: string) => useQuery({ queryKey: ['comments', pageId, 'inline'], queryFn: () => pageComments(pageId, 'inline') });
+export const useInlineComments = (pageId: string, of: Kind = 'page') => useQuery({ queryKey: ['comments', pageId, 'inline'], queryFn: () => pageComments(pageId, 'inline', of) });
 
 export interface Pending {
   anchor: InlineAnchor;
@@ -99,8 +100,8 @@ export function SelectionButton({ root, onStart }: { root: RefObject<HTMLElement
   );
 }
 
-export function InlinePanel({ pageId, pending, onDone, focusedId, onClose }: { pageId: string; pending: Pending | null; onDone: () => void; focusedId?: string; onClose: () => void }) {
-  const q = useInlineComments(pageId);
+export function InlinePanel({ pageId, of = 'page', pending, onDone, focusedId, onClose }: { pageId: string; of?: Kind; pending: Pending | null; onDone: () => void; focusedId?: string; onClose: () => void }) {
+  const q = useInlineComments(pageId, of);
   const refresh = useCommentRefresh(pageId);
   const [filter, setFilter] = useState<'open' | 'resolved'>('open');
   const followed = useRef<string>();
@@ -134,7 +135,7 @@ export function InlinePanel({ pageId, pending, onDone, focusedId, onClose }: { p
             submitLabel="Comment"
             onCancel={onDone}
             submit={async (t) => {
-              await createComment('inline', { pageId, body: toCommentAdf(t), anchor: pending.anchor });
+              await createComment('inline', { pageId, of, body: toCommentAdf(t), anchor: pending.anchor });
               await refresh('inline');
               setFilter('open');
               onDone();

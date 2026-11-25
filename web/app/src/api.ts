@@ -105,7 +105,11 @@ const children = (kind: 'pages' | 'folders', id: string) => request<Paged<ChildP
 export const childPages = (id: string) => children('pages', id).catch((e: unknown) => (e instanceof ApiError && e.status === 404 ? children('folders', id) : Promise.reject(e)));
 export const recentPages = () => request<Paged<Page>>('GET', '/pages', { query: { sort: '-modified-date', limit: 12 } }).then((r) => r.results);
 
-export const getPage = (id: string, draft = false, version?: number) => request<Page>('GET', `/pages/${id}`, { query: { 'body-format': 'atlas_doc_format', 'get-draft': draft || undefined, version } });
+/** Pages and blog posts share most v2 endpoints; only the path segment differs. */
+export type Kind = 'page' | 'blogpost';
+export const SEG: Record<Kind, string> = { page: 'pages', blogpost: 'blogposts' };
+
+export const getPage = (id: string, draft = false, version?: number, of: Kind = 'page') => request<Page>('GET', `/${SEG[of]}/${id}`, { query: { 'body-format': 'atlas_doc_format', 'get-draft': draft || undefined, version } });
 export async function getAncestors(id: string): Promise<{ id: string; title: string }[]> {
   const ids = (await request<Paged<{ id: string }>>('GET', `/pages/${id}/ancestors`)).results.map((a) => a.id);
   if (!ids.length) return [];
@@ -114,11 +118,13 @@ export async function getAncestors(id: string): Promise<{ id: string; title: str
 }
 
 const adfBody = (value: string) => ({ representation: 'atlas_doc_format', value });
-export const createDraft = (spaceId: string, parentId: string | undefined, value: string) =>
-  request<Page>('POST', '/pages', { body: { spaceId, parentId, status: 'draft', title: '', body: adfBody(value) } });
-export const savePage = (p: { id: string; status: 'draft' | 'current'; title: string; body: string; version: number; message?: string }) =>
-  request<Page>('PUT', `/pages/${p.id}`, { body: { id: p.id, status: p.status, title: p.title, body: adfBody(p.body), version: { number: p.version, message: p.message } } });
-export const deletePage = (id: string, draft = false) => request<void>('DELETE', `/pages/${id}`, { query: { draft } });
+export const createDraft = (spaceId: string, parentId: string | undefined, value: string, of: Kind = 'page') =>
+  request<Page>('POST', `/${SEG[of]}`, { body: { spaceId, parentId, status: 'draft', title: '', body: adfBody(value) } });
+export const savePage = (p: { id: string; status: 'draft' | 'current'; title: string; body: string; version: number; message?: string; of?: Kind }) =>
+  request<Page>('PUT', `/${SEG[p.of ?? 'page']}/${p.id}`, { body: { id: p.id, status: p.status, title: p.title, body: adfBody(p.body), version: { number: p.version, message: p.message } } });
+export const deletePage = (id: string, draft = false, of: Kind = 'page') => request<void>('DELETE', `/${SEG[of]}/${id}`, { query: { draft } });
+
+export const deleteFolder = (id: string) => request<void>('DELETE', `/folders/${id}`);
 
 export const pagesByTitle = (title: string, spaceId?: string) =>
   request<Paged<Page>>('GET', '/pages', { query: { title, limit: 250, 'space-id': spaceId } }).then((r) => r.results);

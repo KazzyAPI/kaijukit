@@ -1,15 +1,16 @@
+import { type Kind } from './api';
 import { Button, Icon, Skeleton, useToast } from '@kaijukit/ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useId, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { addLabel, knownLabels, pageLabels, removeLabel } from './contentApi';
 
-export function Labels({ pageId }: { pageId: string }) {
+export function Labels({ pageId, of = 'page' }: { pageId: string; of?: Kind }) {
   const qc = useQueryClient();
   const toast = useToast();
   const listId = useId();
   const key = ['labels', pageId];
-  const labels = useQuery({ queryKey: key, queryFn: () => pageLabels(pageId) });
+  const labels = useQuery({ queryKey: key, queryFn: () => pageLabels(pageId, of) });
   const [adding, setAdding] = useState(false);
   const [text, setText] = useState('');
   const [error, setError] = useState('');

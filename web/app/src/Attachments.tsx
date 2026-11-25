@@ -1,7 +1,7 @@
 import { Button, Dialog, Icon, Skeleton, useToast } from '@kaijukit/ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
-import { ApiError, authedFetch, resolveMedia, uploadAttachment } from './api';
+import { ApiError, authedFetch, resolveMedia, uploadAttachment, type Kind } from './api';
 import { deleteAttachment, pageAttachments, type Attachment } from './contentApi';
 import { relativeTime } from './format';
 import { useUserNames } from './users';
@@ -26,11 +26,11 @@ async function download(a: Attachment) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-export function Attachments({ pageId }: { pageId: string }) {
+export function Attachments({ pageId, of = 'page' }: { pageId: string; of?: Kind }) {
   const qc = useQueryClient();
   const toast = useToast();
   const input = useRef<HTMLInputElement>(null);
-  const q = useQuery({ queryKey: ['attachments', pageId], queryFn: () => pageAttachments(pageId) });
+  const q = useQuery({ queryKey: ['attachments', pageId], queryFn: () => pageAttachments(pageId, of) });
   const name = useUserNames(q.data?.map((a) => a.version.authorId) ?? []);
   const [confirm, setConfirm] = useState<Attachment | null>(null);
   const [drag, setDrag] = useState(false);

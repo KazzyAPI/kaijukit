@@ -1,3 +1,4 @@
+import type { Kind } from './api';
 const rtf = new Intl.RelativeTimeFormat('en', { numeric: 'auto' });
 const UNITS: [Intl.RelativeTimeFormatUnit, number][] = [['year', 31536000], ['month', 2592000], ['day', 86400], ['hour', 3600], ['minute', 60]];
 
@@ -12,3 +13,11 @@ export const suggestKey = (name: string) => name.replace(/[^A-Za-z0-9]/g, '').to
 export const pageUrl = (key: string, id: string, title: string) => `/wiki/spaces/${key}/pages/${id}${title ? `/${slugify(title)}` : ''}`;
 export const readingMinutes = (words: number) => Math.max(1, Math.ceil(words / 200));
 export const shortDate = (iso: string) => new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: new Date(iso).getFullYear() === new Date().getFullYear() ? undefined : 'numeric' });
+
+/** Routes of a page or blog post. Blog posts live under `/blog`. */
+export const routes = (of: Kind, key: string) => {
+  const base = `/wiki/spaces/${key}`;
+  return of === 'page'
+    ? { view: (id: string, title = '') => pageUrl(key, id, title), edit: (id: string) => `${base}/pages/edit-v2/${id}`, history: (id: string) => `${base}/pages/history/${id}`, create: `${base}/pages/create` }
+    : { view: (id: string) => `${base}/blog/${id}`, edit: (id: string) => `${base}/blog/edit/${id}`, history: (id: string) => `${base}/blog/history/${id}`, create: `${base}/blog/create` };
+};

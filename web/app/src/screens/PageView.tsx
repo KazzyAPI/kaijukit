@@ -4,7 +4,7 @@ import { AdfView } from '@kaijukit/editor/render';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useOutletContext, useParams, useSearchParams } from 'react-router-dom';
-import { deletePage, getAncestors, getPage, resolveMedia, type Space } from '../api';
+import { deletePage, getAncestors, getPage, resolveMedia, type Kind, type Space } from '../api';
 import { Attachments } from '../Attachments';
 import { FooterComments } from '../Comments';
 import { InlinePanel, isOpen, SelectionButton, useInlineComments, type Pending } from '../InlineComments';
@@ -12,16 +12,17 @@ import { MoveDialog } from '../MovePage';
 import { Labels } from '../Labels';
 import { LikeButton } from '../LikeButton';
 import { ContentIcon } from '../ContentIcon';
-import { pageUrl, readingMinutes } from '../format';
+import { readingMinutes, routes, shortDate } from '../format';
 import { Collaborators, EditedAt, NotBuilt, PageHeaderBar, ShareControl, useCopyLink } from '../PageHeader';
 import { QueryState } from '../QueryState';
+import { SpaceActivity } from '../SpaceActivity';
 import { useUserNames } from '../users';
 import { WatchButton } from '../Watch';
 import { NotFound } from './Errors';
 
-export function PageRoute() {
+export function PageRoute({ of = 'page' }: { of?: Kind }) {
   const { id } = useParams();
-  return <PageView key={id} id={id!} />;
+  return <PageView key={id} id={id!} of={of} />;
 }
 
 export function Overview() {
@@ -33,11 +34,14 @@ export function Overview() {
         <EmptyState title="This space has no home page yet" action={<Button appearance="primary" onClick={() => navigate(`/wiki/spaces/${space.key}/pages/create`)}>Create a page</Button>} />
       </div>
     );
-  return <PageView key={space.homepageId} id={space.homepageId} />;
+  return <PageView key={space.homepageId} id={space.homepageId} activity />;
 }
 
-function PageView({ id }: { id: string }) {
+function PageView({ id, of = 'page', activity }: { id: string; of?: Kind; activity?: boolean }) {
   const space = useOutletContext<Space>();
+  const blog = of === 'blogpost';
+  const go = routes(of, space.key);
+  const noun = blog ? 'blog post' : 'page';
   const navigate = useNavigate();
   const qc = useQueryClient();
   const toast = useToast();
@@ -49,7 +53,7 @@ function PageView({ id }: { id: string }) {
   const [pending, setPending] = useState<Pending | null>(null);
   const [focusedId, setFocusedId] = useState(deepLink);
   const docRef = useRef<HTMLDivElement>(null);
-  const inline = useInlineComments(id);
+  const inline = useInlineComments(id, of);
   const openInline = useMemo(() => (inline.data ?? []).filter(isOpen), [inline.data]);
   const showThread = useCallback((commentId: string) => {
     setFocusedId(commentId);
@@ -76,23 +80,22 @@ function PageView({ id }: { id: string }) {
   useEffect(() => {
     docRef.current?.querySelectorAll('[data-annotation-id]').forEach((el) => el.classList.toggle('is-focused', el.getAttribute('data-annotation-id') === focusedMarker));
   });
-  const page = useQuery({ queryKey: ['page', id], queryFn: () => getPage(id) });
-  const ancestors = useQuery({ queryKey: ['ancestors', id], queryFn: () => getAncestors(id) });
+  const page = useQuery({ queryKey: ['page', id], queryFn: () => getPage(id, false, undefined, of) });
+  const ancestors = useQuery({ queryKey: ['ancestors', id], queryFn: () => getAncestors(id), enabled: !blog });
   const p = page.data;
   const author = p?.authorId ?? p?.version.authorId;
   const name = useUserNames([author, p?.version.authorId]);
-  const copy = useCopyLink(p ? pageUrl(space.key, p.id, p.title) : '');
+  const copy = useCopyLink(p ? go.view(p.id, p.title) : '');
   const del = useMutation({
-    mutationFn: () => deletePage(id),
+    mutationFn: () => deletePage(id, false, of),
     onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: ['tree'] });
-      void qc.invalidateQueries({ queryKey: ['recent'] });
+      for (const k of ['tree', 'blogs', 'recent']) void qc.invalidateQueries({ queryKey: [k] });
       qc.removeQueries({ queryKey: ['page', id] });
       setConfirm(false);
-      toast({ title: 'Page moved to trash', appearance: 'success' });
+      toast({ title: `${blog ? 'Blog post' : 'Page'} moved to trash`, appearance: 'success' });
       navigate(`/wiki/spaces/${space.key}/overview`);
     },
-    onError: (e) => toast({ title: "Couldn't delete the page", description: e.message, appearance: 'error' }),
+    onError: (e) => toast({ title: `Couldn't delete the ${noun}`, description: e.message, appearance: 'error' }),
   });
 
   return (
@@ -114,16 +117,16 @@ function PageView({ id }: { id: string }) {
       >
         {(p) => {
           const doc = parseAdf(p.body?.atlas_doc_format?.value);
-          const url = pageUrl(space.key, p.id, p.title);
+          const url = go.view(p.id, p.title);
           return p.spaceId !== space.id ? (
             <NotFound />
           ) : (
             <>
               <PageHeaderBar
-                type="page"
+                type={of}
                 crumbs={[
                   ...(p.id === space.homepageId ? [] : [{ label: space.name, href: `/wiki/spaces/${space.key}/overview` }]),
-                  ...(ancestors.data ?? []).filter((a) => a.id !== space.homepageId).map((a) => ({ label: a.title || 'Untitled', href: pageUrl(space.key, a.id, a.title) })),
+                  ...(ancestors.data ?? []).filter((a) => a.id !== space.homepageId).map((a) => ({ label: a.title || 'Untitled', href: routes('page', space.key).view(a.id, a.title) })),
                   { label: p.title || 'Untitled' },
                 ]}
               >
@@ -132,15 +135,15 @@ function PageView({ id }: { id: string }) {
                 <Button aria-pressed={panelOpen} aria-label={`Inline comments, ${openInline.length} open`} onClick={() => setPanelOpen(!panelOpen)}>
                   <Icon name="comment" /> {openInline.length}
                 </Button>
-                <Button appearance="primary" onClick={() => navigate(`/wiki/spaces/${space.key}/pages/edit-v2/${p.id}`)}>
+                <Button appearance="primary" onClick={() => navigate(go.edit(p.id))}>
                   <Icon name="edit" /> {p.status === 'draft' ? 'Resume editing' : 'Edit'}
                 </Button>
-                <ShareControl pageId={p.id} title={p.title} url={url} />
+                <ShareControl pageId={p.id} title={p.title} url={url} of={of} />
                 <Menu label="Page actions" align="end" renderTrigger={(t) => <IconButton label="More actions" icon={<Icon name="more" />} {...t} />}>
-                  <MenuItem onSelect={() => navigate(`/wiki/spaces/${space.key}/pages/create?parentPageId=${p.id}`)}>Add child page</MenuItem>
+                  {!blog && <MenuItem onSelect={() => navigate(`${go.create}?parentPageId=${p.id}`)}>Add child page</MenuItem>}
                   <MenuItem onSelect={copy}>Copy link</MenuItem>
-                  <MenuItem onSelect={() => setMoving(true)}>Move</MenuItem>
-                  <MenuItem onSelect={() => navigate(`/wiki/spaces/${space.key}/pages/history/${p.id}`)}>Page history</MenuItem>
+                  {!blog && <MenuItem onSelect={() => setMoving(true)}>Move</MenuItem>}
+                  <MenuItem onSelect={() => navigate(go.history(p.id))}>{blog ? 'Blog post history' : 'Page history'}</MenuItem>
                   <MenuItem danger onSelect={() => setConfirm(true)}>Move to trash</MenuItem>
                 </Menu>
               </PageHeaderBar>
@@ -148,39 +151,41 @@ function PageView({ id }: { id: string }) {
               <article className="kk-canvas">
                 <div className="kk-canvas__titlerow">
                   <h1 className="kk-canvas__title">{p.title || 'Untitled'}</h1>
-                  <div className="kk-canvas__art" aria-hidden="true"><ContentIcon size={36} /></div>
+                  <div className="kk-canvas__art" aria-hidden="true"><ContentIcon type={of} size={36} /></div>
                 </div>
                 <div className="kk-byline">
                   <span className="kk-byline__item">
                     <Avatar name={name(author)} size="sm" />
                     By {name(author)}
                   </span>
+                  {blog && <span className="kk-byline__item">{shortDate(p.createdAt)}</span>}
                   <span className="kk-byline__item">
                     <Icon name="book" size={14} />
                     {readingMinutes(wordCount(doc))} min read
                   </span>
                   <NotBuilt icon="chart" label="See views" />
                   <NotBuilt icon="smilePlus" label="Add a reaction" />
-                  <LikeButton pageId={p.id} />
+                  <LikeButton pageId={p.id} of={of} />
                   <WatchButton kind="content" id={p.id} />
-                  <Link className="kk-byline__item" to={`/wiki/spaces/${space.key}/pages/history/${p.id}`}>Version {p.version.number}</Link>
+                  <Link className="kk-byline__item" to={go.history(p.id)}>Version {p.version.number}</Link>
                   {p.status === 'draft' && <Lozenge appearance="warning">Draft</Lozenge>}
                 </div>
                 <div ref={docRef}>
                   <AdfView doc={doc} resolveMedia={resolveMedia} annotations={annotations} />
                 </div>
-                <Labels pageId={p.id} />
-                <Attachments pageId={p.id} />
-                <FooterComments pageId={p.id} />
+                <Labels pageId={p.id} of={of} />
+                <Attachments pageId={p.id} of={of} />
+                <FooterComments pageId={p.id} of={of} />
+                {activity && <SpaceActivity space={space} />}
               </article>
-              {panelOpen && <InlinePanel pageId={p.id} pending={pending} onDone={() => setPending(null)} focusedId={focusedId} onClose={() => { setPanelOpen(false); setPending(null); }} />}
+              {panelOpen && <InlinePanel pageId={p.id} of={of} pending={pending} onDone={() => setPending(null)} focusedId={focusedId} onClose={() => { setPanelOpen(false); setPending(null); }} />}
               </div>
               <SelectionButton root={docRef} onStart={startComment} />
               <MoveDialog page={moving ? p : null} onClose={() => setMoving(false)} />
               <Dialog
                 open={confirm}
                 onClose={() => setConfirm(false)}
-                title="Move to trash?"
+                title={`Move ${noun} to trash?`}
                 footer={
                   <>
                     <Button onClick={() => setConfirm(false)}>Cancel</Button>
@@ -188,7 +193,7 @@ function PageView({ id }: { id: string }) {
                   </>
                 }
               >
-                <p style={{ margin: 0 }}>"{p.title || 'Untitled'}" will be removed from the space. Child pages stay where they are.</p>
+                <p style={{ margin: 0 }}>"{p.title || 'Untitled'}" will be removed from the space.{blog ? '' : ' Its child pages go to the trash with it.'}</p>
               </Dialog>
             </>
           );

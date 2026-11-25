@@ -6,7 +6,7 @@ import { listSpaces, recentPages, type Space } from './api';
 import { pageUrl } from './format';
 import { useCurrentPageId } from './hooks';
 import { PageTree } from './PageTree';
-import { CreateKindDialog } from './CreateKinds';
+import { CreateFolderDialog } from './CreateKinds';
 import { spaceBlogs } from './contentApi';
 
 function Flyout({ icon, label, chevron = true, children }: { icon: IconName; label: string; chevron?: boolean; children: ReactNode }) {
@@ -108,7 +108,7 @@ function SpaceBlock({ space }: { space: Space }) {
   const navigate = useNavigate();
   const currentId = useCurrentPageId();
   const create = () => navigate(`/wiki/spaces/${space.key}/pages/create`);
-  const [kind, setKind] = useState<'blog' | 'folder' | null>(null);
+  const [folderOpen, setFolderOpen] = useState(false);
   const blogs = useQuery({ queryKey: ['blogs', space.id], queryFn: () => spaceBlogs(space.id) });
   return (
     <div className="kk-nav__group">
@@ -133,7 +133,7 @@ function SpaceBlock({ space }: { space: Space }) {
             <IconButton label="Create page" icon={<Icon name="plus" />} onClick={create} />
             <Menu label="Content actions" align="end" renderTrigger={(t) => <IconButton label="Content actions" icon={<Icon name="more" />} {...t} />}>
               <MenuItem onSelect={create}>New page</MenuItem>
-              <MenuItem onSelect={() => setKind('folder')}>New folder</MenuItem>
+              <MenuItem onSelect={() => setFolderOpen(true)}>New folder</MenuItem>
               {todoItem('Reorder pages')}
             </Menu>
           </>
@@ -145,7 +145,7 @@ function SpaceBlock({ space }: { space: Space }) {
           <span className="kk-nav__label">Create</span>
         </button>
       </Section>
-      <Section title="Blogs" actions={<IconButton label="Create blog post" icon={<Icon name="plus" />} onClick={() => setKind('blog')} />}>
+      <Section title="Blogs" actions={<IconButton label="Create blog post" icon={<Icon name="plus" />} onClick={() => navigate(`/wiki/spaces/${space.key}/blog/create`)} />}>
         {blogs.isError && <p className="kk-nav__empty" role="alert">Couldn't load blog posts</p>}
         {blogs.data?.length === 0 && <p className="kk-nav__empty">No blogs in this space</p>}
         {blogs.data?.map((b) => (
@@ -155,7 +155,7 @@ function SpaceBlock({ space }: { space: Space }) {
           </NavLink>
         ))}
       </Section>
-      <CreateKindDialog kind={kind} space={space} onClose={() => setKind(null)} />
+      <CreateFolderDialog open={folderOpen} space={space} onClose={() => setFolderOpen(false)} />
       <Section title="Calendars">
         <p className="kk-nav__empty">No calendars in this space</p>
       </Section>

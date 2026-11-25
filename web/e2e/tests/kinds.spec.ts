@@ -44,12 +44,14 @@ for (const scheme of ['light', 'dark'] as const) {
       await page.getByRole('dialog').getByRole('button', { name: 'Create' }).click();
       await expect(tree.getByRole('treeitem', { name: `Made ${tag}` })).toBeVisible();
 
-      // A blog post: created from the nav, listed there, opened on its own route.
+      // A blog post: created from the nav in the editor, listed there, opened on its own route.
       await page.getByRole('button', { name: 'Create blog post' }).click();
-      await page.getByRole('dialog').getByLabel('Title').fill(`Post ${tag}`);
-      await page.getByRole('dialog').getByLabel('Text').fill('First paragraph.\n\nSecond paragraph.');
-      await shot('blog-dialog');
-      await page.getByRole('dialog').getByRole('button', { name: 'Create' }).click();
+      await page.getByLabel('Title', { exact: true }).fill(`Post ${tag}`);
+      await page.getByLabel('Title', { exact: true }).press('Enter');
+      await page.keyboard.type('First paragraph.\nSecond paragraph.');
+      await shot('blog-editor');
+      await page.getByRole('button', { name: 'Publish', exact: true }).click();
+      await page.getByRole('dialog').getByRole('button', { name: 'Publish' }).click();
       await expect(page.getByRole('heading', { level: 1, name: `Post ${tag}` })).toBeVisible();
       await expect(page.getByText('Second paragraph.')).toBeVisible();
       if (vpName === 'wide') await expect(page.getByRole('link', { name: `Post ${tag}` })).toBeVisible();

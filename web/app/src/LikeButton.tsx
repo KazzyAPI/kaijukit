@@ -1,14 +1,15 @@
+import { type Kind } from './api';
 import { Button, Icon, Tooltip, useToast } from '@kaijukit/ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { pageLikes, setLike, type Likes } from './contentApi';
 import { useMyId, useUserNames } from './users';
 
-export function LikeButton({ pageId }: { pageId: string }) {
+export function LikeButton({ pageId, of = 'page' }: { pageId: string; of?: Kind }) {
   const qc = useQueryClient();
   const toast = useToast();
   const me = useMyId();
   const key = ['likes', pageId];
-  const likes = useQuery({ queryKey: key, queryFn: () => pageLikes(pageId) });
+  const likes = useQuery({ queryKey: key, queryFn: () => pageLikes(pageId, of) });
   const name = useUserNames(likes.data?.accountIds ?? []);
   const liked = !!me && !!likes.data?.accountIds.includes(me);
   const toggle = useMutation({

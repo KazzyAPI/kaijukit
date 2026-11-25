@@ -5,7 +5,6 @@ import { useAuth } from './auth';
 import { Chrome } from './Chrome';
 import { ErrorPage, NotFound } from './screens/Errors';
 import { History } from './screens/History';
-import { BlogView } from './screens/BlogView';
 import { Groups } from './screens/Groups';
 import { Home } from './screens/Home';
 import { LabelPages } from './screens/LabelPages';
@@ -57,8 +56,11 @@ export function App() {
           <Route path="/wiki/spaces/:key" element={<SpaceShell />}>
             <Route index element={<Navigate to="overview" replace />} />
             <Route path="overview" element={<Overview />} />
-            <Route path="blog/:id/*" element={<BlogView />} />
-            <Route path="blog/:y/:m/:d/:id/*" element={<BlogView />} />
+            <Route path="blog/create" element={<Suspense fallback={<Loading />}><CreateRoute of="blogpost" /></Suspense>} />
+            <Route path="blog/edit/:id" element={<Suspense fallback={<Loading />}><EditorRoute of="blogpost" /></Suspense>} />
+            <Route path="blog/history/:id" element={<History of="blogpost" />} />
+            <Route path="blog/:id/*" element={<PageRoute of="blogpost" />} />
+            <Route path="blog/:y/:m/:d/:id/*" element={<PageRoute of="blogpost" />} />
             <Route path="settings" element={<SpaceSettings />} />
             <Route path="pages/edit-v2/:id" element={<Suspense fallback={<Loading />}><EditorRoute /></Suspense>} />
             <Route path="pages/create" element={<Suspense fallback={<Loading />}><CreateRoute /></Suspense>} />

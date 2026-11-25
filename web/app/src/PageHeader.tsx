@@ -1,3 +1,4 @@
+import { type Kind } from './api';
 import { Avatar, Breadcrumbs, Button, Dialog, Icon, IconButton, TextField, Tooltip, useToast, type Crumb } from '@kaijukit/ui';
 import { useQuery } from '@tanstack/react-query';
 import { useState, type ReactNode } from 'react';
@@ -56,10 +57,10 @@ export function Collaborators({ ids }: { ids: (string | undefined)[] }) {
 }
 
 // The lock shows the page's restriction state; the dialog edits it. Inviting people by email isn't built.
-export function ShareControl({ pageId, title, url }: { pageId: string; title: string; url: string }) {
+export function ShareControl({ pageId, title, url, of = 'page' }: { pageId: string; title: string; url: string; of?: Kind }) {
   const [open, setOpen] = useState(false);
   const copy = useCopyLink(url);
-  const state = useQuery({ queryKey: ['restriction-state', pageId], queryFn: () => restrictionState(pageId), retry: false }).data ?? 'OPEN';
+  const state = useQuery({ queryKey: ['restriction-state', pageId], queryFn: () => restrictionState(pageId, of), retry: false }).data ?? 'OPEN';
   const locked = state !== 'OPEN';
   return (
     <>

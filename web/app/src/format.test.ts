@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { pageUrl, readingMinutes, relativeTime, slugify, suggestKey } from './format';
+import { pageUrl, routes, readingMinutes, relativeTime, slugify, suggestKey } from './format';
 
 describe('format', () => {
   it('slugifies titles and builds page urls', () => {
@@ -15,5 +15,12 @@ describe('format', () => {
     const now = Date.parse('2026-01-02T00:00:00Z');
     expect(relativeTime('2026-01-01T22:00:00Z', now)).toBe('2 hours ago');
     expect(relativeTime('2026-01-02T00:00:00Z', now)).toBe('just now');
+  });
+});
+
+describe('routes', () => {
+  it('puts blog posts under /blog', () => {
+    expect(routes('blogpost', 'K').edit('7')).toBe('/wiki/spaces/K/blog/edit/7');
+    expect(routes('page', 'K').history('7')).toBe('/wiki/spaces/K/pages/history/7');
   });
 });

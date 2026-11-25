@@ -4,9 +4,9 @@ import { Avatar, Button, Dialog, Lozenge, Skeleton, TextField, useToast } from '
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Link, useNavigate, useOutletContext, useParams, useSearchParams } from 'react-router-dom';
-import { getPage, resolveMedia, type Space } from '../api';
+import { getPage, resolveMedia, type Kind, type Space } from '../api';
 import { pageVersions, restoreVersion } from '../contentApi';
-import { exactTime, pageUrl, relativeTime } from '../format';
+import { exactTime, relativeTime, routes } from '../format';
 import { NotBuilt, PageHeaderBar } from '../PageHeader';
 import { QueryState } from '../QueryState';
 import { useUserNames } from '../users';
@@ -14,30 +14,31 @@ import { NotFound } from './Errors';
 
 const PLAIN = { open: new Set<string>(), onSelect: () => undefined };
 
-export function History() {
+export function History({ of = 'page' }: { of?: Kind }) {
   const id = useParams().id!;
   const space = useOutletContext<Space>();
   const navigate = useNavigate();
+  const go = routes(of, space.key);
   const qc = useQueryClient();
   const toast = useToast();
   const [params, setParams] = useSearchParams();
   const [restoring, setRestoring] = useState(false);
   const [message, setMessage] = useState('');
-  const versions = useQuery({ queryKey: ['versions', id], queryFn: () => pageVersions(id) });
+  const versions = useQuery({ queryKey: ['versions', id], queryFn: () => pageVersions(id, of) });
   const latest = versions.data?.[0];
   const selected = Number(params.get('v')) || latest?.number;
-  const view = useQuery({ queryKey: ['page', id, 'version', selected], queryFn: () => getPage(id, false, selected), enabled: !!selected });
+  const view = useQuery({ queryKey: ['page', id, 'version', selected], queryFn: () => getPage(id, false, selected, of), enabled: !!selected });
   const name = useUserNames(versions.data?.map((v) => v.authorId) ?? []);
   const isCurrent = selected === latest?.number;
   const meta = versions.data?.find((v) => v.number === selected);
 
   const restore = useMutation({
-    mutationFn: () => restoreVersion(id, view.data!, message.trim() || `Restored version ${selected}`),
-    onSuccess: async (p) => {
+    mutationFn: () => restoreVersion(id, selected!, message.trim() || `Restored version ${selected}`),
+    onSuccess: async (r) => {
       await Promise.all([qc.invalidateQueries({ queryKey: ['page', id] }), qc.invalidateQueries({ queryKey: ['versions', id] }), qc.invalidateQueries({ queryKey: ['tree'] })]);
       setRestoring(false);
-      toast({ title: `Version ${selected} restored as version ${p.version.number}`, appearance: 'success' });
-      navigate(pageUrl(space.key, id, p.title));
+      toast({ title: `Version ${selected} restored as version ${r.number}`, appearance: 'success' });
+      navigate(go.view(id, view.data?.title ?? ''));
     },
     onError: (e) => toast({ title: "Couldn't restore the version", description: e.message, appearance: 'error' }),
   });
@@ -51,12 +52,12 @@ export function History() {
             <NotFound />
           ) : (
             <>
-              <PageHeaderBar type="page" crumbs={[{ label: space.name, href: `/wiki/spaces/${space.key}/overview` }, { label: title || 'Page', href: pageUrl(space.key, id, title) }, { label: 'History' }]}>
+              <PageHeaderBar type={of} crumbs={[{ label: space.name, href: `/wiki/spaces/${space.key}/overview` }, { label: title || (of === 'page' ? 'Page' : 'Blog post'), href: go.view(id, title) }, { label: 'History' }]}>
                 <NotBuilt icon="history" label="Compare versions" />
               </PageHeaderBar>
               <div className="kk-history">
                 <nav className="kk-history__list" aria-label="Versions">
-                  <h1 className="kk-h2">Page history</h1>
+                  <h1 className="kk-h2">{of === 'page' ? 'Page' : 'Blog post'} history</h1>
                   <ol className="kk-versions">
                     {list.map((v) => (
                       <li key={v.number}>
@@ -81,7 +82,7 @@ export function History() {
                         <div className="kk-banner" role="status">
                           <span>{isCurrent ? `This is the current version (${selected}).` : `You are viewing version ${selected}${meta ? `, saved ${relativeTime(meta.createdAt)} by ${name(meta.authorId)}` : ''}.`}</span>
                           {isCurrent ? (
-                            <Link to={pageUrl(space.key, id, p.title)}>Back to page</Link>
+                            <Link to={go.view(id, p.title)}>{of === 'page' ? 'Back to page' : 'Back to blog post'}</Link>
                           ) : (
                             <Button appearance="primary" onClick={() => { setMessage(''); setRestoring(true); }}>Restore this version</Button>
                           )}

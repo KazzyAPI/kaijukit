@@ -1,4 +1,4 @@
-import { request, type Paged, type Page, type Version } from './api';
+import { request, SEG, type Kind, type Paged, type Page, type Version } from './api';
 
 const V1 = '/wiki/rest/api';
 const ADF = 'atlas_doc_format';
@@ -24,10 +24,10 @@ export interface InlineAnchor {
 
 const list = <T>(path: string, query: Record<string, string | string[] | number> = {}) => request<Paged<T>>('GET', path, { query: { limit: 250, ...query } }).then((r) => r.results);
 
-export const pageComments = (pageId: string, kind: CommentKind) => list<Comment>(`/pages/${pageId}/${kind}-comments`, { 'body-format': ADF, sort: 'created-date' });
+export const pageComments = (pageId: string, kind: CommentKind, of: Kind = 'page') => list<Comment>(`/${SEG[of]}/${pageId}/${kind}-comments`, { 'body-format': ADF, sort: 'created-date' });
 export const commentReplies = (kind: CommentKind, id: string) => list<Comment>(`/${kind}-comments/${id}/children`, { 'body-format': ADF, sort: 'created-date' });
-export const createComment = (kind: CommentKind, c: { pageId?: string; parentCommentId?: string; body: string; anchor?: InlineAnchor }) =>
-  request<Comment>('POST', `/${kind}-comments`, { body: { pageId: c.pageId, parentCommentId: c.parentCommentId, body: adfBody(c.body), inlineCommentProperties: c.anchor } });
+export const createComment = (kind: CommentKind, c: { pageId?: string; of?: Kind; parentCommentId?: string; body: string; anchor?: InlineAnchor }) =>
+  request<Comment>('POST', `/${kind}-comments`, { body: { ...(c.of === 'blogpost' ? { blogPostId: c.pageId } : { pageId: c.pageId }), parentCommentId: c.parentCommentId, body: adfBody(c.body), inlineCommentProperties: c.anchor } });
 export const editComment = (kind: CommentKind, c: Comment, body: string) =>
   request<Comment>('PUT', `/${kind}-comments/${c.id}`, { body: { version: { number: c.version.number + 1 }, body: adfBody(body) } });
 export const resolveComment = (id: string, resolved: boolean) => request<Comment>('PUT', `/inline-comments/${id}`, { body: { resolved } });
@@ -38,7 +38,7 @@ export interface Label {
   prefix: string;
   name: string;
 }
-export const pageLabels = (id: string) => list<Label>(`/pages/${id}/labels`);
+export const pageLabels = (id: string, of: Kind = 'page') => list<Label>(`/${SEG[of]}/${id}/labels`);
 export const knownLabels = () => list<Label>('/labels', { limit: 100 });
 export const addLabel = (id: string, name: string) => request<unknown>('POST', `${V1}/content/${id}/label`, { body: [{ prefix: 'global', name }] });
 export const removeLabel = (id: string, name: string) => request<void>('DELETE', `${V1}/content/${id}/label/${encodeURIComponent(name)}`);
@@ -47,8 +47,8 @@ export interface Likes {
   count: number;
   accountIds: string[];
 }
-export async function pageLikes(id: string): Promise<Likes> {
-  const [count, users] = await Promise.all([request<{ count: number }>('GET', `/pages/${id}/likes/count`), list<{ accountId: string }>(`/pages/${id}/likes/users`)]);
+export async function pageLikes(id: string, of: Kind = 'page'): Promise<Likes> {
+  const [count, users] = await Promise.all([request<{ count: number }>('GET', `/${SEG[of]}/${id}/likes/count`), list<{ accountId: string }>(`/${SEG[of]}/${id}/likes/users`)]);
   return { count: count.count, accountIds: users.map((u) => u.accountId) };
 }
 export const setLike = (id: string, liked: boolean) => request<void>(liked ? 'PUT' : 'DELETE', `${V1}/content/${id}/like`);
@@ -56,7 +56,7 @@ export const setLike = (id: string, liked: boolean) => request<void>(liked ? 'PU
 export interface PageVersion extends Version {
   minorEdit?: boolean;
 }
-export const pageVersions = (id: string) => list<PageVersion>(`/pages/${id}/versions`, { sort: '-modified-date' });
+export const pageVersions = (id: string, of: Kind = 'page') => list<PageVersion>(`/${SEG[of]}/${id}/versions`, { sort: '-modified-date' });
 
 export interface Attachment {
   id: string;
@@ -67,7 +67,7 @@ export interface Attachment {
   downloadLink: string;
   version: PageVersion;
 }
-export const pageAttachments = (id: string) => list<Attachment>(`/pages/${id}/attachments`);
+export const pageAttachments = (id: string, of: Kind = 'page') => list<Attachment>(`/${SEG[of]}/${id}/attachments`);
 export const deleteAttachment = (id: string) => request<void>('DELETE', `/attachments/${id}`);
 
 export interface Task {
@@ -86,10 +86,9 @@ export const listTasks = (q: { status: Task['status']; assignedTo?: string; crea
 export const setTaskStatus = (id: string, status: Task['status']) => request<Task>('PUT', `/tasks/${id}`, { body: { status } });
 
 export const pagesByIds = (ids: string[]) => (ids.length ? list<Page>('/pages', { id: ids }) : Promise.resolve([]));
-export const restoreVersion = async (id: string, v: Page, message: string) => {
-  const current = await request<Page>('GET', `/pages/${id}`);
-  return request<Page>('PUT', `/pages/${id}`, { body: { id, status: 'current', title: v.title, body: adfBody(v.body?.atlas_doc_format?.value ?? ''), version: { number: current.version.number + 1, message } } });
-};
+// v1 restore appends a copy of the old version (body and title) for any content type, so no body round trip is needed.
+export const restoreVersion = (id: string, number: number, message: string) =>
+  request<{ number: number }>('POST', `${V1}/content/${id}/version`, { body: { operationKey: 'restore', params: { versionNumber: number, message, restoreTitle: true } } });
 export const cql = (s: string) => `"${s.replace(/[\\"]/g, '\\$&')}"`;
 export interface SearchHit {
   title: string;
@@ -110,11 +109,9 @@ export const searchPeople = (name: string) =>
 export const labelPages = (labelId: string) => list<Page>(`/labels/${labelId}/pages`);
 
 export type RestrictionState = 'OPEN' | 'VIEW_RESTRICTED' | 'EDIT_RESTRICTED';
-export const restrictionState = (pageId: string) => request<{ state: RestrictionState }>('GET', `/pages/${pageId}/restriction-state`).then((r) => r.state);
+export const restrictionState = (pageId: string, of: Kind = 'page') => request<{ state: RestrictionState }>('GET', `/${SEG[of]}/${pageId}/restriction-state`).then((r) => r.state);
 
 export const spaceBlogs = (spaceId: string) => list<Page>(`/spaces/${spaceId}/blogposts`, { sort: '-created-date', limit: 25 });
 export const getBlog = (id: string) => request<Page>('GET', `/blogposts/${id}`, { query: { 'body-format': ADF } });
-const plainDoc = (text: string) => JSON.stringify({ version: 1, type: 'doc', content: text.split(/\n{2,}/).map((t) => t.trim()).filter(Boolean).map((t) => ({ type: 'paragraph', content: [{ type: 'text', text: t }] })) });
-export const createBlog = (spaceId: string, title: string, text: string) => request<Page>('POST', '/blogposts', { body: { spaceId, status: 'current', title, body: adfBody(plainDoc(text)) } });
 // Root-level folders are not listed by any endpoint, so folders are created under the space home page.
 export const createFolder = (spaceId: string, title: string, parentId?: string) => request<{ id: string }>('POST', '/folders', { body: { spaceId, title, parentId } });

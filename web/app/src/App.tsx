@@ -9,6 +9,7 @@ import { Groups } from './screens/Groups';
 import { Home } from './screens/Home';
 import { LabelPages } from './screens/LabelPages';
 import { Login } from './screens/Login';
+import { NotificationsPage } from './screens/Notifications';
 import { Overview, PageRoute } from './screens/PageView';
 import { Search } from './screens/Search';
 import { SpaceSettings } from './screens/SpaceSettings';
@@ -50,6 +51,7 @@ export function App() {
           <Route path="/wiki" element={<Navigate to="/wiki/home" replace />} />
           <Route path="/wiki/home" element={<Home />} />
           <Route path="/wiki/spaces" element={<Spaces />} />
+          <Route path="/wiki/notifications" element={<NotificationsPage />} />
           <Route path="/wiki/tasks" element={<Tasks />} />
           <Route path="/wiki/search" element={<Search />} />
           <Route path="/wiki/labels/:id" element={<LabelPages />} />

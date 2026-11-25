@@ -259,3 +259,7 @@ mark.kk-annotation { color: inherit; }
 .kk-activity__row { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--kk-border); flex-wrap: wrap; }
 .kk-activity__row > a { flex: 1 1 160px; min-width: 0; overflow-wrap: anywhere; }
 .kk-activity__who { display: inline-flex; align-items: center; gap: 6px; }
+.kk-notif { display: flex; flex-direction: column; gap: 2px; min-width: 0; text-align: left; }
+.kk-notif__text { overflow-wrap: anywhere; white-space: normal; }
+.kk-notif[data-unread="true"] .kk-notif__text, .kk-notif[data-unread="true"] .kk-result__title { font-weight: 700; }
+li.kk-notif { flex-direction: row; align-items: center; justify-content: space-between; }

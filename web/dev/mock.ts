@@ -201,6 +201,7 @@ function send(res: ServerResponse, status: number, data?: unknown) {
 }
 
 const V1 = '/wiki/rest/api';
+const KK = '/wiki/rest/kk/v1';
 const plainText = (body: string) => (body.match(/"text":"([^"]*)"/g) ?? []).map((t) => t.slice(8, -1)).join(' ');
 const files = new Map<string, { name: string; type: string; data: Buffer }>();
 
@@ -225,8 +226,42 @@ function parseFilePart(raw: Buffer, contentType: string) {
   return null;
 }
 
+// kaijukit notification endpoints; `POST /wiki/api/v2/__notify` seeds one for the page named by `pageId`.
+interface Notice {
+  id: string;
+  read: boolean;
+  pageId: string;
+  kind: string;
+  createdAt: string;
+}
+const notices: Notice[] = [];
+function kkRoute(method: string, path: string, q: URLSearchParams): [number, unknown?] {
+  const unread = notices.filter((n) => !n.read);
+  if (path === '/notifications/unread-count') return [200, { count: unread.length }];
+  if (path === '/notifications/read-all' && method === 'POST') return notices.forEach((n) => (n.read = true)), [204];
+  let m: RegExpMatchArray | null;
+  if ((m = path.match(/^\/notifications\/(\d+)\/read$/)) && method === 'POST') {
+    const n = notices.find((x) => x.id === m![1]);
+    if (!n) return [404, { message: 'notification not found' }];
+    n.read = true;
+    return [204];
+  }
+  if (path === '/notifications') {
+    const start = Number(q.get('start') ?? 0);
+    const limit = Number(q.get('limit') ?? 25);
+    const items = [...notices].reverse().slice(start, start + limit).flatMap((n) => {
+      const p = pages.find((x) => x.id === n.pageId);
+      const sp = spaces.find((x) => x.id === p?.spaceId);
+      return p && sp ? [{ id: n.id, kind: n.kind, read: n.read, createdAt: n.createdAt, actor: { accountId: '2', displayName: 'Bob Reader' }, content: { id: p.id, type: 'page', title: p.title, spaceKey: sp.key } }] : [];
+    });
+    return [200, { results: items, start, limit, size: items.length }];
+  }
+  return [404, { message: 'No such endpoint.' }];
+}
+
 // Minimal stand-ins for the v1 search and current-user endpoints: substring match on `title ~ "x"` / `text ~ "x"` clauses only.
 function v1Json(url: URL, path: string): unknown {
+  if (path === '/template/page') return { results: [], start: 0, limit: 25, size: 0 };
   if (path === '/user/current') return { type: 'known', accountId: USER.id, accountType: 'standard', email: USER.email, publicName: 'Admin', displayName: 'Ada Admin' };
   const cql = url.searchParams.get('cql') ?? '';
   const term = /~ "((?:[^"\\]|\\.)*)"/.exec(cql)?.[1]?.toLowerCase() ?? '';
@@ -271,12 +306,19 @@ export function mockApi(): Plugin {
       server.middlewares.use(async (req, res, next) => {
         const url = new URL(req.url ?? '/', 'http://x');
         const v1 = url.pathname.startsWith(V1 + '/') ? url.pathname.slice(V1.length) : '';
-        if (['/search', '/search/user', '/user/current'].includes(v1)) return send(res, 200, v1Json(url, v1));
+        if (['/search', '/search/user', '/user/current', '/template/page'].includes(v1)) return send(res, 200, v1Json(url, v1));
+        if (url.pathname.startsWith(KK + '/')) return send(res, ...kkRoute(req.method ?? 'GET', url.pathname.slice(KK.length), url.searchParams));
         if (url.pathname.startsWith(V1 + '/') && (await attachments(req, res, url.pathname.slice(V1.length)))) return;
         if (!url.pathname.startsWith(BASE + '/')) return next();
         if (url.pathname === BASE + '/__reset') {
           spaces.length = 0;
           pages.length = 0;
+          notices.length = 0;
+          return send(res, 204);
+        }
+        if (url.pathname === BASE + '/__notify') {
+          const b = await readBody(req);
+          notices.push({ id: nid(), read: false, pageId: String(b.pageId), kind: b.kind ?? 'content.updated', createdAt: now() });
           return send(res, 204);
         }
         const fail = (status: number, detail: string) => send(res, status, { errors: [{ status, code: status === 401 ? 'UNAUTHORIZED' : 'ERROR', title: detail, detail }] });

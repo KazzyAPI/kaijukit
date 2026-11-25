@@ -4,8 +4,8 @@ import { Link, useMatch, useNavigate } from 'react-router-dom';
 import { useAuth } from './auth';
 import { CreatePageDialog } from './CreatePageDialog';
 import { CreateSpaceDialog } from './CreateSpaceDialog';
+import { Bell } from './Notifications';
 import { QuickSearch } from './QuickSearch';
-import { store } from './storage';
 import { useTheme } from './theme';
 
 const SHORTCUTS: [string, string][] = [
@@ -15,39 +15,6 @@ const SHORTCUTS: [string, string][] = [
   ['Ctrl/Cmd + B, I', 'Bold, italic'],
   ['Ctrl/Cmd + Z', 'Undo'],
 ];
-
-// The only notification today is a local welcome note; the badge clears once the list is opened.
-function Notifications() {
-  const [read, setRead] = useState(() => store.get('kk.notif.read') === '1');
-  return (
-    <Menu
-      label="Notifications"
-      align="end"
-      renderTrigger={(p) => (
-        <IconButton
-          label={read ? 'Notifications' : 'Notifications, 1 unread'}
-          icon={
-            <span className="kk-badged">
-              <Icon name="bell" />
-              {!read && <span className="kk-badge" aria-hidden="true">1</span>}
-            </span>
-          }
-          {...p}
-          onClick={() => {
-            p.onClick();
-            setRead(true);
-            store.set('kk.notif.read', '1');
-          }}
-        />
-      )}
-    >
-      <MenuLabel>Notifications</MenuLabel>
-      <MenuItem onSelect={() => undefined}>Notifications aren't connected yet. Mentions and page updates will show up here once they are.</MenuItem>
-      <MenuSeparator />
-      <MenuItem disabled title="Not built yet" onSelect={() => undefined}>Notification settings</MenuItem>
-    </Menu>
-  );
-}
 
 export function TopBar({ navOpen, onToggleNav }: { navOpen: boolean; onToggleNav: () => void }) {
   const { user, logout } = useAuth();
@@ -108,7 +75,7 @@ export function TopBar({ navOpen, onToggleNav }: { navOpen: boolean; onToggleNav
         <MenuItem onSelect={() => setSpaceDialog(true)}>Space</MenuItem>
       </Menu>
       <div className="kk-topbar__right">
-        <Notifications />
+        <Bell />
         <>
           <Menu label="Help" align="end" renderTrigger={(p) => <IconButton label="Help" icon={<Icon name="help" />} {...p} />}>
             <MenuItem onSelect={() => setKeys(true)}>Keyboard shortcuts</MenuItem>
